@@ -1,0 +1,76 @@
+"""
+User model
+Represents application users with role-based access
+"""
+from app import db
+from flask_login import UserMixin
+from datetime import datetime
+
+class User(UserMixin, db.Model):
+    """User model with role-based access control"""
+    
+    __tablename__ = 'users'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(50), unique=True, nullable=False, index=True)
+    password_hash = db.Column(db.String(255), nullable=False)
+    role = db.Column(db.String(20), nullable=False, index=True)  # admin, director, organizer
+    inviter_group_id = db.Column(db.Integer, db.ForeignKey('inviter_groups.id'), nullable=True)
+    is_active = db.Column(db.Boolean, default=True, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    last_login = db.Column(db.DateTime, nullable=True)
+    
+    # Relationships
+    inviter_group = db.relationship('InviterGroup', backref='users', lazy='joined')
+    created_events = db.relationship('Event', backref='creator', lazy='dynamic', foreign_keys='Event.created_by_user_id')
+    event_invitees = db.relationship('EventInvitee', backref='inviter', lazy='dynamic', foreign_keys='EventInvitee.inviter_user_id')
+    approved_invitations = db.relationship('EventInvitee', backref='approver', lazy='dynamic', foreign_keys='EventInvitee.approved_by_user_id')
+    audit_logs = db.relationship('AuditLog', backref='user', lazy='dynamic')
+    
+    # Constraints
+    __table_args__ = (
+        db.CheckConstraint("role IN ('admin', 'director', 'organizer')", name='check_user_role'),
+    )
+    
+    def __repr__(self):
+        return f'<User {self.username} ({self.role})>'
+    
+    def to_dict(self, include_sensitive=False):
+        """Convert user to dictionary"""
+        data = {
+            'id': self.id,
+            'username': self.username,
+            'role': self.role,
+            'inviter_group_id': self.inviter_group_id,
+            'inviter_group_name': self.inviter_group.name if self.inviter_group else None,
+            'is_active': self.is_active,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+            'last_login': self.last_login.isoformat() if self.last_login else None,
+        }
+        
+        if include_sensitive:
+            data['password_hash'] = self.password_hash
+        
+        return data
+    
+    def has_role(self, *roles):
+        """Check if user has one of the specified roles"""
+        return self.role in roles
+    
+    def can_approve(self):
+        """Check if user can approve invitations"""
+        return self.role in ('admin', 'director')
+    
+    def can_view_reports(self):
+        """Check if user can view reports"""
+        return self.role in ('admin', 'director')
+    
+    def can_manage_users(self):
+        """Check if user can manage other users"""
+        return self.role == 'admin'
+    
+    def can_manage_events(self):
+        """Check if user can create/edit events"""
+        return self.role == 'admin'
