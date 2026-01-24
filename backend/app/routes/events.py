@@ -6,8 +6,31 @@ from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
 from app.utils.decorators import admin_required
 from app.services.event_service import EventService
+from app.models.event import Event, get_egypt_time
 
 events_bp = Blueprint('events', __name__, url_prefix='/api/events')
+
+@events_bp.route('/refresh-statuses', methods=['POST'])
+@login_required
+def refresh_event_statuses():
+    """
+    Refresh all event statuses based on current Egypt time.
+    Called periodically by the frontend to keep statuses in sync.
+    Returns the updated events list.
+    """
+    try:
+        ongoing_count, ended_count = Event.update_all_statuses()
+        events = EventService.get_events_for_user(current_user)
+        return jsonify({
+            'events': [event.to_dict() for event in events],
+            'updated': {
+                'ongoing': ongoing_count,
+                'ended': ended_count
+            },
+            'server_time': get_egypt_time().isoformat()
+        }), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @events_bp.route('', methods=['GET'])
 @login_required
@@ -49,7 +72,8 @@ def create_event():
         end_date=data['end_date'],
         venue=data.get('venue'),
         description=data.get('description'),
-        created_by_user_id=current_user.id
+        created_by_user_id=current_user.id,
+        inviter_group_ids=data.get('inviter_group_ids', [])
     )
     
     if error:
@@ -71,7 +95,8 @@ def update_event(event_id):
         end_date=data.get('end_date'),
         venue=data.get('venue'),
         description=data.get('description'),
-        updated_by_user_id=current_user.id
+        updated_by_user_id=current_user.id,
+        inviter_group_ids=data.get('inviter_group_ids')
     )
     
     if error:

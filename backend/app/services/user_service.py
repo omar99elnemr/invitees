@@ -14,7 +14,7 @@ class UserService:
     """Service for user management operations"""
     
     @staticmethod
-    def create_user(username, password, role, inviter_group_id, created_by_user_id):
+    def create_user(username, password, role, email, full_name=None, inviter_group_id=None, created_by_user_id=None):
         """
         Create a new user
         Returns (user, error_message)
@@ -22,6 +22,10 @@ class UserService:
         # Validate username
         if User.query.filter_by(username=username).first():
             return None, 'Username already exists'
+        
+        # Validate email
+        if User.query.filter_by(email=email).first():
+            return None, 'Email already exists'
         
         # Validate role
         if role not in ('admin', 'director', 'organizer'):
@@ -39,6 +43,8 @@ class UserService:
         # Create user
         user = User(
             username=username,
+            email=email,
+            full_name=full_name,
             password_hash=password_hash,
             role=role,
             inviter_group_id=inviter_group_id,
@@ -55,14 +61,14 @@ class UserService:
             table_name='users',
             record_id=user.id,
             new_value=f'Created user {username} with role {role}',
-            ip_address=request.remote_addr
+            ip_address=request.remote_addr if request else None
         )
         db.session.commit()
         
         return user, None
     
     @staticmethod
-    def update_user(user_id, username=None, role=None, inviter_group_id=None, updated_by_user_id=None):
+    def update_user(user_id, username=None, email=None, full_name=None, role=None, inviter_group_id=None, updated_by_user_id=None):
         """
         Update user information
         Returns (user, error_message)
@@ -79,6 +85,15 @@ class UserService:
             if User.query.filter_by(username=username).first():
                 return None, 'Username already exists'
             user.username = username
+        
+        if email and email != user.email:
+            # Check if new email already exists
+            if User.query.filter_by(email=email).first():
+                return None, 'Email already exists'
+            user.email = email
+        
+        if full_name is not None:
+            user.full_name = full_name
         
         if role and role != user.role:
             if role not in ('admin', 'director', 'organizer'):
@@ -104,7 +119,7 @@ class UserService:
                 record_id=user.id,
                 old_value=str(old_value),
                 new_value=str(user.to_dict()),
-                ip_address=request.remote_addr
+                ip_address=request.remote_addr if request else None
             )
             db.session.commit()
         

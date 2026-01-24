@@ -5,6 +5,11 @@ Represents individuals who can be invited to events
 from app import db
 from datetime import datetime
 
+
+# Category choices
+INVITEE_CATEGORIES = ['White', 'Gold']
+
+
 class Invitee(db.Model):
     """Invitee model for storing invitee information"""
     
@@ -16,11 +21,19 @@ class Invitee(db.Model):
     phone = db.Column(db.String(30), nullable=False)
     position = db.Column(db.String(100), nullable=True)
     company = db.Column(db.String(150), nullable=True)
+    category = db.Column(db.String(20), nullable=True)  # White or Gold
+    inviter_group_id = db.Column(db.Integer, db.ForeignKey('inviter_groups.id'), nullable=True, index=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
     
     # Relationships
     event_invitations = db.relationship('EventInvitee', backref='invitee', lazy='dynamic', cascade='all, delete-orphan')
+    inviter_group = db.relationship('InviterGroup', backref=db.backref('invitees', lazy='dynamic'))
+    
+    # Constraints
+    __table_args__ = (
+        db.CheckConstraint("category IN ('White', 'Gold') OR category IS NULL", name='check_invitee_category'),
+    )
     
     def __repr__(self):
         return f'<Invitee {self.name} ({self.email})>'
@@ -34,6 +47,9 @@ class Invitee(db.Model):
             'phone': self.phone,
             'position': self.position,
             'company': self.company,
+            'category': self.category,
+            'inviter_group_id': self.inviter_group_id,
+            'inviter_group_name': self.inviter_group.name if self.inviter_group else None,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
         }

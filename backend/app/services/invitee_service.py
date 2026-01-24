@@ -30,9 +30,9 @@ class InviteeService:
         return re.match(pattern, clean_phone) is not None
     
     @staticmethod
-    def create_or_get_invitee(name, email, phone, position=None, company=None):
+    def create_or_get_invitee(name, email, phone, position=None, company=None, category=None, inviter_group_id=None):
         """
-        Create new invitee or get existing one by email
+        Create new invitee or get existing one by email within the same inviter group
         Returns (invitee, created, error_message)
         """
         # Validate email
@@ -46,8 +46,11 @@ class InviteeService:
         # Clean email
         email = email.lower().strip()
         
-        # Check if invitee exists
-        invitee = Invitee.find_by_email(email)
+        # Check if invitee exists within the same group
+        query = Invitee.query.filter_by(email=email)
+        if inviter_group_id:
+            query = query.filter_by(inviter_group_id=inviter_group_id)
+        invitee = query.first()
         
         if invitee:
             # Update existing invitee with new info if provided
@@ -64,6 +67,9 @@ class InviteeService:
             if phone and phone != invitee.phone:
                 invitee.phone = phone
                 updated = True
+            if category and category != invitee.category:
+                invitee.category = category
+                updated = True
             
             if updated:
                 invitee.updated_at = datetime.utcnow()
@@ -77,7 +83,9 @@ class InviteeService:
             email=email,
             phone=phone,
             position=position,
-            company=company
+            company=company,
+            category=category,
+            inviter_group_id=inviter_group_id
         )
         
         db.session.add(invitee)
@@ -86,7 +94,7 @@ class InviteeService:
         return invitee, True, None
     
     @staticmethod
-    def add_invitee_to_event(event_id, invitee_data, inviter_user_id, inviter_role, inviter_group_id):
+    def add_invitee_to_event(event_id, invitee_data, inviter_user_id, inviter_role, inviter_group_id, inviter_id=None):
         """
         Add an invitee to an event
         Returns (event_invitee, error_message)
@@ -100,13 +108,15 @@ class InviteeService:
         if not event.can_add_invitees():
             return None, 'Cannot add invitees to this event (event has ended or is cancelled)'
         
-        # Create or get invitee
+        # Create or get invitee - associates with inviter group
         invitee, created, error = InviteeService.create_or_get_invitee(
             name=invitee_data['name'],
             email=invitee_data['email'],
             phone=invitee_data['phone'],
             position=invitee_data.get('position'),
-            company=invitee_data.get('company')
+            company=invitee_data.get('company'),
+            category=invitee_data.get('category'),
+            inviter_group_id=inviter_group_id
         )
         
         if error:
@@ -122,7 +132,7 @@ class InviteeService:
             event_id=event_id,
             invitee_id=invitee.id,
             category=invitee_data.get('category'),
-            invitation_class=invitee_data.get('invitation_class', 'none'),
+            inviter_id=inviter_id,
             inviter_user_id=inviter_user_id,
             inviter_role=inviter_role,
             status='waiting_for_approval',
@@ -213,10 +223,13 @@ class InviteeService:
         
         # Update allowed fields
         if 'category' in updates:
+            # Validate category
+            if updates['category'] and updates['category'] not in ['White', 'Gold']:
+                return None, 'Invalid category. Must be White or Gold'
             event_invitee.category = updates['category']
         
-        if 'invitation_class' in updates:
-            event_invitee.invitation_class = updates['invitation_class']
+        if 'inviter_id' in updates:
+            event_invitee.inviter_id = updates['inviter_id']
         
         if 'is_going' in updates:
             if updates['is_going'] not in ('yes', 'no', 'maybe', None):

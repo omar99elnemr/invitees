@@ -5,6 +5,7 @@ Handles event management operations
 from flask import request
 from app import db
 from app.models.event import Event
+from app.models.inviter_group import InviterGroup
 from app.models.audit_log import AuditLog
 from datetime import datetime
 
@@ -12,7 +13,7 @@ class EventService:
     """Service for event management operations"""
     
     @staticmethod
-    def create_event(name, start_date, end_date, venue, description, created_by_user_id):
+    def create_event(name, start_date, end_date, venue, description, created_by_user_id, inviter_group_ids=None):
         """
         Create a new event
         Returns (event, error_message)
@@ -38,6 +39,11 @@ class EventService:
             created_by_user_id=created_by_user_id
         )
         
+        # Assign inviter groups if provided
+        if inviter_group_ids:
+            groups = InviterGroup.query.filter(InviterGroup.id.in_(inviter_group_ids)).all()
+            event.inviter_groups = groups
+        
         # Set initial status based on dates
         event.update_status()
         
@@ -58,7 +64,7 @@ class EventService:
         return event, None
     
     @staticmethod
-    def update_event(event_id, name=None, start_date=None, end_date=None, venue=None, description=None, updated_by_user_id=None):
+    def update_event(event_id, name=None, start_date=None, end_date=None, venue=None, description=None, updated_by_user_id=None, inviter_group_ids=None):
         """
         Update event information
         Returns (event, error_message)
@@ -94,6 +100,11 @@ class EventService:
         
         if description is not None:
             event.description = description
+        
+        # Update inviter groups if provided
+        if inviter_group_ids is not None:
+            groups = InviterGroup.query.filter(InviterGroup.id.in_(inviter_group_ids)).all()
+            event.inviter_groups = groups
         
         # Update status based on new dates
         event.update_status()

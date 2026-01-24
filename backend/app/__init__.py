@@ -50,6 +50,7 @@ def create_app(config_class=Config):
     from app.routes.auth import auth_bp
     from app.routes.users import users_bp
     from app.routes.inviter_groups import inviter_groups_bp
+    from app.routes.inviters import inviters_bp
     from app.routes.events import events_bp
     from app.routes.invitees import invitees_bp
     from app.routes.approvals import approvals_bp
@@ -61,6 +62,7 @@ def create_app(config_class=Config):
     csrf.exempt(auth_bp)
     csrf.exempt(users_bp)
     csrf.exempt(inviter_groups_bp)
+    csrf.exempt(inviters_bp)
     csrf.exempt(events_bp)
     csrf.exempt(invitees_bp)
     csrf.exempt(approvals_bp)
@@ -71,6 +73,7 @@ def create_app(config_class=Config):
     app.register_blueprint(auth_bp)
     app.register_blueprint(users_bp)
     app.register_blueprint(inviter_groups_bp)
+    app.register_blueprint(inviters_bp)
     app.register_blueprint(events_bp)
     app.register_blueprint(invitees_bp)
     app.register_blueprint(approvals_bp)

@@ -6,6 +6,7 @@ from app import db
 from app.models.event_invitee import EventInvitee
 from app.models.event import Event
 from app.models.user import User
+from app.models.inviter import Inviter
 from app.models.inviter_group import InviterGroup
 from sqlalchemy import func
 
@@ -27,10 +28,10 @@ class ReportService:
             func.count(EventInvitee.id).label('total_invitees')
         ).join(
             EventInvitee, Event.id == EventInvitee.event_id
-        ).join(
-            User, EventInvitee.inviter_user_id == User.id
-        ).join(
-            InviterGroup, User.inviter_group_id == InviterGroup.id
+        ).outerjoin(
+            Inviter, EventInvitee.inviter_id == Inviter.id
+        ).outerjoin(
+            InviterGroup, Inviter.inviter_group_id == InviterGroup.id
         )
         
         # Apply filters
@@ -46,6 +47,9 @@ class ReportService:
             
             if 'end_date' in filters and filters['end_date']:
                 query = query.filter(Event.end_date <= filters['end_date'])
+            
+            if 'inviter_group_id' in filters and filters['inviter_group_id']:
+                query = query.filter(InviterGroup.id == filters['inviter_group_id'])
         
         query = query.group_by(
             Event.id,
@@ -65,7 +69,7 @@ class ReportService:
             'event_id': r.event_id,
             'event_name': r.event_name,
             'inviter_group_id': r.inviter_group_id,
-            'inviter_group_name': r.inviter_group_name,
+            'inviter_group_name': r.inviter_group_name or 'Unassigned',
             'status': r.status,
             'total_invitees': r.total_invitees
         } for r in results]
@@ -79,17 +83,17 @@ class ReportService:
         query = db.session.query(
             Event.id.label('event_id'),
             Event.name.label('event_name'),
-            User.id.label('inviter_id'),
-            User.username.label('inviter_name'),
+            Inviter.id.label('inviter_id'),
+            Inviter.name.label('inviter_name'),
             InviterGroup.name.label('inviter_group_name'),
             EventInvitee.status.label('status'),
             func.count(EventInvitee.id).label('total_invitees')
         ).join(
             EventInvitee, Event.id == EventInvitee.event_id
-        ).join(
-            User, EventInvitee.inviter_user_id == User.id
-        ).join(
-            InviterGroup, User.inviter_group_id == InviterGroup.id
+        ).outerjoin(
+            Inviter, EventInvitee.inviter_id == Inviter.id
+        ).outerjoin(
+            InviterGroup, Inviter.inviter_group_id == InviterGroup.id
         )
         
         # Apply filters
@@ -101,17 +105,18 @@ class ReportService:
                 query = query.filter(EventInvitee.status == filters['status'])
             
             if 'inviter_group_id' in filters and filters['inviter_group_id']:
-                query = query.filter(User.inviter_group_id == filters['inviter_group_id'])
+                query = query.filter(InviterGroup.id == filters['inviter_group_id'])
         
         query = query.group_by(
             Event.id,
             Event.name,
-            User.id,
-            User.username,
+            Inviter.id,
+            Inviter.name,
             InviterGroup.name,
             EventInvitee.status
         ).order_by(
             Event.name,
+            Inviter.name,
             func.count(EventInvitee.id).desc()
         )
         
@@ -121,8 +126,8 @@ class ReportService:
             'event_id': r.event_id,
             'event_name': r.event_name,
             'inviter_id': r.inviter_id,
-            'inviter_name': r.inviter_name,
-            'inviter_group_name': r.inviter_group_name,
+            'inviter_name': r.inviter_name or 'Unassigned',
+            'inviter_group_name': r.inviter_group_name or 'Unassigned',
             'status': r.status,
             'total_invitees': r.total_invitees
         } for r in results]
@@ -131,7 +136,7 @@ class ReportService:
     def get_detail_per_event(filters=None):
         """
         Report 3: Detail - Invitees Per Event
-        Complete list of all invitees with all details
+        Complete list of all invitees with all details, grouped by inviter
         """
         query = EventInvitee.query
         
@@ -144,8 +149,8 @@ class ReportService:
                 query = query.filter(EventInvitee.status == filters['status'])
             
             if 'inviter_group_id' in filters and filters['inviter_group_id']:
-                query = query.join(User, EventInvitee.inviter_user_id == User.id).filter(
-                    User.inviter_group_id == filters['inviter_group_id']
+                query = query.join(Inviter, EventInvitee.inviter_id == Inviter.id).filter(
+                    Inviter.inviter_group_id == filters['inviter_group_id']
                 )
             
             if 'search' in filters and filters['search']:
@@ -160,7 +165,13 @@ class ReportService:
                     )
                 )
         
-        results = query.order_by(EventInvitee.created_at.desc()).all()
+        # Order by inviter, then by created_at
+        results = query.outerjoin(
+            Inviter, EventInvitee.inviter_id == Inviter.id
+        ).order_by(
+            Inviter.name,
+            EventInvitee.created_at.desc()
+        ).all()
         
         return [r.to_dict(include_relations=True) for r in results]
     
@@ -168,7 +179,7 @@ class ReportService:
     def get_detail_going(filters=None):
         """
         Report 4: Detail - Invitees Going
-        Final attendee list for approved invitees
+        Final attendee list for approved invitees, grouped by inviter
         """
         query = EventInvitee.query.filter(EventInvitee.status == 'approved')
         
@@ -178,8 +189,8 @@ class ReportService:
                 query = query.filter(EventInvitee.event_id == filters['event_id'])
             
             if 'inviter_group_id' in filters and filters['inviter_group_id']:
-                query = query.join(User, EventInvitee.inviter_user_id == User.id).filter(
-                    User.inviter_group_id == filters['inviter_group_id']
+                query = query.join(Inviter, EventInvitee.inviter_id == Inviter.id).filter(
+                    Inviter.inviter_group_id == filters['inviter_group_id']
                 )
             
             if 'is_going' in filters and filters['is_going']:
@@ -188,7 +199,13 @@ class ReportService:
             if 'plus_one' in filters and filters['plus_one'] is not None:
                 query = query.filter(EventInvitee.plus_one == filters['plus_one'])
         
-        results = query.order_by(EventInvitee.status_date.desc()).all()
+        # Order by inviter, then by status_date
+        results = query.outerjoin(
+            Inviter, EventInvitee.inviter_id == Inviter.id
+        ).order_by(
+            Inviter.name,
+            EventInvitee.status_date.desc()
+        ).all()
         
         return [r.to_dict(include_relations=True) for r in results]
     
@@ -217,10 +234,27 @@ class ReportService:
             ).scalar()
         
         elif user.role == 'director':
-            # Stats for director
-            stats['pending_approvals'] = EventInvitee.query.filter_by(
-                status='waiting_for_approval'
-            ).count()
+            # Stats for director - filtered by their inviter group
+            from sqlalchemy import or_
+            
+            if user.inviter_group_id:
+                # Build group-filtered queries
+                # Pending approvals from user's group
+                pending_query = db.session.query(func.count(EventInvitee.id)).filter(
+                    EventInvitee.status == 'waiting_for_approval'
+                ).outerjoin(
+                    Inviter, EventInvitee.inviter_id == Inviter.id
+                ).outerjoin(
+                    User, EventInvitee.inviter_user_id == User.id
+                ).filter(
+                    or_(
+                        Inviter.inviter_group_id == user.inviter_group_id,
+                        User.inviter_group_id == user.inviter_group_id
+                    )
+                )
+                stats['pending_approvals'] = pending_query.scalar()
+            else:
+                stats['pending_approvals'] = 0
             
             stats['my_invitations_this_month'] = db.session.query(func.count(EventInvitee.id)).filter(
                 EventInvitee.inviter_user_id == user.id,

@@ -54,6 +54,8 @@ def seed_database():
         print("Creating admin user...")
         admin = User(
             username='admin',
+            email='admin@example.com',
+            full_name='System Administrator',
             password_hash=bcrypt.hashpw('Admin@123'.encode('utf-8'), bcrypt.gensalt()).decode('utf-8'),
             role='admin',
             inviter_group_id=groups[0].id,  # Assign to first group
@@ -75,6 +77,8 @@ def seed_database():
         sample_users = [
             User(
                 username='director1',
+                email='director1@example.com',
+                full_name='John Director',
                 password_hash=bcrypt.hashpw('Director@123'.encode('utf-8'), bcrypt.gensalt()).decode('utf-8'),
                 role='director',
                 inviter_group_id=groups[1].id,
@@ -82,6 +86,8 @@ def seed_database():
             ),
             User(
                 username='organizer1',
+                email='organizer1@example.com',
+                full_name='Jane Organizer',
                 password_hash=bcrypt.hashpw('Organizer@123'.encode('utf-8'), bcrypt.gensalt()).decode('utf-8'),
                 role='organizer',
                 inviter_group_id=groups[2].id,

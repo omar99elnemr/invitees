@@ -38,7 +38,7 @@ def create_user():
     data = request.get_json()
     
     # Validate required fields
-    required_fields = ['username', 'password', 'role']
+    required_fields = ['username', 'password', 'role', 'email']
     for field in required_fields:
         if field not in data:
             return jsonify({'error': f'{field} is required'}), 400
@@ -52,6 +52,8 @@ def create_user():
         username=data['username'],
         password=data['password'],
         role=data['role'],
+        email=data['email'],
+        full_name=data.get('full_name'),
         inviter_group_id=data.get('inviter_group_id'),
         created_by_user_id=current_user.id
     )
@@ -71,6 +73,8 @@ def update_user(user_id):
     user, error = UserService.update_user(
         user_id=user_id,
         username=data.get('username'),
+        email=data.get('email'),
+        full_name=data.get('full_name'),
         role=data.get('role'),
         inviter_group_id=data.get('inviter_group_id'),
         updated_by_user_id=current_user.id

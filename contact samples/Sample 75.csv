@@ -1,0 +1,76 @@
+Name,Email,Phone,Position,Company,Country
+Aarav Sharma,aarav.s@techindia.in,+91 98765 43210,Lead Developer,Infosys,India
+Sato Akiko,akiko.sato@jp.corp,+81 3-1234-5678,Product Manager,Sony,Japan
+Elena Ivanova,e.ivanova@moscow.ru,+7 495 123-45-67,Data Analyst,Yandex,Russia
+Fatima Al-Sayed,fatima.s@dubai.ae,+971 4 555 1234,Architect,Emaar,UAE
+Kwame Osei,k.osei@ghana.com,+233 24 123 4567,Civil Engineer,GoldCoast,Ghana
+Li Wei,li.wei@shanghai.cn,+86 21 6123 4567,Sales Director,Alibaba,China
+Mateo Garcia,m.garcia@madrid.es,+34 91 123 45 67,Marketing,Inditex,Spain
+Siobhan O'Sullivan,siobhan.os@dublin.ie,+353 1 234 5678,Lawyer,A&L Goodbody,Ireland
+Hans Schmidt,h.schmidt@berlin.de,+49 30 123456,Manager,Siemens,Germany
+Lucia Rossi,l.rossi@milan.it,,Designer,Prada,Italy
+Jean-Pierre Dubois,jp.dubois@paris.fr,+33 1 23 45 67 89,Chef,L'Escargot,France
+Amara Okafor,amara.o@lagos.ng,+234 803 123 4567,HR Manager,Glo,Nigeria
+Kim Min-su,min.su@seoul.kr,+82 2-1234-5678,UX Researcher,Samsung,South Korea
+Isabella Silva,i.silva@brasil.br,+55 11 91234-5678,Biologist,Petrobras,Brazil
+Youssef Mansour,y.mansour@cairo.eg,+20 2 1234567,Accountant,,Egypt
+Chloe Thompson,chloe.t@london.uk,+44 20 7946 0000,Editor,BBC,UK
+Björn Eriksson,bjorn.e@stockholm.se,,Logistics,,Sweden
+Mei Ling,mei.ling@hk.com,+852 2123 4567,Consultant,HSBC,Hong Kong
+Alejandro Ruiz,a.ruiz@mexico.mx,+52 55 1234 5678,Account Manager,Pemex,Mexico
+Priya Bakshi,pbakshi@mumbai.in,+91 22 1234 5678,Doctor,Apollo,India
+Lars Nielsen,l.nielsen@cph.dk,+45 33 12 34 56,Engineer,Maersk,Denmark
+Noor Al-Farsi,noor.f@muscat.om,+968 24 123456,Project Lead,Oman Air,Oman
+Thabo Mbeki,t.mbeki@joburg.za,+27 11 123 4567,Analyst,Standard Bank,South Africa
+Svetlana Novak,s.novak@prague.cz,+420 212 345 678,,Skoda,Czech Republic
+Hassan Ibrahim,h.ibrahim@nairobi.ke,+254 20 1234567,CEO,Safaricom,Kenya
+Inès Lefebvre,i.lefebvre@lyon.fr,,Intern,Renault,France
+Chen Fang,fang.chen@beijing.cn,+86 10 1234 5678,Researcher,Tencent,China
+Ravi Malhotra,ravi.m@delhi.in,N/A,Sales,Tata,India
+Anika Sørensen,anika.s@oslo.no,+47 21 12 34 56,Developer,Equinor,Norway
+Dante Alighieri,d.alighieri@florence.it,,Poet,,Italy
+Sofia Vergara,s.vergara@bogota.co,+57 1 123 4567,Creative,MediaCo,Colombia
+Kenji Tanaka,k.tanaka@tokyo.jp,+81 90 1234 5678,Recruiter,Rakuten,Japan
+Zoya Khan,z.khan@islamabad.pk,+92 51 1234567,Journalist,Dawn,Pakistan
+Mikhail Volkov,m.volkov@spb.ru,+7 812 123-45-67,Security,Gazprom,Russia
+Ingrid Bergman,i.bergman@cinema.se,,Actress,,Sweden
+Carlos Tevez,c.tevez@ba.ar,+54 11 1234-5678,Coordinator,Boca Inc,Argentina
+Linh Nguyen,linh.n@hanoi.vn,+84 24 1234 5678,DevOps,Viettel,Vietnam
+Rahul Dravid,rahul.d@cricket.in,+91 80 1234 5678,Coach,BCCI,India
+Yuki Ito,yuki.ito@nagoya.jp,+81 52 123 4567,Engineer,Toyota,Japan
+Oksana Bondar,o.bondar@kyiv.ua,+380 44 123 45 67,HR,SoftServe,Ukraine
+Santiago Belmonte,s.belmonte@lima.pe,+51 1 1234567,Geologist,,Peru
+Heidi Klum,heidi@model.de,+49 40 123456,Executive,FashionTV,Germany
+Omar Sharif,o.sharif@cairo.eg,555-EGYPT,Actor,FilmCo,Egypt
+Siti Nurhaliza,siti.n@kl.my,+60 3 1234 5678,VP,Petronas,Malaysia
+Ariel Cohen,a.cohen@telaviv.il,+972 3 123 4567,Startup Founder,Waze,Israel
+Nadezhda Popova,n.popova@minsk.by,+375 17 123 45 67,Technician,,Belarus
+Javier Bardem,j.bardem@madrid.es,NOT-FOUND,Director,,Spain
+"Wong, Kar-wai",wong.kw@studio.hk,,Director,FilmArt,Hong Kong
+Malala Yousafzai,malala@advocacy.org,+44 121 123 4567,Founder,Malala Fund,UK
+Goran Ivanisevic,g.ivan@split.hr,+385 21 123 456,Coach,,Croatia
+Sunita Williams,s.williams@nasa.gov,+1 281-483-0123,Astronaut,NASA,USA
+Aishwarya Rai,a.rai@bollywood.in,+91 22 9876 5432,Ambassador,L'Oreal,India
+Diego Maradona,d.maradona@napoli.it,,Legend,,Italy
+Tenzin Gyatso,dalai.lama@dhasa.in,+91 1892 221217,Leader,CTA,India
+Mustafa Kemal,m.kemal@ankara.tr,+90 312 123 4567,Admin,,Turkey
+Leila Hatami,l.hatami@tehran.ir,,Artist,,Iran
+Fumiko Hayashi,f.hayashi@yokohama.jp,+81 45 123 4567,Officer,,Japan
+Tariq Anwar,t.anwar@london.uk,07700 900123,Film Editor,,UK
+Olga Korbut,o.korbut@gym.by,,Coach,,Belarus
+Rafael Nadal,r.nadal@mallorca.es,+34 971 123 456,Owner,Academy,Spain
+Zinedine Zidane,z.zidane@madrid.es,+34 600 000 000,Manager,,Spain
+Yao Ming,yao.ming@shanghai.cn,+86 21 0000 1111,President,CBA,China
+Björk Guðmundsdóttir,bjork@is.is,,Musician,,Iceland
+Pelé Nascimento,pele@santos.br,+55 13 1234-1234,Ambassador,,Brazil
+Maria Sharapova,m.shara@siberia.ru,+7 3452 123456,CEO,Sugarpova,Russia
+Usain Bolt,u.bolt@kingston.jm,+1 876 123 4567,Director,,Jamaica
+Catherine Deneuve,c.deneuve@paris.fr,,Actress,,France
+Andrea Bocelli,a.bocelli@tuscany.it,+39 0585 123456,Singer,,Italy
+Jet Li,jet.li@beijing.cn,+86 10 9999 8888,Martial Artist,,China
+Penélope Cruz,p.cruz@la.com,N/A,Actress,,USA
+Hidetoshi Nakata,h.nakata@tokyo.jp,+81 80 0000 9999,Designer,,Japan
+Serena Williams,s.williams@tennis.com,+1 305-123-4567,Founder,S-Ventures,USA
+Hugh Jackman,h.jackman@sydney.au,+61 2 1234 5678,Actor,,Australia
+Lupita Nyong'o,lupita@ny.com,,Actress,,Kenya
+Xavi Hernandez,xavi@barca.es,+34 93 123 4567,Coach,FCB,Spain

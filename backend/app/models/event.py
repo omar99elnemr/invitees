@@ -3,7 +3,26 @@ Event model
 Represents events that can have invitees
 """
 from app import db
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
+
+# Egypt timezone is UTC+2
+EGYPT_TZ_OFFSET = timedelta(hours=2)
+
+def get_egypt_time():
+    """Get current time in Egypt timezone (UTC+2)"""
+    utc_now = datetime.now(timezone.utc)
+    egypt_now = utc_now + EGYPT_TZ_OFFSET
+    # Return naive datetime for comparison with database timestamps
+    return egypt_now.replace(tzinfo=None)
+
+
+# Association table for Event-InviterGroup many-to-many relationship
+event_inviter_groups = db.Table('event_inviter_groups',
+    db.Column('event_id', db.Integer, db.ForeignKey('events.id', ondelete='CASCADE'), primary_key=True),
+    db.Column('inviter_group_id', db.Integer, db.ForeignKey('inviter_groups.id', ondelete='CASCADE'), primary_key=True),
+    db.Column('created_at', db.DateTime, default=datetime.utcnow, nullable=False)
+)
+
 
 class Event(db.Model):
     """Event model for managing events"""
@@ -23,6 +42,9 @@ class Event(db.Model):
     
     # Relationships
     event_invitees = db.relationship('EventInvitee', backref='event', lazy='dynamic', cascade='all, delete-orphan')
+    inviter_groups = db.relationship('InviterGroup', secondary=event_inviter_groups, 
+                                      backref=db.backref('events', lazy='dynamic'),
+                                      lazy='joined')
     
     # Constraints
     __table_args__ = (
@@ -33,8 +55,38 @@ class Event(db.Model):
     def __repr__(self):
         return f'<Event {self.name} ({self.status})>'
     
+    def get_computed_status(self):
+        """
+        Compute what the status should be based on current Egypt time.
+        Uses Egypt timezone (UTC+2) for all comparisons.
+        """
+        now = get_egypt_time()
+        
+        # Don't auto-compute if manually set to cancelled or on_hold
+        if self.status in ('cancelled', 'on_hold'):
+            return self.status
+        
+        # Compare with event dates (stored as Egypt local time)
+        if now < self.start_date:
+            return 'upcoming'
+        elif now >= self.start_date and now < self.end_date:
+            return 'ongoing'
+        else:  # now >= self.end_date
+            return 'ended'
+    
+    def get_display_status(self):
+        """Get status for display: returns stored status (which may be manually set)"""
+        # Return the actual stored status - don't auto-compute here
+        # The stored status should be kept in sync via update_all_statuses() background task
+        # or via explicit calls to update_status()
+        return self.status
+    
     def to_dict(self):
         """Convert event to dictionary"""
+        # Use the actual stored status from database
+        # The status is updated by update_all_statuses() which runs on event queries
+        # Manual status changes (cancelled, on_hold) are preserved
+        
         return {
             'id': self.id,
             'name': self.name,
@@ -42,28 +94,23 @@ class Event(db.Model):
             'end_date': self.end_date.isoformat() if self.end_date else None,
             'venue': self.venue,
             'description': self.description,
-            'status': self.status,
+            'status': self.status,  # Use actual stored status
             'created_by_user_id': self.created_by_user_id,
             'creator_name': self.creator.username if self.creator else None,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
-            'invitee_count': self.event_invitees.count() if hasattr(self, 'event_invitees') else 0
+            'invitee_count': self.event_invitees.count() if hasattr(self, 'event_invitees') else 0,
+            'inviter_group_ids': [g.id for g in self.inviter_groups] if self.inviter_groups else [],
+            'inviter_group_names': [g.name for g in self.inviter_groups] if self.inviter_groups else [],
         }
     
     def update_status(self):
-        """Automatically update event status based on current date"""
-        now = datetime.utcnow()
-        
-        # Don't auto-update if manually set to cancelled or on_hold
-        if self.status in ('cancelled', 'on_hold'):
-            return
-        
-        if now < self.start_date:
-            self.status = 'upcoming'
-        elif self.start_date <= now <= self.end_date:
-            self.status = 'ongoing'
-        elif now > self.end_date:
-            self.status = 'ended'
+        """Update event status in database based on current date"""
+        computed = self.get_computed_status()
+        if self.status != computed:
+            self.status = computed
+            return True
+        return False
     
     def can_add_invitees(self):
         """Check if invitees can be added to this event"""
@@ -72,13 +119,59 @@ class Event(db.Model):
     @staticmethod
     def get_active_events():
         """Get all upcoming and ongoing events"""
+        # First update all event statuses
+        Event.update_all_statuses()
         return Event.query.filter(Event.status.in_(['upcoming', 'ongoing'])).order_by(Event.start_date).all()
     
     @staticmethod
     def get_all_for_user(user):
-        """Get events visible to user based on role"""
+        """Get events visible to user based on role and inviter group"""
+        # First update all event statuses
+        Event.update_all_statuses()
         if user.role == 'admin':
+            # Admins see all events
             return Event.query.order_by(Event.start_date.desc()).all()
         else:
-            # Organizers and directors only see active events
-            return Event.get_active_events()
+            # Organizers and directors only see active events assigned to their inviter group
+            if user.inviter_group_id:
+                return Event.query.filter(
+                    Event.status.in_(['upcoming', 'ongoing']),
+                    Event.inviter_groups.any(id=user.inviter_group_id)
+                ).order_by(Event.start_date).all()
+            else:
+                # User has no group - return empty
+                return []
+    
+    @staticmethod
+    def update_all_statuses():
+        """
+        Update status for all events that need updating based on current Egypt time.
+        This is called on every events fetch to ensure statuses are always current.
+        Returns: tuple (ongoing_count, ended_count) - number of events updated
+        """
+        from app import db
+        import logging
+        
+        now = get_egypt_time()
+        logging.info(f"Updating event statuses at Egypt time: {now}")
+        
+        # Update events that should be 'ongoing' (started but not ended)
+        # Only update if current status is 'upcoming'
+        ongoing_count = Event.query.filter(
+            Event.status == 'upcoming',
+            Event.start_date <= now,
+            Event.end_date > now
+        ).update({'status': 'ongoing', 'updated_at': now}, synchronize_session=False)
+        
+        # Update events that should be 'ended' (past end date)
+        # Only update if current status is 'upcoming' or 'ongoing'
+        ended_count = Event.query.filter(
+            Event.status.in_(['upcoming', 'ongoing']),
+            Event.end_date <= now
+        ).update({'status': 'ended', 'updated_at': now}, synchronize_session=False)
+        
+        if ongoing_count > 0 or ended_count > 0:
+            logging.info(f"Updated {ongoing_count} events to 'ongoing', {ended_count} events to 'ended'")
+        
+        db.session.commit()
+        return (ongoing_count, ended_count)

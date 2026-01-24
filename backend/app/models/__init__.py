@@ -4,16 +4,21 @@ Import all models here for easy access
 """
 from app.models.user import User
 from app.models.inviter_group import InviterGroup
-from app.models.event import Event
-from app.models.invitee import Invitee
-from app.models.event_invitee import EventInvitee
+from app.models.inviter import Inviter
+from app.models.event import Event, event_inviter_groups
+from app.models.invitee import Invitee, INVITEE_CATEGORIES
+from app.models.event_invitee import EventInvitee, EVENT_INVITEE_CATEGORIES
 from app.models.audit_log import AuditLog
 
 __all__ = [
     'User',
     'InviterGroup',
+    'Inviter',
     'Event',
+    'event_inviter_groups',
     'Invitee',
+    'INVITEE_CATEGORIES',
     'EventInvitee',
+    'EVENT_INVITEE_CATEGORIES',
     'AuditLog'
 ]

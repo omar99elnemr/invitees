@@ -31,10 +31,12 @@ class ImportService:
         return re.match(pattern, clean_phone) is not None
     
     @staticmethod
-    def import_invitees_from_file(filepath, event_id, inviter_user_id):
+    def import_contacts_from_file(filepath, user_id):
         """
-        Import invitees from Excel or CSV file
-        Returns dict with import results
+        Import contacts from Excel or CSV file.
+        Contacts are added to the global contact list (invitees table).
+        They can then be submitted to events separately.
+        Returns dict with import results.
         """
         # Read file based on extension
         if filepath.endswith('.csv'):
@@ -51,14 +53,15 @@ class ImportService:
         if missing_columns:
             raise ValueError(f"Missing required columns: {', '.join(missing_columns)}")
         
-        # Get inviter info
-        inviter = User.query.get(inviter_user_id)
-        if not inviter:
-            raise ValueError("Inviter user not found")
+        # Get user info for audit
+        user = User.query.get(user_id)
+        if not user:
+            raise ValueError("User not found")
         
         # Process rows
         total_rows = len(df)
         successful = 0
+        skipped = 0
         failed = 0
         errors = []
         
@@ -80,63 +83,41 @@ class ImportService:
                 if not ImportService.validate_phone(phone):
                     raise ValueError("Invalid phone format (use international format like +20 123 456 7890)")
                 
-                # Check if invitee exists by email
-                invitee = Invitee.find_by_email(email)
+                # Check if contact already exists by email
+                existing_invitee = Invitee.find_by_email(email)
                 
-                if not invitee:
-                    # Create new invitee
-                    invitee = Invitee(
-                        name=name,
-                        email=email,
-                        phone=phone,
-                        position=str(row.get('position', '')).strip() if pd.notna(row.get('position')) else None,
-                        company=str(row.get('company', '')).strip() if pd.notna(row.get('company')) else None
-                    )
-                    db.session.add(invitee)
-                    db.session.flush()  # Get the ID
-                else:
-                    # Update existing invitee with new info if provided
+                if existing_invitee:
+                    # Contact already exists - update info if provided
+                    updated = False
                     if pd.notna(row.get('position')) and row.get('position'):
-                        invitee.position = str(row['position']).strip()
+                        existing_invitee.position = str(row['position']).strip()
+                        updated = True
                     if pd.notna(row.get('company')) and row.get('company'):
-                        invitee.company = str(row['company']).strip()
+                        existing_invitee.company = str(row['company']).strip()
+                        updated = True
+                    if updated:
+                        skipped += 1
+                        errors.append(f"Row {index + 2}: Contact with email '{email}' already exists (info updated)")
+                    else:
+                        skipped += 1
+                        errors.append(f"Row {index + 2}: Contact with email '{email}' already exists")
+                    continue
                 
-                # Check if already invited to this event
-                existing = EventInvitee.query.filter_by(
-                    event_id=event_id,
-                    invitee_id=invitee.id
-                ).first()
-                
-                if existing:
-                    raise ValueError("Already invited to this event")
-                
-                # Get invitation class
-                invitation_class = 'none'
-                if pd.notna(row.get('invitation_class')):
-                    ic = str(row['invitation_class']).strip().lower()
-                    if ic in ['white', 'gold', 'none']:
-                        invitation_class = ic
-                
-                # Create event_invitee record
-                event_invitee = EventInvitee(
-                    event_id=event_id,
-                    invitee_id=invitee.id,
-                    category=str(row.get('category', '')).strip() if pd.notna(row.get('category')) else None,
-                    invitation_class=invitation_class,
-                    inviter_user_id=inviter_user_id,
-                    inviter_role=inviter.role,
-                    status='waiting_for_approval',
-                    notes=str(row.get('notes', '')).strip() if pd.notna(row.get('notes')) else None
+                # Create new contact
+                invitee = Invitee(
+                    name=name,
+                    email=email,
+                    phone=phone,
+                    position=str(row.get('position', '')).strip() if pd.notna(row.get('position')) else None,
+                    company=str(row.get('company', '')).strip() if pd.notna(row.get('company')) else None
                 )
-                db.session.add(event_invitee)
+                db.session.add(invitee)
                 successful += 1
                 
             except Exception as e:
                 failed += 1
                 # Excel rows start at 1, header is row 1, data starts at row 2
                 errors.append(f"Row {index + 2}: {str(e)}")
-                # Rollback this specific row's changes
-                db.session.rollback()
         
         # Commit all successful changes
         try:
@@ -144,10 +125,10 @@ class ImportService:
             
             # Log import
             AuditLog.log(
-                user_id=inviter_user_id,
-                action='bulk_import',
-                table_name='event_invitees',
-                new_value=f'Imported {successful} invitees, {failed} failed',
+                user_id=user_id,
+                action='bulk_import_contacts',
+                table_name='invitees',
+                new_value=f'Imported {successful} contacts, {skipped} skipped, {failed} failed',
                 ip_address=request.remote_addr if request else None
             )
             db.session.commit()
@@ -159,6 +140,7 @@ class ImportService:
         return {
             'total_rows': total_rows,
             'successful': successful,
+            'skipped': skipped,
             'failed': failed,
             'errors': errors
         }
@@ -166,8 +148,8 @@ class ImportService:
     @staticmethod
     def generate_template():
         """
-        Generate Excel template with instructions
-        Returns the file path of the generated template
+        Generate Excel template for contact import.
+        Returns the file path of the generated template.
         """
         wb = Workbook()
         
@@ -197,18 +179,13 @@ class ImportService:
             ["Column Name", "Required?", "Description", "Example", "", "", "", ""],
             ["Position", "NO", "Job title or position", "Manager", "", "", "", ""],
             ["Company", "NO", "Company name", "ABC Corporation", "", "", "", ""],
-            ["Category", "NO", "Any category for grouping", "VIP", "", "", "", ""],
-            ["Invitation Class", "NO", "Must be: none, white, or gold", "gold", "", "", "", ""],
-            ["Notes", "NO", "Any additional notes", "Important guest", "", "", "", ""],
             [],
             ["IMPORTANT NOTES", "", "", "", "", "", "", ""],
             ["1. Do not change the column headers in the template", "", "", "", "", "", "", ""],
             ["2. All rows with missing Name, Email, or Phone will be skipped", "", "", "", "", "", "", ""],
-            ["3. If an invitee with the same email already exists in this event, the row will be skipped", "", "", "", "", "", "", ""],
+            ["3. If a contact with the same email already exists, the row will be skipped", "", "", "", "", "", "", ""],
             ["4. Phone numbers should include country code (e.g., +20 for Egypt, +1 for USA)", "", "", "", "", "", "", ""],
-            ["5. The system will automatically set you as the inviter", "", "", "", "", "", "", ""],
-            ["6. All imported invitees will have status 'Waiting for Approval'", "", "", "", "", "", "", ""],
-            ["7. If an invitee with the same email exists globally, their info will be updated", "", "", "", "", "", "", ""],
+            ["5. After importing contacts, go to the Events tab to submit them to events", "", "", "", "", "", "", ""],
             [],
             ["Go to the 'Template' sheet to start importing data →", "", "", "", "", "", "", ""],
         ]
@@ -224,10 +201,10 @@ class ImportService:
                 elif i == 3 or i == 9:
                     cell.font = Font(bold=True)
                     cell.fill = PatternFill(start_color="E5E7EB", end_color="E5E7EB", fill_type="solid")
-                elif i == 16:
+                elif i == 11:
                     cell.font = Font(bold=True, color="FFFFFF")
                     cell.fill = PatternFill(start_color="EF4444", end_color="EF4444", fill_type="solid")
-                elif i == 24:
+                elif i == 17:
                     cell.font = Font(bold=True, size=12, color="3B82F6")
         
         # Adjust column widths
@@ -239,8 +216,8 @@ class ImportService:
         # Create Template sheet
         template_ws = wb.create_sheet("Template", 1)
         
-        # Headers
-        headers = ["Name", "Email", "Phone", "Position", "Company", "Category", "Invitation Class", "Notes"]
+        # Headers (contacts only - no event-specific fields)
+        headers = ["Name", "Email", "Phone", "Position", "Company"]
         for col, header in enumerate(headers, start=1):
             cell = template_ws.cell(row=1, column=col, value=header)
             cell.font = Font(bold=True, color="FFFFFF")
@@ -249,9 +226,9 @@ class ImportService:
         
         # Add sample data
         sample_data = [
-            ["Ahmed Hassan", "ahmed.hassan@example.com", "+20 100 123 4567", "CEO", "Tech Solutions", "VIP", "gold", "Key stakeholder"],
-            ["Sarah Mohamed", "sarah.mohamed@example.com", "+20 101 234 5678", "Marketing Director", "Creative Agency", "Guest", "white", ""],
-            ["Mohamed Ali", "mohamed.ali@example.com", "+20 102 345 6789", "Sales Manager", "Sales Corp", "", "none", "Follow up required"],
+            ["Ahmed Hassan", "ahmed.hassan@example.com", "+20 100 123 4567", "CEO", "Tech Solutions"],
+            ["Sarah Mohamed", "sarah.mohamed@example.com", "+20 101 234 5678", "Marketing Director", "Creative Agency"],
+            ["Mohamed Ali", "mohamed.ali@example.com", "+20 102 345 6789", "Sales Manager", "Sales Corp"],
         ]
         
         for row_idx, row_data in enumerate(sample_data, start=2):
@@ -264,14 +241,11 @@ class ImportService:
         template_ws.column_dimensions['C'].width = 20
         template_ws.column_dimensions['D'].width = 20
         template_ws.column_dimensions['E'].width = 20
-        template_ws.column_dimensions['F'].width = 15
-        template_ws.column_dimensions['G'].width = 18
-        template_ws.column_dimensions['H'].width = 30
         
         # Save template
         template_dir = 'tmp'
         os.makedirs(template_dir, exist_ok=True)
-        template_path = os.path.join(template_dir, 'invitees_import_template.xlsx')
+        template_path = os.path.join(template_dir, 'contacts_import_template.xlsx')
         wb.save(template_path)
         
         return template_path
