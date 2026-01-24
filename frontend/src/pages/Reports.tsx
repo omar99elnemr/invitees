@@ -57,7 +57,7 @@ export default function Reports() {
   // Grouped data for summary reports
   const [expandedEvents, setExpandedEvents] = useState<Set<number>>(new Set());
 
-  const canViewReports = user?.role === 'admin' || user?.role === 'director';
+  const canViewReports = user?.role === 'admin';
 
   useEffect(() => {
     if (canViewReports) {
@@ -271,7 +271,7 @@ export default function Reports() {
         <FileText className="mx-auto h-12 w-12 text-gray-400" />
         <h3 className="mt-2 text-lg font-medium text-gray-900">Access Denied</h3>
         <p className="mt-1 text-sm text-gray-500">
-          Only Directors and Admins can access reports.
+          Only Admins can access reports.
         </p>
       </div>
     );

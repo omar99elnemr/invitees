@@ -197,16 +197,13 @@ export default function Invitees() {
   // Get contacts available for submission (not approved for selected event)
   const availableContacts = useMemo(() => {
     if (!selectedEventId) return [];
-    
-    // Get IDs of invitees already approved for this event
-    const approvedIds = new Set(
+    // Exclude contacts who are already approved or pending (waiting_for_approval) for this event
+    const excludedIds = new Set(
       eventInvitees
-        .filter(ei => ei.status === 'approved')
+        .filter(ei => ei.status === 'approved' || ei.status === 'waiting_for_approval')
         .map(ei => ei.invitee_id)
     );
-    
-    // Return contacts not yet approved
-    return contacts.filter(c => !approvedIds.has(c.id));
+    return contacts.filter(c => !excludedIds.has(c.id));
   }, [contacts, eventInvitees, selectedEventId]);
 
   // Get rejected invitees for the selected event (can be resubmitted)
@@ -661,63 +658,7 @@ export default function Invitees() {
                 </div>
               </div>
 
-              {/* Rejected Invitees - Can be resubmitted */}
-              {rejectedInvitees.length > 0 && (
-                <div className="bg-white rounded-lg shadow-sm border">
-                  <div className="p-4 border-b">
-                    <h3 className="font-semibold text-gray-900 flex items-center gap-2">
-                      <XCircle className="w-5 h-5 text-red-500" />
-                      Rejected Invitations ({rejectedInvitees.length})
-                    </h3>
-                    <p className="text-sm text-gray-500">These can be resubmitted for approval</p>
-                  </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Company</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Rejected By</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Rejection Note</th>
-                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-200">
-                        {rejectedInvitees.map(invitee => (
-                          <tr key={invitee.id} className="hover:bg-gray-50">
-                            <td className="px-4 py-3">
-                              <div className="font-medium text-gray-900">{invitee.invitee_name}</div>
-                            </td>
-                            <td className="px-4 py-3 text-gray-600">{invitee.invitee_email}</td>
-                            <td className="px-4 py-3 text-gray-600">{invitee.invitee_company || '-'}</td>
-                            <td className="px-4 py-3 text-gray-600">{invitee.approved_by_name || '-'}</td>
-                            <td className="px-4 py-3">
-                              {invitee.approval_notes ? (
-                                <span className="text-red-600 text-sm">{invitee.approval_notes}</span>
-                              ) : (
-                                <span className="text-gray-400">-</span>
-                              )}
-                            </td>
-                            <td className="px-4 py-3 text-right">
-                              <button
-                                onClick={() => {
-                                  setResubmitInvitee(invitee);
-                                  setShowResubmitModal(true);
-                                }}
-                                className="inline-flex items-center gap-1 px-3 py-1 text-sm text-blue-600 hover:bg-blue-50 rounded-lg"
-                              >
-                                <RotateCcw className="w-4 h-4" />
-                                Resubmit
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
+
 
               {/* Submit New Contacts Section */}
               <div className="bg-white rounded-lg shadow-sm border">
@@ -870,31 +811,51 @@ export default function Invitees() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-200">
-                        {filteredAvailableContacts.map(contact => (
-                          <tr
-                            key={contact.id}
-                            className={`hover:bg-gray-50 cursor-pointer ${
-                              selectedContactIds.includes(contact.id) ? 'bg-primary/5' : ''
-                            }`}
-                            onClick={() => handleToggleContact(contact.id)}
-                          >
-                            <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                              <input
-                                type="checkbox"
-                                checked={selectedContactIds.includes(contact.id)}
-                                onChange={() => handleToggleContact(contact.id)}
-                                className="rounded border-gray-300 text-primary focus:ring-primary"
-                              />
-                            </td>
-                            <td className="px-4 py-3">
-                              <div className="font-medium text-gray-900">{contact.name}</div>
-                            </td>
-                            <td className="px-4 py-3 text-gray-600">{contact.email}</td>
-                            <td className="px-4 py-3 text-gray-600">{contact.phone}</td>
-                            <td className="px-4 py-3 text-gray-600">{contact.company || '-'}</td>
-                            <td className="px-4 py-3 text-gray-600">{contact.position || '-'}</td>
-                          </tr>
-                        ))}
+                        {filteredAvailableContacts.map(contact => {
+                          // Find if this contact is rejected for this event
+                          const rejectedInvitee = eventInvitees.find(ei => ei.invitee_id === contact.id && ei.status === 'rejected');
+                          return (
+                            <tr
+                              key={contact.id}
+                              className={`hover:bg-gray-50 cursor-pointer ${
+                                selectedContactIds.includes(contact.id) ? 'bg-primary/5' : ''
+                              }`}
+                              onClick={() => handleToggleContact(contact.id)}
+                            >
+                              <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                                <input
+                                  type="checkbox"
+                                  checked={selectedContactIds.includes(contact.id)}
+                                  onChange={() => handleToggleContact(contact.id)}
+                                  className="rounded border-gray-300 text-primary focus:ring-primary"
+                                />
+                              </td>
+                              <td className="px-4 py-3">
+                                <div className="flex items-center gap-2 font-medium text-gray-900">
+                                  {contact.name}
+                                  {rejectedInvitee && (
+                                    <button
+                                      type="button"
+                                      className="ml-1 p-1 rounded-full bg-red-100 hover:bg-red-200"
+                                      title="Rejected - click for details"
+                                      onClick={e => {
+                                        e.stopPropagation();
+                                        setResubmitInvitee(rejectedInvitee);
+                                        setShowResubmitModal(true);
+                                      }}
+                                    >
+                                      <XCircle className="w-4 h-4 text-red-500" />
+                                    </button>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="px-4 py-3 text-gray-600">{contact.email}</td>
+                              <td className="px-4 py-3 text-gray-600">{contact.phone}</td>
+                              <td className="px-4 py-3 text-gray-600">{contact.company || '-'}</td>
+                              <td className="px-4 py-3 text-gray-600">{contact.position || '-'}</td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -1436,46 +1397,35 @@ export default function Invitees() {
         </div>
       )}
 
-      {/* Resubmit Modal */}
-      {showResubmitModal && resubmitInvitee && (
+      {/* Rejection Details Modal */}
+      {resubmitInvitee && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
             <div className="p-6">
-              <div className="flex items-center justify-center w-12 h-12 mx-auto bg-blue-100 rounded-full mb-4">
-                <RotateCcw className="w-6 h-6 text-blue-600" />
-              </div>
-              <h3 className="text-lg font-semibold text-center mb-2">Resubmit Invitation</h3>
-              <p className="text-gray-600 text-center mb-4">
-                Resubmit the invitation for "{resubmitInvitee.invitee_name}" for approval?
-              </p>
-              
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Notes (optional)
-                </label>
-                <textarea
-                  value={resubmitNotes}
-                  onChange={(e) => setResubmitNotes(e.target.value)}
-                  rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent resize-none"
-                  placeholder="Add a note for the approver..."
-                />
-              </div>
-              
-              <div className="flex gap-3">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-semibold flex items-center gap-2">
+                  <XCircle className="w-6 h-6 text-red-500" />
+                  Rejection Details
+                </h2>
                 <button
-                  onClick={() => { setShowResubmitModal(false); setResubmitInvitee(null); setResubmitNotes(''); }}
-                  className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
-                  disabled={submitting}
+                  onClick={() => { setResubmitInvitee(null); setShowResubmitModal(false); }}
+                  className="p-1 hover:bg-gray-100 rounded-full"
                 >
-                  Cancel
+                  <X className="w-5 h-5" />
                 </button>
+              </div>
+              <div className="mb-4">
+                <div className="font-medium text-gray-900 mb-1">{resubmitInvitee.invitee_name}</div>
+                <div className="text-sm text-gray-600 mb-2">Rejected By: <span className="font-semibold">{resubmitInvitee.approved_by_name || '-'}</span></div>
+                <div className="text-sm text-gray-600">Rejection Note:</div>
+                <div className="text-red-600 text-sm mt-1 whitespace-pre-line">{resubmitInvitee.approval_notes || '-'}</div>
+              </div>
+              <div className="flex justify-end">
                 <button
-                  onClick={handleResubmit}
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-                  disabled={submitting}
+                  onClick={() => { setResubmitInvitee(null); setShowResubmitModal(false); }}
+                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
                 >
-                  {submitting ? 'Resubmitting...' : 'Resubmit'}
+                  Close
                 </button>
               </div>
             </div>

@@ -49,7 +49,7 @@ export function Sidebar({ isOpen }: SidebarProps) {
       name: 'Reports',
       path: '/reports',
       icon: FileText,
-      roles: ['admin'],  // Only admins can see reports
+      roles: ['admin'], // Only admins can see reports
     },
     {
       name: 'Users',

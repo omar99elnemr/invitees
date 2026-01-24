@@ -226,12 +226,14 @@ export default function Dashboard() {
                     onClick={() => navigate('/approvals')}
                     badge={stats?.pending_approvals}
                   />
-                  <QuickActionButton
-                    title="Generate Reports"
-                    description="View analytics and export"
-                    icon={FileText}
-                    onClick={() => navigate('/reports')}
-                  />
+                  {user?.role === 'admin' && (
+                    <QuickActionButton
+                      title="Generate Reports"
+                      description="View analytics and export"
+                      icon={FileText}
+                      onClick={() => navigate('/reports')}
+                    />
+                  )}
                 </>
               )}
               {user?.role === 'admin' && (
