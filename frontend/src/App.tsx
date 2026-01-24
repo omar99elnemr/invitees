@@ -60,7 +60,14 @@ function App() {
           >
             <Route index element={<Navigate to="/dashboard" replace />} />
             <Route path="dashboard" element={<Dashboard />} />
-            <Route path="events" element={<Events />} />
+            <Route
+              path="events"
+              element={
+                <ProtectedRoute roles={['admin']}>
+                  <Events />
+                </ProtectedRoute>
+              }
+            />
             <Route path="invitees" element={<Invitees />} />
             <Route
               path="approvals"

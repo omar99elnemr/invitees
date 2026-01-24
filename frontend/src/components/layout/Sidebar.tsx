@@ -31,7 +31,7 @@ export function Sidebar({ isOpen }: SidebarProps) {
       name: 'Events',
       path: '/events',
       icon: Calendar,
-      roles: ['admin', 'director', 'organizer'],
+      roles: ['admin'],
     },
     {
       name: 'Invitees',
@@ -49,7 +49,7 @@ export function Sidebar({ isOpen }: SidebarProps) {
       name: 'Reports',
       path: '/reports',
       icon: FileText,
-      roles: ['admin', 'director'],
+      roles: ['admin'],  // Only admins can see reports
     },
     {
       name: 'Users',

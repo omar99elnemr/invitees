@@ -6,6 +6,7 @@ import axios from 'axios';
 import type {
   User,
   InviterGroup,
+  Inviter,
   Event,
   Invitee,
   EventInvitee,
@@ -13,6 +14,7 @@ import type {
   UserFormData,
   EventFormData,
   InviteeFormData,
+  InviterFormData,
   ImportResult,
   ApprovalResult,
   DashboardStats,
@@ -96,11 +98,40 @@ export const inviterGroupsAPI = {
   getById: (id: number) =>
     api.get<InviterGroup>(`/inviter-groups/${id}`),
   
-  create: (data: { name: string; description?: string }) =>
+  create: (data: { name: string; description?: string; inviters?: { name: string; email?: string; phone?: string; position?: string }[] }) =>
     api.post<InviterGroup>('/inviter-groups', data),
   
   update: (id: number, data: { name?: string; description?: string }) =>
     api.put<InviterGroup>(`/inviter-groups/${id}`, data),
+  
+  delete: (id: number) =>
+    api.delete(`/inviter-groups/${id}`),
+};
+
+// =========================
+// Inviters API
+// =========================
+export const invitersAPI = {
+  getByGroup: (groupId: number, activeOnly = true) =>
+    api.get<Inviter[]>(`/inviters/group/${groupId}`, { params: { active_only: activeOnly } }),
+  
+  getMyGroupInviters: (activeOnly = true) =>
+    api.get<Inviter[]>('/inviters/my-group', { params: { active_only: activeOnly } }),
+  
+  getById: (id: number) =>
+    api.get<Inviter>(`/inviters/${id}`),
+  
+  create: (data: InviterFormData) =>
+    api.post<Inviter>('/inviters', data),
+  
+  createBulk: (groupId: number, inviters: { name: string; email?: string; phone?: string; position?: string }[]) =>
+    api.post<{ message: string; created: Inviter[]; errors: string[] }>('/inviters/bulk', { inviter_group_id: groupId, inviters }),
+  
+  update: (id: number, data: Partial<InviterFormData>) =>
+    api.put<Inviter>(`/inviters/${id}`, data),
+  
+  delete: (id: number) =>
+    api.delete(`/inviters/${id}`),
 };
 
 // =========================
@@ -124,6 +155,10 @@ export const eventsAPI = {
   
   delete: (id: number) =>
     api.delete(`/events/${id}`),
+  
+  // Refresh event statuses based on current Egypt time
+  refreshStatuses: () =>
+    api.post<{ events: Event[]; updated: { ongoing: number; ended: number }; server_time: string }>('/events/refresh-statuses'),
 };
 
 // =========================
@@ -132,10 +167,16 @@ export const eventsAPI = {
 export const inviteesAPI = {
   // Global invitee pool
   getAll: () =>
-    api.get<Invitee[]>('/invitees'),
+    api.get<(Invitee & { total_events: number; approved_count: number; rejected_count: number; pending_count: number })[]>('/invitees'),
   
   getById: (id: number) =>
     api.get<Invitee>(`/invitees/${id}`),
+  
+  getHistory: (id: number) =>
+    api.get<{ invitee: Invitee; events: EventInvitee[] }>(`/invitees/${id}/history`),
+  
+  getCategories: () =>
+    api.get<string[]>('/invitees/categories'),
   
   search: (query: string) =>
     api.get<Invitee[]>('/invitees/search', { params: { q: query } }),
@@ -158,6 +199,16 @@ export const inviteesAPI = {
   
   removeFromEvent: (eventId: number, inviteeId: number) =>
     api.delete(`/invitees/events/${eventId}/invitees/${inviteeId}`),
+  
+  resubmit: (eventId: number, inviteeId: number, notes?: string) =>
+    api.post<EventInvitee>(`/invitees/events/${eventId}/invitees/${inviteeId}/resubmit`, { notes }),
+  
+  // Bulk invite existing invitees to event
+  inviteExistingToEvent: (eventId: number, inviteeIds: number[], invitationData?: { category?: string; inviter_id?: number; plus_one?: number; notes?: string }) =>
+    api.post<{ message: string; results: { successful: any[]; failed: any[]; already_invited: any[] } }>(
+      `/invitees/events/${eventId}/invite-existing`,
+      { invitee_ids: inviteeIds, invitation_data: invitationData }
+    ),
 };
 
 // =========================
@@ -167,11 +218,17 @@ export const approvalsAPI = {
   getPending: (filters?: ReportFilters) =>
     api.get<EventInvitee[]>('/approvals/pending', { params: filters }),
   
+  getApproved: (filters?: ReportFilters) =>
+    api.get<EventInvitee[]>('/approvals/approved', { params: filters }),
+  
   approve: (event_invitee_ids: number[], notes?: string) =>
     api.post<ApprovalResult>('/approvals/approve', { event_invitee_ids, notes }),
   
   reject: (event_invitee_ids: number[], notes?: string) =>
     api.post<ApprovalResult>('/approvals/reject', { event_invitee_ids, notes }),
+  
+  cancelApproval: (event_invitee_ids: number[], notes: string) =>
+    api.post<ApprovalResult>('/approvals/cancel-approval', { event_invitee_ids, notes }),
   
   getHistory: (inviteeId: number) =>
     api.get<EventInvitee[]>(`/approvals/history/${inviteeId}`),
@@ -221,18 +278,17 @@ export const importAPI = {
     const url = window.URL.createObjectURL(new Blob([response.data]));
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', 'invitees_import_template.xlsx');
+    link.setAttribute('download', 'contacts_import_template.xlsx');
     document.body.appendChild(link);
     link.click();
     link.remove();
   },
   
-  uploadFile: (eventId: number, file: File) => {
+  uploadContacts: (file: File) => {
     const formData = new FormData();
     formData.append('file', file);
-    formData.append('event_id', eventId.toString());
     
-    return api.post<ImportResult>('/import/invitees', formData, {
+    return api.post<ImportResult>('/import/contacts', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },

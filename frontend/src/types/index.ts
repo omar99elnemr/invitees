@@ -2,9 +2,15 @@
  * TypeScript type definitions for the application
  */
 
+// Category options
+export const INVITEE_CATEGORIES = ['White', 'Gold'] as const;
+export type InviteeCategory = typeof INVITEE_CATEGORIES[number];
+
 export interface User {
   id: number;
   username: string;
+  email: string;
+  full_name?: string;
   role: 'admin' | 'director' | 'organizer';
   inviter_group_id: number | null;
   inviter_group_name?: string;
@@ -20,6 +26,22 @@ export interface InviterGroup {
   description?: string;
   created_at: string;
   member_count?: number;
+  inviter_count?: number;
+  invitee_count?: number;
+  inviters?: Inviter[];
+}
+
+export interface Inviter {
+  id: number;
+  name: string;
+  email?: string;
+  phone?: string;
+  position?: string;
+  inviter_group_id: number;
+  inviter_group_name?: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Event {
@@ -35,6 +57,8 @@ export interface Event {
   created_at: string;
   updated_at: string;
   invitee_count?: number;
+  inviter_group_ids?: number[];
+  inviter_group_names?: string[];
 }
 
 export interface Invitee {
@@ -44,24 +68,37 @@ export interface Invitee {
   phone: string;
   position?: string;
   company?: string;
+  category?: InviteeCategory;
+  inviter_group_id?: number;
+  inviter_group_name?: string;
   created_at: string;
   updated_at: string;
+}
+
+export interface InviteeWithStats extends Invitee {
+  total_events: number;
+  approved_count: number;
+  rejected_count: number;
+  pending_count: number;
 }
 
 export interface EventInvitee {
   id: number;
   event_id: number;
   event_name?: string;
+  event_date?: string;
+  event_location?: string;
   invitee_id: number;
   invitee_name?: string;
   invitee_email?: string;
   invitee_phone?: string;
   invitee_position?: string;
   invitee_company?: string;
-  category?: string;
-  invitation_class: string;
-  inviter_user_id: number;
+  category?: InviteeCategory;
+  inviter_id?: number;
   inviter_name?: string;
+  inviter_user_id: number;
+  submitter_name?: string;
   inviter_group_name?: string;
   inviter_role: string;
   status: 'waiting_for_approval' | 'approved' | 'rejected';
@@ -121,6 +158,7 @@ export interface ImportResult {
   message: string;
   total_rows: number;
   successful: number;
+  skipped: number;
   failed: number;
   errors: string[];
 }
@@ -147,9 +185,11 @@ export interface ChangePasswordFormData {
 
 export interface UserFormData {
   username: string;
+  email: string;
   password?: string;
+  full_name?: string;
   role: 'admin' | 'director' | 'organizer';
-  inviter_group_id: number | null;
+  inviter_group_id?: number;
 }
 
 export interface EventFormData {
@@ -158,6 +198,7 @@ export interface EventFormData {
   end_date: string;
   venue?: string;
   description?: string;
+  inviter_group_ids?: number[];
 }
 
 export interface InviteeFormData {
@@ -166,9 +207,18 @@ export interface InviteeFormData {
   phone: string;
   position?: string;
   company?: string;
-  category?: string;
-  invitation_class: string;
+  category?: InviteeCategory;
+  inviter_id?: number;
   notes?: string;
+}
+
+export interface InviterFormData {
+  name: string;
+  email?: string;
+  phone?: string;
+  position?: string;
+  inviter_group_id: number;
+  is_active?: boolean;
 }
 
 // Filter types
