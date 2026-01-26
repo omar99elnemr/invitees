@@ -1,139 +1,190 @@
 # Event Invitees Management System
 
-A comprehensive web application for managing event invitations with role-based access control, approval workflows, and detailed reporting.
-
-## 📖 Application Walkthrough
-
-### 1. User Roles & Authentication
-The system supports three distinct user roles with hierarchical permissions:
-
-*   **Admin**: Full system control. Can manage users, inviter groups, events, and view all system logs.
-*   **Director**: Manages their assigned inviter group. Can approve/reject contact submissions and view reports.
-*   **Organizer**: Part of an inviter group. Can add contacts and submit them to events for approval.
-
-**Login**: Access the system at `/login`.
-**Profile**: Change password via the profile menu in the top right.
-
-### 2. Contact Management (New Workflow)
-We have separated contact management from event submission to allow for better data organization.
-
-*   **Adding Contacts**:
-    1.  Go to the **Contacts** tab (default view).
-    2.  Click **Add Contact**.
-    3.  Fill in the detailed form (Name, Email, Phone, Title, Address, etc.).
-    4.  The contact is saved to your group's "Contact List" but is **not yet assigned to any event**.
-
-*   **Editing Contacts**:
-    *   Click the **Edit** icon on any contact.
-    *   All fields including secondary phone, address, and notes can be updated.
-    *   Changes are reflected immediately in the database.
-
-*   **Bulk Import**:
-    *   Use the **Import** button to upload contacts via Excel/CSV.
-    *   Download the template to ensure correct formatting.
-
-### 3. Event Submission Workflow
-Once contacts are in your list, you can invite them to specific events.
-
-1.  **Select Event**:
-    *   Go to the **Events** tab.
-    *   Select an active event from the list.
-
-2.  **Submit Contacts**:
-    *   You will see a list of "Available Contacts" (contacts in your group not yet invited to this event).
-    *   Select contacts using the checkboxes.
-    *   Click **Submit for Approval**.
-    *   The contacts move to the **Pending Approval** status for this event.
-
-### 4. Approval Process (Directors/Admins)
-Directors need to review submissions before they become official attendees.
-
-1.  **Review Pending**:
-    *   Select the event.
-    *   View the list of contacts in "Pending" status.
-    *   **Approve**: Click the checkmark. The contact becomes "Approved" and appears on the final guest list.
-    *   **Reject**: Click the 'X'. You can add a note explaining the rejection.
-
-2.  **Resubmission**:
-    *   Rejected contacts can be corrected and **Resubmitted** by the organizer.
-    *   They return to the "Pending Approval" state for re-review.
-
-### 5. Reporting
-*   **Summary Reports**: High-level stats per event or inviter.
-*   **Detailed Reports**: Export full lists of approved guests (the "Door List").
-*   **Exports**: All reports can be downloaded as Excel, CSV, or PDF.
+A comprehensive enterprise-grade application for managing event guest lists, simplifying the invitation process, and ensuring secure approval workflows. Designed for organizations with hierarchical teams handling complex event logistics.
 
 ---
 
-## 🛠️ Technology Stack
+## 🌟 Key Features
 
-*   **Backend**: Python Flask, SQLAlchemy, PostgreSQL
-*   **Frontend**: React (Vite), TypeScript, Tailwind CSS
-*   **Database**: PostgreSQL 15+
+### 🔐 Security & Access Control
+- **Role-Based Access Control (RBAC)**: Distinct permissions for Admins, Directors, and Organizers.
+- **Secure Authentication**: Encrypted sessions and password hashing using bcrypt.
+- **Audit Logging**: Complete track record of every action (who, what, when, from where).
+
+### 📅 Event Management
+- **Event Lifecycle**: Manage events from Upcoming → Ongoing → Ended.
+- **Multi-Group Assignment**: Assign specific Inviter Groups to handle different events.
+- **Smart Status Updates**: Automatic status transitions based on system time.
+
+### 👥 Power Contact Management (CRM)
+- **Centralized Database**: Global contact pool shared across the Inviter Group.
+- **Rich Contact Profiles**: Store names, phones (primary/secondary), emails, positions, companies, categories, and notes.
+- **Duplicate Prevention**: automatic checking to prevent duplicate entries.
+- **Bulk Operations**: Import hundreds of contacts via Excel/CSV with validation.
+
+### ✅ Approval Workflow Engine
+1. **Submission**: Organizers select contacts from their pool and submit them to an event.
+2. **Review**: Directors review pending submissions with full context.
+3. **Decision**: Approve or Reject (with required rejection notes).
+4. **Resubmission**: Rejected contacts can be corrected and resubmitted for review.
+
+### 📊 Reporting & Analytics
+- **Dynamic Dashboards**: Real-time stats for Organizers, Directors, and Admins.
+- **Exportable Reports**: Generate PDF, Excel, and CSV reports.
+  - *Summary Per Event*: High-level stats.
+  - *Detail Going*: Final guest list for door management.
+  - *Inviter Performance*: Track who is inviting whom.
 
 ---
 
-## 🚀 Installation & Setup
+## 🏗️ Technical Architecture
+
+### Backend (Python/Flask)
+- **Core**: Flask 3.x, Python 3.10+
+- **Database**: PostgreSQL 15+ with SQLAlchemy ORM
+- **Migrations**: Alembic (Flask-Migrate)
+- **Security**: Flask-Login, Bcrypt, CORS protection
+
+### Frontend (React/TypeScript)
+- **Core**: React 18, TypeScript, Vite
+- **UI System**: Tailwind CSS, Lucide Icons
+- **Data Fetching**: Axios with centralized error handling
+- **State**: Context API + React Hooks
+
+---
+
+## 🚀 Installation & Setup Guide
 
 ### Prerequisites
-*   Python 3.10+
-*   Node.js 18+
-*   PostgreSQL 15+
+- **Python 3.10+**
+- **Node.js 18+**
+- **PostgreSQL 15+**
+- **Git**
 
 ### 1. Database Setup
-1.  Create a PostgreSQL database named `invitees_db`.
-2.  Update `backend/.env` with your database credentials:
-    ```env
-    DATABASE_URL=postgresql://postgres:YOUR_PASSWORD@localhost:5432/invitees_db
-    ```
+```sql
+-- Create the database in PostgreSQL
+CREATE DATABASE invitees_db;
+```
 
 ### 2. Backend Installation
 ```bash
 cd backend
+
+# Create & Activate Virtual Environment
 python -m venv venv
-# Windows
+# Windows:
 .\venv\Scripts\Activate
-# Linux/Mac
+# Mac/Linux:
 source venv/bin/activate
 
+# Install Dependencies
 pip install -r requirements.txt
 
-# Run Database Migrations (Crucial!)
+# Configure Environment
+cp .env.example .env
+# EDIT .env file with your database credentials:
+# DATABASE_URL=postgresql://postgres:YOUR_PASSWORD@localhost:5432/invitees_db
+
+# Initialize Database
 flask db upgrade
 
-# Seed Initial Data (Admin user)
+# Seed Initial Data (Create Admin User)
 python seed.py
 
-# Start Server
+# Run Server
 python run.py
 ```
-*Backend runs on `http://localhost:5000`*
+*Backend runs on: `http://localhost:5000`*
 
 ### 3. Frontend Installation
 ```bash
 cd frontend
+
+# Install Dependencies
 npm install
+
+# Run Development Server
 npm run dev
 ```
-*Frontend runs on `http://localhost:5173`*
+*Frontend runs on: `http://localhost:5173`*
 
 ---
 
-## ⚠️ Important Troubleshooting
+## 📘 User Manual & Workflows
 
-**Database Changes**:
-If you encounter errors about missing columns (e.g., `secondary_phone`, `plus_one`), you likely need to apply the latest database migrations:
-```bash
-cd backend
-flask db upgrade
-```
+### 👥 User Roles explained
 
-**Workflow Behavior**:
-*   **New Contacts**: Do NOT appear in the "Approved" list immediately. They must be **Submitted** to an event and then **Approved**.
-*   **Missing Fields**: If adding a contact doesn't save specifically fields like "Address" or "Notes", ensure the backend has been restarted after the latest code updates.
+| Role | Responsibility |
+|------|----------------|
+| **Admin** | System owner. Manages Users, Groups, Categories, and global settings. Can edit/delete anything. |
+| **Director** | Head of a Team (Inviter Group). Reviews and approves/rejects guests submitted by their team. |
+| **Organizer** | Team member. Adds contacts and submits them to assigned events. Cannot approve guests. |
 
 ---
 
-## 🔒 Security
-*   **Admin Password**: Default is `Admin@123`. Change immediately after first login.
-*   **Privacy**: Contact details (phone/email) are hidden by default in API responses unless specifically requested by authorized views.
+### 🔄 The "Invite-to-Approval" Workflow
+
+This is the core workflow of the application:
+
+1. **Add Contact (Organizer)**:
+   - Go to **Invitees** page → Click **Add Contact**.
+   - Fills details (Name, Phone, Email, etc.).
+   - *Result*: Contact is added to the Team's contact pool. NOT yet invited to any event.
+
+2. **Submit to Event (Organizer)**:
+   - Go to **Jobs/Events** tab.
+   - Select an **Event**.
+   - Search/Select contacts from the pool.
+   - Click **Submit for Approval**.
+   - *Result*: Status becomes `Pending Approval`.
+
+3. **Review (Director)**:
+   - Go to **Approvals** page.
+   - Sees list of Pending requests.
+   - **Approve**: Status becomes `Approved`. The guest is now on the final list.
+   - **Reject**: Must enter a note explaining why. Status becomes `Rejected`.
+
+4. **Resubmit (Organizer)**:
+   - If rejected, Organizer sees the note.
+   - Can edit the contact (e.g., fix name) and click **Resubmit**.
+   - Cycle returns to Step 3.
+
+---
+
+### 🛠️ Administrative Tasks
+
+#### Creating a New Team (Inviter Group)
+1. Login as Admin.
+2. Go to **Inviter Groups**.
+3. Create New Group (e.g., "Sales Team", "VIP Relations").
+
+#### Adding Users
+1. Go to **Users** → **Add User**.
+2. **Director**: Assign them to a Group (e.g., "Sales Director" -> "Sales Team").
+3. **Organizer**: Assign them to the SAME Group (e.g., "Sales Rep" -> "Sales Team").
+
+#### Creating an Event
+1. Go to **Events** → **Create Event**.
+2. Assign **Inviter Groups** who are allowed to invite people to this event.
+   - *Example*: Assign "Sales Team" to "Launch Party". Now only Sales Team members can submit guests.
+
+---
+
+## � Troubleshooting
+
+| Issue | Likely Cause | Solution |
+|-------|--------------|----------|
+| **Login Failed** | Database not seeded or wrong password | Run `python seed.py` to reset admin. Default is `admin` / `Admin@123`. |
+| **"Network Error"** | Backend not running | Check if `python run.py` terminal is active and no errors. |
+| **Changes not saving** | Database migration missing | Run `flask db upgrade` in backend folder. |
+| **Upload Failed** | Excel format mismatch | Use the "Download Template" button in the Import modal and don't change header names. |
+
+---
+
+## 🔒 Security Best Practices for Deployment
+
+1. **Change Secret Key**: Update `SECRET_KEY` in `.env` to a long random string.
+2. **Production Mode**: Set `FLASK_ENV=production`.
+3. **HTTPS**: Always serve frontend/backend over HTTPS.
+4. **Database**: Use a managed PostgreSQL instance (e.g., AWS RDS) with restrictive firewalls.
