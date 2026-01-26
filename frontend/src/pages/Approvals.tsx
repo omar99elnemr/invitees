@@ -488,8 +488,12 @@ export default function Approvals() {
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {paginatedApprovals.map((approval) => (
-                      <tr key={approval.id} className={`hover:bg-gray-50 ${selectedIds.has(approval.id) ? 'bg-primary/5' : ''}`}>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                      <tr
+                        key={approval.id}
+                        className={`hover:bg-gray-50 cursor-pointer ${selectedIds.has(approval.id) ? 'bg-primary/5' : ''}`}
+                        onClick={() => toggleSelect(approval.id)}
+                      >
+                        <td className="px-6 py-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                           <input
                             type="checkbox"
                             checked={selectedIds.has(approval.id)}
@@ -537,7 +541,7 @@ export default function Approvals() {
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right">
-                          <div className="flex items-center justify-end gap-2">
+                          <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
                             <button
                               onClick={() => openQuickRejectModal(approval)}
                               disabled={submitting}
@@ -648,8 +652,12 @@ export default function Approvals() {
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {filteredApproved.map((invitee) => (
-                      <tr key={invitee.id} className={`hover:bg-gray-50 ${selectedIds.has(invitee.id) ? 'bg-primary/5' : ''}`}>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                      <tr
+                        key={invitee.id}
+                        className={`hover:bg-gray-50 cursor-pointer ${selectedIds.has(invitee.id) ? 'bg-primary/5' : ''}`}
+                        onClick={() => toggleSelect(invitee.id)}
+                      >
+                        <td className="px-6 py-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                           <input
                             type="checkbox"
                             checked={selectedIds.has(invitee.id)}
@@ -690,7 +698,7 @@ export default function Approvals() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right">
                           <button
-                            onClick={() => openCancelApprovalModal(invitee)}
+                            onClick={(e) => { e.stopPropagation(); openCancelApprovalModal(invitee); }}
                             disabled={submitting}
                             className="text-red-600 hover:text-red-800 text-sm font-medium disabled:opacity-50"
                           >

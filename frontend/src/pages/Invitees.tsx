@@ -751,9 +751,11 @@ export default function Invitees() {
                           <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
                           {/* <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
                           <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Phone</th> */}
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Inviter</th>
                           <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Company</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Guests</th>
                           <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Position</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Company</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-200">
@@ -794,15 +796,15 @@ export default function Invitees() {
                                   )}
                                 </div>
                               </td>
-                              {/* <td className="px-4 py-3 text-gray-600">{contact.email}</td>
-                              <td className="px-4 py-3 text-gray-600">{contact.phone}</td> */}
+                              <td className="px-4 py-3 text-gray-600">{contact.inviter_name || '-'}</td>
                               <td className="px-4 py-3">
                                 {contact.category && (
                                   <span className="text-xs px-2 py-0.5 bg-gray-100 rounded">{contact.category}</span>
                                 )}
                               </td>
-                              <td className="px-4 py-3 text-gray-600">{contact.company || '-'}</td>
+                              <td className="px-4 py-3 text-gray-600">{contact.plus_one || 0}</td>
                               <td className="px-4 py-3 text-gray-600">{contact.position || '-'}</td>
+                              <td className="px-4 py-3 text-gray-600">{contact.company || '-'}</td>
                             </tr>
                           );
                         })}

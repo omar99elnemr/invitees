@@ -533,10 +533,9 @@ def invite_existing_to_event(event_id):
     
     # Non-admins must select an inviter
     inviter_id = invitation_data.get('inviter_id')
-    if current_user.role != 'admin' and not inviter_id:
-        return jsonify({'error': 'Inviter is required'}), 400
+    # We don't enforce inviter_id here globally, as we can use the invitee's existing inviter_id
     
-    # Validate inviter belongs to user's group
+    # Validate inviter belongs to user's group IF PROVIDED
     if inviter_id and current_user.role != 'admin':
         inviter = Inviter.get_by_id(inviter_id)
         if not inviter or inviter.inviter_group_id != current_user.inviter_group_id:
