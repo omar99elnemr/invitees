@@ -8,6 +8,7 @@ from datetime import datetime
 
 
 # Category choices for event invitees
+# Category choices for event invitees - LEGACY
 EVENT_INVITEE_CATEGORIES = ['White', 'Gold']
 
 
@@ -19,7 +20,8 @@ class EventInvitee(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     event_id = db.Column(db.Integer, db.ForeignKey('events.id', ondelete='CASCADE'), nullable=False, index=True)
     invitee_id = db.Column(db.Integer, db.ForeignKey('invitees.id', ondelete='CASCADE'), nullable=False, index=True)
-    category = db.Column(db.String(20), nullable=True)  # White or Gold
+    # category = db.Column(db.String(20), nullable=True)  # Legacy
+    category_id = db.Column(db.Integer, db.ForeignKey('categories.id'), nullable=True, index=True)
     inviter_id = db.Column(db.Integer, db.ForeignKey('inviters.id'), nullable=True, index=True)  # The actual inviter from the group
     inviter_user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)  # User who submitted
     inviter_role = db.Column(db.String(20), nullable=False)
@@ -44,13 +46,16 @@ class EventInvitee(db.Model):
         db.CheckConstraint("status IN ('waiting_for_approval', 'approved', 'rejected')", name='check_status'),
         db.CheckConstraint("approver_role IN ('admin', 'director') OR approver_role IS NULL", name='check_approver_role'),
         db.CheckConstraint("is_going IN ('yes', 'no', 'maybe') OR is_going IS NULL", name='check_is_going'),
-        db.CheckConstraint("category IN ('White', 'Gold') OR category IS NULL", name='check_event_invitee_category'),
+        # db.CheckConstraint("category IN ('White', 'Gold') OR category IS NULL", name='check_event_invitee_category'),
     )
+    
+    # Relationship to Category
+    category_rel = db.relationship('Category')
     
     def __repr__(self):
         return f'<EventInvitee Event:{self.event_id} Invitee:{self.invitee_id} Status:{self.status}>'
     
-    def to_dict(self, include_relations=True):
+    def to_dict(self, include_relations=True, include_contact_details=True):
         """Convert event invitee to dictionary"""
         from app.models.user import User
         
@@ -61,7 +66,8 @@ class EventInvitee(db.Model):
             'id': self.id,
             'event_id': self.event_id,
             'invitee_id': self.invitee_id,
-            'category': self.category,
+            'category': self.category_rel.name if self.category_rel else None,
+            'category_id': self.category_id,
             'inviter_id': self.inviter_id,
             'inviter_user_id': self.inviter_user_id,
             'inviter_role': self.inviter_role,
@@ -83,8 +89,9 @@ class EventInvitee(db.Model):
             data['event_date'] = self.event.start_date.isoformat() if self.event and self.event.start_date else None
             data['event_location'] = self.event.venue if self.event else None
             data['invitee_name'] = self.invitee.name if self.invitee else None
-            data['invitee_email'] = self.invitee.email if self.invitee else None
-            data['invitee_phone'] = self.invitee.phone if self.invitee else None
+            if include_contact_details:
+                data['invitee_email'] = self.invitee.email if self.invitee else None
+                data['invitee_phone'] = self.invitee.phone if self.invitee else None
             data['invitee_position'] = self.invitee.position if self.invitee else None
             data['invitee_company'] = self.invitee.company if self.invitee else None
             # Inviter is the actual inviter from the group
@@ -162,7 +169,11 @@ class EventInvitee(db.Model):
                 query = query.filter_by(status=filters['status'])
             
             if 'exclude_status' in filters and filters['exclude_status']:
-                query = query.filter(EventInvitee.status != filters['exclude_status'])
+                # Support exclude_status as a list or single value
+                if isinstance(filters['exclude_status'], list):
+                    query = query.filter(~EventInvitee.status.in_(filters['exclude_status']))
+                else:
+                    query = query.filter(EventInvitee.status != filters['exclude_status'])
             
             if 'inviter_group_id' in filters and filters['inviter_group_id']:
                 group_id = filters['inviter_group_id']

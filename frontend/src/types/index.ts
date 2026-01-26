@@ -3,8 +3,17 @@
  */
 
 // Category options
-export const INVITEE_CATEGORIES = ['White', 'Gold'] as const;
-export type InviteeCategory = typeof INVITEE_CATEGORIES[number];
+// export const INVITEE_CATEGORIES = ['White', 'Gold'] as const;
+export type InviteeCategory = string;
+
+export interface Category {
+  id: number;
+  name: string;
+  is_active: boolean;
+  invitee_count?: number;
+  created_at: string;
+  updated_at: string;
+}
 
 export interface User {
   id: number;
@@ -71,11 +80,16 @@ export interface Invitee {
   category?: InviteeCategory;
   inviter_group_id?: number;
   inviter_group_name?: string;
+  inviter_id?: number;
+  inviter_name?: string;
   created_at: string;
   updated_at: string;
 }
 
 export interface InviteeWithStats extends Invitee {
+  inviter_id?: number;
+  inviter_name?: string;
+  plus_one?: number;
   total_events: number;
   approved_count: number;
   rejected_count: number;
@@ -119,12 +133,12 @@ export interface DashboardStats {
   pending_submissions?: number;
   approved_this_month?: number;
   rejected_this_month?: number;
-  
+
   // Director stats
   pending_approvals?: number;
   my_invitations_this_month?: number;
   total_approved_today?: number;
-  
+
   // Admin stats
   total_users?: number;
   active_users?: number;
@@ -205,10 +219,14 @@ export interface InviteeFormData {
   name: string;
   email: string;
   phone: string;
+  secondary_phone?: string;
+  address?: string;
+  title?: string;
   position?: string;
   company?: string;
   category?: InviteeCategory;
   inviter_id?: number;
+  plus_one?: number;
   notes?: string;
 }
 
@@ -217,7 +235,7 @@ export interface InviterFormData {
   email?: string;
   phone?: string;
   position?: string;
-  inviter_group_id: number;
+  inviter_group_id: number | undefined;
   is_active?: boolean;
 }
 

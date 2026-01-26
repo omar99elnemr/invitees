@@ -138,7 +138,7 @@ export default function Reports() {
         'Position': item.invitee_position || '',
         'Company': item.invitee_company || '',
         'Category': item.category || '',
-        'Class': item.invitation_class || '',
+        // 'Class': item.invitation_class || '',
         'Plus One': item.plus_one ? 'Yes' : 'No',
         'RSVP': item.is_going === 'yes' ? 'Yes' : item.is_going === 'no' ? 'No' : item.is_going === 'maybe' ? 'Maybe' : 'Pending',
         'Event': item.event_name || '',
@@ -159,7 +159,7 @@ export default function Reports() {
         'Position': item.invitee_position || '',
         'Company': item.invitee_company || '',
         'Category': item.category || '',
-        'Class': item.invitation_class || '',
+        // 'Class': item.invitation_class || '',
         'Status': item.status === 'waiting_for_approval' ? 'Pending' : 
                   item.status === 'approved' ? 'Approved' : 'Rejected',
         'RSVP': item.is_going === 'yes' ? 'Yes' : item.is_going === 'no' ? 'No' : item.is_going === 'maybe' ? 'Maybe' : 'Pending',

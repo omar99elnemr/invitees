@@ -5,8 +5,8 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { dashboardAPI, approvalsAPI, eventsAPI } from '../services/api';
-import type { DashboardStats, Event, EventInvitee } from '../types';
+ import { dashboardAPI, eventsAPI } from '../services/api';
+ import type { DashboardStats, Event } from '../types';
 import {
   Users,
   Calendar,

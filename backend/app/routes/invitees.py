@@ -16,8 +16,11 @@ invitees_bp = Blueprint('invitees', __name__, url_prefix='/api/invitees')
 @invitees_bp.route('/categories', methods=['GET'])
 @login_required
 def get_categories():
-    """Get predefined category options"""
-    return jsonify(INVITEE_CATEGORIES), 200
+    """Get category options"""
+    from app.models.category import Category
+    categories = Category.query.filter_by(is_active=True).order_by(Category.name).all()
+    # Return names for backward compatibility with frontend options
+    return jsonify([c.name for c in categories]), 200
 
 
 @invitees_bp.route('', methods=['GET'])
@@ -42,6 +45,9 @@ def get_all_invitees():
         group_id = request.args.get('inviter_group_id', type=int)
         if group_id:
             query = query.filter_by(inviter_group_id=group_id)
+    
+    # Check if contact details should be included (default False for privacy)
+    include_contact_details = request.args.get('include_contact_details', 'false').lower() == 'true'
     
     invitees = query.order_by(Invitee.name).all()
     
@@ -68,7 +74,7 @@ def get_all_invitees():
     # Build response with statistics
     result = []
     for invitee in invitees:
-        inv_dict = invitee.to_dict()
+        inv_dict = invitee.to_dict(include_contact_details=include_contact_details)
         counts = counts_lookup.get(invitee.id, {
             'total_events': 0,
             'approved_count': 0,
@@ -80,6 +86,106 @@ def get_all_invitees():
     
     return jsonify(result), 200
 
+
+@invitees_bp.route('', methods=['POST'])
+@login_required
+def create_contact():
+    """Create a new contact for the inviter group WITHOUT adding to any event"""
+    from app.models.invitee import Invitee
+    from app.models.inviter import Inviter
+    from app.models.category import Category
+    from app.models.audit_log import AuditLog
+    from datetime import datetime
+    
+    data = request.get_json()
+    
+    # Validate required fields
+    required_fields = ['name', 'email', 'phone']
+    for field in required_fields:
+        if field not in data or not data[field]:
+            return jsonify({'error': f'{field} is required'}), 400
+    
+    # Non-admins must select an inviter
+    if current_user.role != 'admin' and not data.get('inviter_id'):
+        return jsonify({'error': 'Inviter is required'}), 400
+    
+    # Validate inviter belongs to user's group
+    inviter_id = data.get('inviter_id')
+    if inviter_id and current_user.role != 'admin':
+        inviter = Inviter.get_by_id(inviter_id)
+        if not inviter or inviter.inviter_group_id != current_user.inviter_group_id:
+            return jsonify({'error': 'Invalid inviter selection'}), 400
+    
+    # Determine the inviter group
+    if current_user.role == 'admin':
+        # Admin must provide inviter_id to determine group, or we use the inviter's group
+        if inviter_id:
+            inviter = Inviter.get_by_id(inviter_id)
+            if inviter:
+                inviter_group_id = inviter.inviter_group_id
+            else:
+                return jsonify({'error': 'Invalid inviter'}), 400
+        else:
+            return jsonify({'error': 'Inviter is required'}), 400
+    else:
+        inviter_group_id = current_user.inviter_group_id
+    
+    if not inviter_group_id:
+        return jsonify({'error': 'Could not determine inviter group'}), 400
+    
+    # Validate email format
+    if not InviteeService.validate_email(data['email']):
+        return jsonify({'error': 'Invalid email format'}), 400
+    
+    # Validate phone format
+    if not InviteeService.validate_phone(data['phone']):
+        return jsonify({'error': 'Invalid phone format. Use international format (e.g., 201012345678)'}), 400
+    
+    # Check if invitee already exists in this group
+    email = data['email'].lower().strip()
+    existing = Invitee.query.filter_by(email=email, inviter_group_id=inviter_group_id).first()
+    if existing:
+        return jsonify({'error': f'A contact with email {email} already exists in this group'}), 400
+    
+    # Resolve category
+    category_id = None
+    if data.get('category'):
+        category_id = InviteeService._resolve_category_id(data['category'])
+    
+    # Create the invitee
+    invitee = Invitee(
+        name=data['name'],
+        email=email,
+        phone=data['phone'],
+        secondary_phone=data.get('secondary_phone'),
+        title=data.get('title'),
+        address=data.get('address'),
+        position=data.get('position'),
+        company=data.get('company'),
+        notes=data.get('notes'),
+        plus_one=data.get('plus_one', 0),
+        category_id=category_id,
+        inviter_group_id=inviter_group_id,
+        inviter_id=inviter_id
+    )
+    
+    db.session.add(invitee)
+    db.session.commit()
+    
+    # Log creation
+    AuditLog.log(
+        user_id=current_user.id,
+        action='create_contact',
+        table_name='invitees',
+        record_id=invitee.id,
+        new_value=f'Created contact {invitee.name}',
+        ip_address=request.remote_addr
+    )
+    db.session.commit()
+    
+    return jsonify(invitee.to_dict(include_contact_details=True)), 201
+
+
 @invitees_bp.route('/search', methods=['GET'])
 @login_required
 def search_invitees():
@@ -89,7 +195,8 @@ def search_invitees():
         return jsonify([]), 200
     
     invitees = InviteeService.search_invitees(query)
-    return jsonify([invitee.to_dict() for invitee in invitees]), 200
+    # Exclude contact details from search results for privacy
+    return jsonify([invitee.to_dict(include_contact_details=False) for invitee in invitees]), 200
 
 
 @invitees_bp.route('/<int:invitee_id>', methods=['GET'])
@@ -100,7 +207,9 @@ def get_invitee(invitee_id):
     invitee = Invitee.query.get(invitee_id)
     if not invitee:
         return jsonify({'error': 'Invitee not found'}), 404
-    return jsonify(invitee.to_dict()), 200
+    # Check if contact details should be included
+    include_contact_details = request.args.get('include_contact_details', 'false').lower() == 'true'
+    return jsonify(invitee.to_dict(include_contact_details=include_contact_details)), 200
 
 @invitees_bp.route('/<int:invitee_id>/history', methods=['GET'])
 @login_required
@@ -118,8 +227,8 @@ def get_invitee_history(invitee_id):
         .order_by(EventInvitee.created_at.desc()).all()
     
     return jsonify({
-        'invitee': invitee.to_dict(),
-        'events': [ei.to_dict(include_relations=True) for ei in event_invitees]
+        'invitee': invitee.to_dict(include_contact_details=False),
+        'events': [ei.to_dict(include_relations=True, include_contact_details=False) for ei in event_invitees]
     }), 200
 
 @invitees_bp.route('/<int:invitee_id>', methods=['PUT'])
@@ -133,8 +242,15 @@ def update_invitee(invitee_id):
         name=data.get('name'),
         email=data.get('email'),
         phone=data.get('phone'),
+        secondary_phone=data.get('secondary_phone'),
+        title=data.get('title'),
+        address=data.get('address'),
         position=data.get('position'),
         company=data.get('company'),
+        notes=data.get('notes'),
+        plus_one=data.get('plus_one'),
+        category=data.get('category'),
+        inviter_id=data.get('inviter_id'),
         updated_by_user_id=current_user.id
     )
     
@@ -142,7 +258,7 @@ def update_invitee(invitee_id):
         status_code = 404 if 'not found' in error.lower() else 400
         return jsonify({'error': error}), status_code
     
-    return jsonify(invitee.to_dict()), 200
+    return jsonify(invitee.to_dict(include_contact_details=True)), 200
 
 @invitees_bp.route('/<int:invitee_id>', methods=['DELETE'])
 @login_required
@@ -181,13 +297,13 @@ def get_event_invitees(event_id):
     
     filters = get_filters_from_request()
     
-    # Apply role-based visibility
-    if current_user.role == 'organizer':
-        # Organizers cannot see approved invitees, can see rejected and pending
-        filters['exclude_status'] = 'approved'
+    # Check if contact details should be included
+    include_contact_details = request.args.get('include_contact_details', 'false').lower() == 'true'
+    
+    # No backend filtering for organizers; return all invitees for the event
     
     event_invitees = InviteeService.get_invitees_for_event(event_id, filters)
-    return jsonify([ei.to_dict(include_relations=True) for ei in event_invitees]), 200
+    return jsonify([ei.to_dict(include_relations=True, include_contact_details=include_contact_details) for ei in event_invitees]), 200
 
 @invitees_bp.route('/events/<int:event_id>/invitees', methods=['POST'])
 @login_required
@@ -243,7 +359,7 @@ def add_invitee_to_event(event_id):
         status_code = 404 if 'not found' in error.lower() else 400
         return jsonify({'error': error}), status_code
     
-    return jsonify(event_invitee.to_dict(include_relations=True)), 201
+    return jsonify(event_invitee.to_dict(include_relations=True, include_contact_details=False)), 201
 
 @invitees_bp.route('/events/<int:event_id>/invitees/<int:invitee_id>', methods=['PUT'])
 @login_required
@@ -271,7 +387,7 @@ def update_event_invitee(event_id, invitee_id):
     if error:
         return jsonify({'error': error}), 400
     
-    return jsonify(updated_ei.to_dict(include_relations=True)), 200
+    return jsonify(updated_ei.to_dict(include_relations=True, include_contact_details=False)), 200
 
 @invitees_bp.route('/events/<int:event_id>/invitees/<int:invitee_id>', methods=['DELETE'])
 @login_required
@@ -365,7 +481,7 @@ def resubmit_invitee(event_id, invitee_id):
     
     db.session.commit()
     
-    return jsonify(event_invitee.to_dict(include_relations=True)), 200
+    return jsonify(event_invitee.to_dict(include_relations=True, include_contact_details=False)), 200
 
 
 @invitees_bp.route('/events/<int:event_id>/invite-existing', methods=['POST'])
@@ -375,6 +491,7 @@ def invite_existing_to_event(event_id):
     from app.models.event import Event
     from app.models.invitee import Invitee
     from app.models.inviter import Inviter
+    from app.models.event_invitee import EventInvitee
     from app.models.audit_log import AuditLog
     from datetime import datetime
     
@@ -429,7 +546,7 @@ def invite_existing_to_event(event_id):
                 'reason': 'Invitee not found'
             })
             continue
-        
+
         # Check if already invited to this event
         existing = EventInvitee.query.filter_by(event_id=event_id, invitee_id=invitee_id).first()
         if existing:
@@ -439,29 +556,45 @@ def invite_existing_to_event(event_id):
                 'status': existing.status
             })
             continue
+
+        # Use stored data from invitee if not provided
+        final_inviter_id = inviter_id or invitee.inviter_id
         
+        # Resolve category
+        final_category_id = None
+        if invitation_data.get('category'):
+            final_category_id = InviteeService._resolve_category_id(invitation_data.get('category'))
+        else:
+            final_category_id = invitee.category_id
+
+        final_plus_one = invitation_data.get('plus_one', invitee.plus_one) if invitation_data.get('plus_one') is not None else invitee.plus_one
+
         # Create event_invitee record
         event_invitee = EventInvitee(
             event_id=event_id,
             invitee_id=invitee.id,
-            category=invitation_data.get('category'),
-            inviter_id=inviter_id,  # Set the inviter from the invitation data
+            category_id=final_category_id,
+            inviter_id=final_inviter_id,
             inviter_user_id=current_user.id,
             inviter_role=current_user.role,
             status='waiting_for_approval',
-            plus_one=invitation_data.get('plus_one', 0),
+            plus_one=final_plus_one,
             notes=invitation_data.get('notes')
         )
-        
+
         db.session.add(event_invitee)
-        
+
         results['successful'].append({
             'invitee_id': invitee_id,
             'name': invitee.name,
             'event_invitee_id': None  # Will be set after commit
         })
     
-    db.session.commit()
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': f'Database error: {str(e)}'}), 500
     
     # Log the bulk invite action
     if results['successful']:

@@ -338,7 +338,11 @@ export default function Users() {
         await invitersAPI.update(selectedInviter.id, inviterFormData);
         toast.success('Inviter updated successfully');
       } else {
-        await invitersAPI.create(inviterFormData);
+        if (typeof inviterFormData.inviter_group_id === 'number') {
+          await invitersAPI.create(inviterFormData);
+        } else {
+          toast.error('Inviter group is required');
+        }
         toast.success('Inviter created successfully');
       }
       setShowInviterModal(false);
@@ -398,7 +402,7 @@ export default function Users() {
       password: '',
       full_name: user.full_name || '',
       role: user.role,
-      inviter_group_id: user.inviter_group_id,
+      inviter_group_id: user.inviter_group_id ?? undefined,
     });
     setShowEditModal(true);
   };

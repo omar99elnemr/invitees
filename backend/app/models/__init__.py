@@ -6,9 +6,11 @@ from app.models.user import User
 from app.models.inviter_group import InviterGroup
 from app.models.inviter import Inviter
 from app.models.event import Event, event_inviter_groups
-from app.models.invitee import Invitee, INVITEE_CATEGORIES
+from app.models.invitee import Invitee
 from app.models.event_invitee import EventInvitee, EVENT_INVITEE_CATEGORIES
 from app.models.audit_log import AuditLog
+
+from app.models.category import Category
 
 __all__ = [
     'User',
@@ -17,8 +19,8 @@ __all__ = [
     'Event',
     'event_inviter_groups',
     'Invitee',
-    'INVITEE_CATEGORIES',
     'EventInvitee',
     'EVENT_INVITEE_CATEGORIES',
-    'AuditLog'
+    'AuditLog',
+    'Category'
 ]

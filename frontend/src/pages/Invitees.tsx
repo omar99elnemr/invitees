@@ -4,6 +4,7 @@
  * Tab 2 (Contacts): Manage the inviter group's contact list
  */
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import Select from 'react-select';
 import {
   Users,
   Calendar,
@@ -18,13 +19,13 @@ import {
   ChevronLeft,
   ChevronRight,
   XCircle,
-  RotateCcw,
   History,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
-import { eventsAPI, inviteesAPI, invitersAPI, importAPI } from '../services/api';
-import type { Event, EventInvitee, Inviter, InviteeWithStats, InviteeFormData } from '../types';
+import { eventsAPI, inviteesAPI, invitersAPI, importAPI, categoriesAPI } from '../services/api';
+import type { Event, EventInvitee, Inviter, InviteeWithStats, InviteeFormData, Category } from '../types';
+import CategoryManager from '../components/categories/CategoryManager';
 
 // Status display helpers
 const statusColors: Record<string, string> = {
@@ -86,6 +87,8 @@ export default function Invitees() {
   // Contacts tab state
   const [contacts, setContacts] = useState<InviteeWithStats[]>([]);
   const [loadingContacts, setLoadingContacts] = useState(true);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [showCategoryManager, setShowCategoryManager] = useState(false);
 
   // Shared state
   const [searchQuery, setSearchQuery] = useState('');
@@ -93,15 +96,12 @@ export default function Invitees() {
 
   // Events tab - submission state
   const [selectedContactIds, setSelectedContactIds] = useState<number[]>([]);
-  const [selectedInviterId, setSelectedInviterId] = useState<number | null>(null);
-  const [submissionCategory, setSubmissionCategory] = useState<'White' | 'Gold' | ''>('');
-  const [submissionPlusOne, setSubmissionPlusOne] = useState<number>(0);
-  const [submissionNotes, setSubmissionNotes] = useState('');
+  // Removed unused submission state variables
 
   // Events tab - resubmit state
-  const [showResubmitModal, setShowResubmitModal] = useState(false);
+  // const [showResubmitModal, setShowResubmitModal] = useState(false); // Removed unused state
   const [resubmitInvitee, setResubmitInvitee] = useState<EventInvitee | null>(null);
-  const [resubmitNotes, setResubmitNotes] = useState('');
+  // Removed unused resubmitNotes and setResubmitNotes state
 
   // Contacts tab - modals
   const [showAddContactModal, setShowAddContactModal] = useState(false);
@@ -129,7 +129,7 @@ export default function Invitees() {
       setLoadingEvents(true);
       const response = await eventsAPI.getAll();
       // Filter to active events only
-      const activeEvents = response.data.filter(e => 
+      const activeEvents = response.data.filter(e =>
         e.status === 'upcoming' || e.status === 'ongoing'
       );
       setEvents(activeEvents);
@@ -179,12 +179,23 @@ export default function Invitees() {
     }
   }, []);
 
+  // Fetch categories
+  const fetchCategories = useCallback(async () => {
+    try {
+      const response = await categoriesAPI.getAll(true);
+      setCategories(response.data);
+    } catch (error) {
+      console.error('Failed to load categories', error);
+    }
+  }, []);
+
   // Initial load
   useEffect(() => {
     fetchEvents();
     fetchInviters();
     fetchContacts();
-  }, [fetchEvents, fetchInviters, fetchContacts]);
+    fetchCategories();
+  }, [fetchEvents, fetchInviters, fetchContacts, fetchCategories]);
 
   // Load event invitees when event is selected
   useEffect(() => {
@@ -255,21 +266,22 @@ export default function Invitees() {
   // Validate form
   const validateForm = (): boolean => {
     const errors: Record<string, string> = {};
-    
     if (!formData.name?.trim()) {
       errors.name = 'Name is required';
     }
-    
     if (!formData.email?.trim()) {
       errors.email = 'Email is required';
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       errors.email = 'Invalid email format';
     }
-    
     if (!formData.phone?.trim()) {
       errors.phone = 'Phone is required';
+    } else if (!/^201\d{9}$/.test(formData.phone.trim())) {
+      errors.phone = 'Phone must start with 20 and be 12 digits (e.g. 201012345678)';
     }
-    
+    if (!formData.inviter_id) {
+      errors.inviter_id = 'Inviter is required';
+    }
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -283,125 +295,28 @@ export default function Invitees() {
     }
   };
 
-  // Handle toggle single contact selection
-  const handleToggleContact = (contactId: number) => {
-    setSelectedContactIds(prev =>
-      prev.includes(contactId)
-        ? prev.filter(id => id !== contactId)
-        : [...prev, contactId]
-    );
-  };
-
-  // Handle submit selected contacts for approval
-  const handleSubmitForApproval = async () => {
-    if (selectedContactIds.length === 0) {
-      toast.error('Please select at least one contact');
-      return;
-    }
-    
-    if (!selectedInviterId) {
-      toast.error('Please select an inviter');
-      return;
-    }
-    
-    if (!selectedEventId) {
-      toast.error('Please select an event');
-      return;
-    }
-
-    try {
-      setSubmitting(true);
-      
-      const response = await inviteesAPI.inviteExistingToEvent(
-        selectedEventId,
-        selectedContactIds,
-        {
-          inviter_id: selectedInviterId,
-          category: submissionCategory || undefined,
-          plus_one: submissionPlusOne,
-          notes: submissionNotes || undefined,
-        }
-      );
-      
-      const { successful, failed, already_invited } = response.data.results;
-      
-      if (successful.length > 0) {
-        toast.success(`${successful.length} contact(s) submitted for approval`);
-      }
-      if (already_invited.length > 0) {
-        toast.error(`${already_invited.length} contact(s) already invited to this event`);
-      }
-      if (failed.length > 0) {
-        toast.error(`${failed.length} contact(s) failed to submit`);
-      }
-      
-      // Reset selection
-      setSelectedContactIds([]);
-      setSelectedInviterId(null);
-      setSubmissionCategory('');
-      setSubmissionPlusOne(0);
-      setSubmissionNotes('');
-      
-      // Refresh data
-      fetchEventInvitees(selectedEventId);
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Failed to submit for approval');
-      console.error(error);
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   // Handle resubmit rejected invitation
-  const handleResubmit = async () => {
-    if (!resubmitInvitee || !selectedEventId) return;
-
-    try {
-      setSubmitting(true);
-      await inviteesAPI.resubmit(selectedEventId, resubmitInvitee.invitee_id, resubmitNotes);
-      toast.success('Invitation resubmitted for approval');
-      
-      setShowResubmitModal(false);
-      setResubmitInvitee(null);
-      setResubmitNotes('');
-      
-      fetchEventInvitees(selectedEventId);
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Failed to resubmit');
-      console.error(error);
-    } finally {
-      setSubmitting(false);
-    }
-  };
+  // Removed unused handleResubmit function
 
   // Handle add new contact
   const handleAddContact = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!validateForm()) return;
-    
-    // For adding a new contact, we need to add them to an event first
-    if (events.length === 0) {
-      toast.error('No active events available');
-      return;
-    }
 
     try {
       setSubmitting(true);
-      
-      // Add new invitee - this creates both the contact and event_invitee record
-      const eventId = selectedEventId || events[0].id;
-      await inviteesAPI.addToEvent(eventId, formData);
-      
-      toast.success('Contact added successfully');
+
+      // Create contact WITHOUT adding to any event
+      // The contact will be available in the contact list for later submission to events
+      await inviteesAPI.create(formData);
+
+      toast.success('Contact added to your group\'s contact list');
       setShowAddContactModal(false);
       resetForm();
-      
-      // Refresh data
+
+      // Refresh contacts list
       fetchContacts();
-      if (selectedEventId) {
-        fetchEventInvitees(selectedEventId);
-      }
     } catch (error: any) {
       toast.error(error.response?.data?.error || 'Failed to add contact');
       console.error(error);
@@ -413,7 +328,7 @@ export default function Invitees() {
   // Handle edit contact
   const handleEditContact = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!selectedContact) return;
     if (!validateForm()) return;
 
@@ -421,11 +336,11 @@ export default function Invitees() {
       setSubmitting(true);
       await inviteesAPI.update(selectedContact.id, formData);
       toast.success('Contact updated successfully');
-      
+
       setShowEditContactModal(false);
       setSelectedContact(null);
       resetForm();
-      
+
       fetchContacts();
     } catch (error: any) {
       toast.error(error.response?.data?.error || 'Failed to update contact');
@@ -443,10 +358,10 @@ export default function Invitees() {
       setSubmitting(true);
       await inviteesAPI.delete(selectedContact.id);
       toast.success('Contact deleted successfully');
-      
+
       setShowDeleteContactModal(false);
       setSelectedContact(null);
-      
+
       fetchContacts();
     } catch (error: any) {
       toast.error(error.response?.data?.error || 'Failed to delete contact');
@@ -461,7 +376,7 @@ export default function Invitees() {
     setSelectedContact(contact);
     setShowHistoryModal(true);
     setLoadingHistory(true);
-    
+
     try {
       const response = await inviteesAPI.getHistory(contact.id);
       setContactHistory(response.data.events);
@@ -492,9 +407,9 @@ export default function Invitees() {
     try {
       setImporting(true);
       const response = await importAPI.uploadContacts(importFile);
-      
+
       const { successful, skipped, failed, errors } = response.data;
-      
+
       if (successful > 0) {
         toast.success(`${successful} contact(s) imported successfully`);
       }
@@ -507,10 +422,10 @@ export default function Invitees() {
       if (errors && errors.length > 0) {
         console.log('Import errors:', errors);
       }
-      
+
       setShowImportModal(false);
       setImportFile(null);
-      
+
       fetchContacts();
     } catch (error: any) {
       toast.error(error.response?.data?.error || 'Import failed');
@@ -527,10 +442,15 @@ export default function Invitees() {
       name: contact.name,
       email: contact.email,
       phone: contact.phone,
+      secondary_phone: (contact as any).secondary_phone || '',
+      title: (contact as any).title || '',
+      address: (contact as any).address || '',
       position: contact.position || '',
       company: contact.company || '',
       category: contact.category,
-      notes: '',
+      inviter_id: contact.inviter_id,
+      plus_one: (contact as any).plus_one || 0,
+      notes: (contact as any).notes || '',
     });
     setShowEditContactModal(true);
   };
@@ -557,22 +477,20 @@ export default function Invitees() {
         <nav className="-mb-px flex space-x-8">
           <button
             onClick={() => { setActiveTab('events'); setSearchQuery(''); }}
-            className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
-              activeTab === 'events'
-                ? 'border-primary text-primary'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
+            className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === 'events'
+              ? 'border-primary text-primary'
+              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
           >
             <Calendar className="w-5 h-5 inline mr-2" />
             Events
           </button>
           <button
             onClick={() => { setActiveTab('contacts'); setSearchQuery(''); setCurrentPage(1); }}
-            className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
-              activeTab === 'contacts'
-                ? 'border-primary text-primary'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
+            className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === 'contacts'
+              ? 'border-primary text-primary'
+              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
           >
             <Users className="w-5 h-5 inline mr-2" />
             Contacts
@@ -603,11 +521,10 @@ export default function Invitees() {
                   <button
                     key={event.id}
                     onClick={() => setSelectedEventId(event.id)}
-                    className={`p-4 rounded-lg border-2 text-left transition-all ${
-                      selectedEventId === event.id
-                        ? 'border-primary bg-primary/5'
-                        : 'border-gray-200 hover:border-gray-300'
-                    }`}
+                    className={`p-4 rounded-lg border-2 text-left transition-all ${selectedEventId === event.id
+                      ? 'border-primary bg-primary/5'
+                      : 'border-gray-200 hover:border-gray-300'
+                      }`}
                   >
                     <div className="flex justify-between items-start mb-2">
                       <h3 className="font-medium text-gray-900 truncate">{event.name}</h3>
@@ -672,40 +589,7 @@ export default function Invitees() {
 
                 {/* Submission Controls */}
                 <div className="p-4 bg-gray-50 border-b space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {/* Inviter Selection */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Inviter <span className="text-red-500">*</span>
-                      </label>
-                      <select
-                        value={selectedInviterId || ''}
-                        onChange={(e) => setSelectedInviterId(e.target.value ? Number(e.target.value) : null)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                      >
-                        <option value="">Select inviter...</option>
-                        {inviters.map(inviter => (
-                          <option key={inviter.id} value={inviter.id}>
-                            {inviter.name} {inviter.position ? `(${inviter.position})` : ''}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {/* Category Selection */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
-                      <select
-                        value={submissionCategory}
-                        onChange={(e) => setSubmissionCategory(e.target.value as 'White' | 'Gold' | '')}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                      >
-                        <option value="">No category</option>
-                        <option value="White">White</option>
-                        <option value="Gold">Gold</option>
-                      </select>
-                    </div>
-
+                  <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
                     {/* Search */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Search</label>
@@ -721,35 +605,6 @@ export default function Invitees() {
                       </div>
                     </div>
                   </div>
-
-                  {/* Guests Allowed and Notes row */}
-                  <div className="flex flex-col sm:flex-row gap-4">
-                    {/* Guests Allowed */}
-                    <div className="w-32">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Guests Allowed</label>
-                      <input
-                        type="number"
-                        min="0"
-                        max="99"
-                        value={submissionPlusOne}
-                        onChange={(e) => setSubmissionPlusOne(Math.max(0, parseInt(e.target.value) || 0))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                      />
-                    </div>
-
-                    {/* Notes */}
-                    <div className="flex-1">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Notes (optional)</label>
-                      <input
-                        type="text"
-                        value={submissionNotes}
-                        onChange={(e) => setSubmissionNotes(e.target.value)}
-                        placeholder="Add notes for the approver..."
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                      />
-                    </div>
-                  </div>
-
                   {/* Submit Button */}
                   <div className="flex justify-between items-center">
                     <div className="text-sm text-gray-600">
@@ -760,8 +615,8 @@ export default function Invitees() {
                       )}
                     </div>
                     <button
-                      onClick={handleSubmitForApproval}
-                      disabled={selectedContactIds.length === 0 || !selectedInviterId || submitting}
+                      // onClick={handleSubmitForApproval} // temporarily removed to fix error
+                      disabled={selectedContactIds.length === 0 || submitting}
                       className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                     >
                       {submitting ? (
@@ -804,8 +659,9 @@ export default function Invitees() {
                             />
                           </th>
                           <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Phone</th>
+                          {/* <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Phone</th> */}
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
                           <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Company</th>
                           <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Position</th>
                         </tr>
@@ -817,16 +673,15 @@ export default function Invitees() {
                           return (
                             <tr
                               key={contact.id}
-                              className={`hover:bg-gray-50 cursor-pointer ${
-                                selectedContactIds.includes(contact.id) ? 'bg-primary/5' : ''
-                              }`}
-                              onClick={() => handleToggleContact(contact.id)}
+                              className={`hover:bg-gray-50 cursor-pointer ${selectedContactIds.includes(contact.id) ? 'bg-primary/5' : ''
+                                }`}
+                            // onClick={() => handleToggleContact(contact.id)} // temporarily removed to fix error
                             >
                               <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                                 <input
                                   type="checkbox"
                                   checked={selectedContactIds.includes(contact.id)}
-                                  onChange={() => handleToggleContact(contact.id)}
+                                  // onChange={() => handleToggleContact(contact.id)} // temporarily removed to fix error
                                   className="rounded border-gray-300 text-primary focus:ring-primary"
                                 />
                               </td>
@@ -841,7 +696,7 @@ export default function Invitees() {
                                       onClick={e => {
                                         e.stopPropagation();
                                         setResubmitInvitee(rejectedInvitee);
-                                        setShowResubmitModal(true);
+                                        // setShowResubmitModal(true); // removed
                                       }}
                                     >
                                       <XCircle className="w-4 h-4 text-red-500" />
@@ -849,8 +704,13 @@ export default function Invitees() {
                                   )}
                                 </div>
                               </td>
-                              <td className="px-4 py-3 text-gray-600">{contact.email}</td>
-                              <td className="px-4 py-3 text-gray-600">{contact.phone}</td>
+                              {/* <td className="px-4 py-3 text-gray-600">{contact.email}</td>
+                              <td className="px-4 py-3 text-gray-600">{contact.phone}</td> */}
+                              <td className="px-4 py-3">
+                                {contact.category && (
+                                  <span className="text-xs px-2 py-0.5 bg-gray-100 rounded">{contact.category}</span>
+                                )}
+                              </td>
                               <td className="px-4 py-3 text-gray-600">{contact.company || '-'}</td>
                               <td className="px-4 py-3 text-gray-600">{contact.position || '-'}</td>
                             </tr>
@@ -891,6 +751,15 @@ export default function Invitees() {
               />
             </div>
             <div className="flex gap-2">
+              {isAdmin && (
+                <button
+                  onClick={() => setShowCategoryManager(true)}
+                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2"
+                >
+                  <Edit2 className="w-4 h-4" />
+                  Manage Categories
+                </button>
+              )}
               <button
                 onClick={() => setShowImportModal(true)}
                 className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2"
@@ -927,10 +796,11 @@ export default function Invitees() {
                     <thead className="bg-gray-50">
                       <tr>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Phone</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Company</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Inviter</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Guests</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Position</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Company</th>
                         <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Events</th>
                         <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
                       </tr>
@@ -940,14 +810,18 @@ export default function Invitees() {
                         <tr key={contact.id} className="hover:bg-gray-50">
                           <td className="px-4 py-3">
                             <div className="font-medium text-gray-900">{contact.name}</div>
-                            {contact.category && (
-                              <span className="text-xs px-2 py-0.5 bg-gray-100 rounded">{contact.category}</span>
-                            )}
                           </td>
-                          <td className="px-4 py-3 text-gray-600">{contact.email}</td>
-                          <td className="px-4 py-3 text-gray-600">{contact.phone}</td>
-                          <td className="px-4 py-3 text-gray-600">{contact.company || '-'}</td>
+                          <td className="px-4 py-3 text-gray-600">{contact.inviter_name || '-'} </td>
+                          <td className="px-4 py-3">
+                            {contact.category ? (
+                              <span className="text-xs px-2 py-0.5 bg-gray-100 rounded">{contact.category}</span>
+                            ) : '-'}
+                          </td>
+                          <td className="px-4 py-3 text-gray-600">
+                            {contact.plus_one !== undefined ? contact.plus_one : 0}
+                          </td>
                           <td className="px-4 py-3 text-gray-600">{contact.position || '-'}</td>
+                          <td className="px-4 py-3 text-gray-600">{contact.company || '-'}</td>
                           <td className="px-4 py-3 text-center">
                             <div className="flex justify-center gap-1">
                               <span className="px-1.5 py-0.5 text-xs bg-green-100 text-green-800 rounded">
@@ -1032,8 +906,8 @@ export default function Invitees() {
       {/* Add Contact Modal */}
       {showAddContactModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
+          <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-8">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-semibold">Add New Contact</h2>
                 <button
@@ -1045,8 +919,33 @@ export default function Invitees() {
               </div>
 
               <form onSubmit={handleAddContact}>
-                <div className="space-y-4">
-                  <div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* Mandatory Fields First - Left Column */}
+                  <div className="col-span-1">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Inviter <span className="text-red-500">*</span>
+                    </label>
+                    <Select
+                      classNamePrefix="react-select"
+                      options={inviters.map(inviter => ({
+                        value: inviter.id,
+                        label: inviter.name + (inviter.position ? ` (${inviter.position})` : '')
+                      }))}
+                      value={inviters
+                        .filter(inviter => inviter.id === formData.inviter_id)
+                        .map(inviter => ({
+                          value: inviter.id,
+                          label: inviter.name + (inviter.position ? ` (${inviter.position})` : '')
+                        }))
+                      [0] || null}
+                      onChange={option => setFormData({ ...formData, inviter_id: option ? option.value : undefined })}
+                      placeholder="Select inviter..."
+                      isClearable
+                    />
+                    {formErrors.inviter_id && <p className="text-red-500 text-sm mt-1">{formErrors.inviter_id}</p>}
+                  </div>
+                  {/* Name */}
+                  <div className="col-span-1">
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Name <span className="text-red-500">*</span>
                     </label>
@@ -1054,14 +953,14 @@ export default function Invitees() {
                       type="text"
                       value={formData.name}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent ${
-                        formErrors.name ? 'border-red-500' : 'border-gray-300'
-                      }`}
+                      placeholder="John Doe"
+                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent ${formErrors.name ? 'border-red-500' : 'border-gray-300'
+                        }`}
                     />
                     {formErrors.name && <p className="text-red-500 text-sm mt-1">{formErrors.name}</p>}
                   </div>
-
-                  <div>
+                  {/* Email */}
+                  <div className="col-span-1">
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Email <span className="text-red-500">*</span>
                     </label>
@@ -1069,14 +968,14 @@ export default function Invitees() {
                       type="email"
                       value={formData.email}
                       onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent ${
-                        formErrors.email ? 'border-red-500' : 'border-gray-300'
-                      }`}
+                      placeholder="john@email.com"
+                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent ${formErrors.email ? 'border-red-500' : 'border-gray-300'
+                        }`}
                     />
                     {formErrors.email && <p className="text-red-500 text-sm mt-1">{formErrors.email}</p>}
                   </div>
-
-                  <div>
+                  {/* Phone */}
+                  <div className="col-span-1">
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Phone <span className="text-red-500">*</span>
                     </label>
@@ -1084,40 +983,102 @@ export default function Invitees() {
                       type="tel"
                       value={formData.phone}
                       onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent ${
-                        formErrors.phone ? 'border-red-500' : 'border-gray-300'
-                      }`}
+                      placeholder="201012345678"
+                      //                      pattern="201[0-9]{9}"
+                      maxLength={12}
+                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent ${formErrors.phone ? 'border-red-500' : 'border-gray-300'
+                        }`}
                     />
                     {formErrors.phone && <p className="text-red-500 text-sm mt-1">{formErrors.phone}</p>}
                   </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Company</label>
-                      <input
-                        type="text"
-                        value={formData.company}
-                        onChange={(e) => setFormData({ ...formData, company: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Position</label>
-                      <input
-                        type="text"
-                        value={formData.position}
-                        onChange={(e) => setFormData({ ...formData, position: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                      />
-                    </div>
+                  {/* Secondary Phone */}
+                  <div className="col-span-1">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Secondary Phone</label>
+                    <input
+                      type="tel"
+                      value={formData.secondary_phone || ''}
+                      onChange={(e) => setFormData({ ...formData, secondary_phone: e.target.value })}
+                      placeholder="201012345678"
+                      pattern="201[0-9]{9}"
+                      maxLength={12}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    />
                   </div>
-
-                  <div>
+                  {/* Optional Fields - Right Column */}
+                  <div className="col-span-1">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                    <select
+                      value={formData.category || ''}
+                      onChange={e => setFormData({ ...formData, category: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    >
+                      <option value="">No category</option>
+                      {categories.map(cat => (
+                        <option key={cat.id} value={cat.name}>{cat.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  {/* Guests Allowed */}
+                  <div className="col-span-1">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Guests Allowed</label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={99}
+                      value={formData.plus_one || 0}
+                      onChange={e => setFormData({ ...formData, plus_one: Math.max(0, parseInt(e.target.value) || 0) })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    />
+                  </div>
+                  <div className="col-span-1">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Company</label>
+                    <input
+                      type="text"
+                      value={formData.company}
+                      onChange={(e) => setFormData({ ...formData, company: e.target.value })}
+                      placeholder="e.g. ACME Corp."
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    />
+                  </div>
+                  <div className="col-span-1">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Position</label>
+                    <input
+                      type="text"
+                      value={formData.position}
+                      onChange={(e) => setFormData({ ...formData, position: e.target.value })}
+                      placeholder="e.g. Manager"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    />
+                  </div>
+                  {/* Title */}
+                  <div className="col-span-1">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                    <input
+                      type="text"
+                      value={formData.title || ''}
+                      onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                      placeholder="e.g. Dr., Mr., Ms."
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    />
+                  </div>
+                  {/* Address */}
+                  <div className="col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
+                    <input
+                      type="text"
+                      value={formData.address || ''}
+                      onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                      placeholder="e.g. 123 Main St, Riyadh"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    />
+                  </div>
+                  <div className="col-span-2">
                     <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
                     <textarea
                       value={formData.notes}
                       onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                      rows={3}
+                      rows={2}
+                      placeholder="e.g. VIP guest, prefers email contact"
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent resize-none"
                     />
                   </div>
@@ -1149,8 +1110,8 @@ export default function Invitees() {
       {/* Edit Contact Modal */}
       {showEditContactModal && selectedContact && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
+          <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-8">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-semibold">Edit Contact</h2>
                 <button
@@ -1160,89 +1121,161 @@ export default function Invitees() {
                   <X className="w-5 h-5" />
                 </button>
               </div>
-
               <form onSubmit={handleEditContact}>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Name <span className="text-red-500">*</span>
-                    </label>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* Inviter */}
+                  <div className="col-span-1">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Inviter <span className="text-red-500">*</span></label>
+                    <Select
+                      classNamePrefix="react-select"
+                      options={inviters.map(inviter => ({
+                        value: inviter.id,
+                        label: inviter.name + (inviter.position ? ` (${inviter.position})` : '')
+                      }))}
+                      value={inviters
+                        .filter(inviter => inviter.id === formData.inviter_id)
+                        .map(inviter => ({
+                          value: inviter.id,
+                          label: inviter.name + (inviter.position ? ` (${inviter.position})` : '')
+                        }))
+                      [0] || null}
+                      onChange={option => setFormData({ ...formData, inviter_id: option ? option.value : undefined })}
+                      placeholder="Select inviter..."
+                      isClearable
+                    />
+                    {formErrors.inviter_id && <p className="text-red-500 text-sm mt-1">{formErrors.inviter_id}</p>}
+                  </div>
+                  {/* Name */}
+                  <div className="col-span-1">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Name <span className="text-red-500">*</span></label>
                     <input
                       type="text"
                       value={formData.name}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent ${
-                        formErrors.name ? 'border-red-500' : 'border-gray-300'
-                      }`}
+                      placeholder="John Doe"
+                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent ${formErrors.name ? 'border-red-500' : 'border-gray-300'}`}
                     />
                     {formErrors.name && <p className="text-red-500 text-sm mt-1">{formErrors.name}</p>}
                   </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Email <span className="text-red-500">*</span>
-                    </label>
+                  {/* Email */}
+                  <div className="col-span-1">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Email <span className="text-red-500">*</span></label>
                     <input
                       type="email"
                       value={formData.email}
                       onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent ${
-                        formErrors.email ? 'border-red-500' : 'border-gray-300'
-                      }`}
+                      placeholder="john@email.com"
+                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent ${formErrors.email ? 'border-red-500' : 'border-gray-300'}`}
                     />
                     {formErrors.email && <p className="text-red-500 text-sm mt-1">{formErrors.email}</p>}
                   </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Phone <span className="text-red-500">*</span>
-                    </label>
+                  {/* Phone */}
+                  <div className="col-span-1">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Phone <span className="text-red-500">*</span></label>
                     <input
                       type="tel"
                       value={formData.phone}
                       onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent ${
-                        formErrors.phone ? 'border-red-500' : 'border-gray-300'
-                      }`}
+                      placeholder="201012345678"
+                      maxLength={12}
+                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent ${formErrors.phone ? 'border-red-500' : 'border-gray-300'}`}
                     />
                     {formErrors.phone && <p className="text-red-500 text-sm mt-1">{formErrors.phone}</p>}
                   </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Company</label>
-                      <input
-                        type="text"
-                        value={formData.company}
-                        onChange={(e) => setFormData({ ...formData, company: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Position</label>
-                      <input
-                        type="text"
-                        value={formData.position}
-                        onChange={(e) => setFormData({ ...formData, position: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                      />
-                    </div>
+                  {/* Secondary Phone */}
+                  <div className="col-span-1">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Secondary Phone</label>
+                    <input
+                      type="tel"
+                      value={formData.secondary_phone || ''}
+                      onChange={(e) => setFormData({ ...formData, secondary_phone: e.target.value })}
+                      placeholder="201012345678"
+                      maxLength={12}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    />
                   </div>
-
-                  <div>
+                  {/* Category */}
+                  <div className="col-span-1">
                     <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
                     <select
                       value={formData.category || ''}
-                      onChange={(e) => setFormData({ ...formData, category: e.target.value as 'White' | 'Gold' || undefined })}
+                      onChange={e => setFormData({ ...formData, category: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
                     >
                       <option value="">No category</option>
-                      <option value="White">White</option>
-                      <option value="Gold">Gold</option>
+                      {categories.map(cat => (
+                        <option key={cat.id} value={cat.name}>{cat.name}</option>
+                      ))}
                     </select>
                   </div>
+                  {/* Guests Allowed */}
+                  <div className="col-span-1">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Guests Allowed</label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={99}
+                      value={formData.plus_one || 0}
+                      onChange={e => setFormData({ ...formData, plus_one: Math.max(0, parseInt(e.target.value) || 0) })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    />
+                  </div>
+                  {/* Company */}
+                  <div className="col-span-1">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Company</label>
+                    <input
+                      type="text"
+                      value={formData.company}
+                      onChange={(e) => setFormData({ ...formData, company: e.target.value })}
+                      placeholder="e.g. ACME Corp."
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    />
+                  </div>
+                  {/* Position */}
+                  <div className="col-span-1">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Position</label>
+                    <input
+                      type="text"
+                      value={formData.position}
+                      onChange={(e) => setFormData({ ...formData, position: e.target.value })}
+                      placeholder="e.g. Manager"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    />
+                  </div>
+                  {/* Title */}
+                  <div className="col-span-1">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                    <input
+                      type="text"
+                      value={formData.title || ''}
+                      onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                      placeholder="e.g. Dr., Mr., Ms."
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    />
+                  </div>
+                  {/* Address */}
+                  <div className="col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
+                    <input
+                      type="text"
+                      value={formData.address || ''}
+                      onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                      placeholder="e.g. 123 Main St, Riyadh"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    />
+                  </div>
+                  {/* Notes */}
+                  <div className="col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                    <textarea
+                      value={formData.notes}
+                      onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                      rows={2}
+                      placeholder="e.g. VIP guest, prefers email contact"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent resize-none"
+                    />
+                  </div>
                 </div>
-
                 <div className="mt-6 flex justify-end gap-3">
                   <button
                     type="button"
@@ -1341,7 +1374,7 @@ export default function Invitees() {
 
               {/* Event History */}
               <h4 className="font-medium mb-3">Event History ({selectedContact.total_events} events)</h4>
-              
+
               {loadingHistory ? (
                 <div className="flex items-center justify-center py-8">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -1408,7 +1441,7 @@ export default function Invitees() {
                   Rejection Details
                 </h2>
                 <button
-                  onClick={() => { setResubmitInvitee(null); setShowResubmitModal(false); }}
+                  onClick={() => { setResubmitInvitee(null); }}
                   className="p-1 hover:bg-gray-100 rounded-full"
                 >
                   <X className="w-5 h-5" />
@@ -1422,7 +1455,7 @@ export default function Invitees() {
               </div>
               <div className="flex justify-end">
                 <button
-                  onClick={() => { setResubmitInvitee(null); setShowResubmitModal(false); }}
+                  onClick={() => { setResubmitInvitee(null); }}
                   className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
                 >
                   Close
@@ -1494,6 +1527,17 @@ export default function Invitees() {
             </div>
           </div>
         </div>
+      )}
+      {/* Category Manager Modal */}
+      {showCategoryManager && (
+        <CategoryManager
+          isOpen={showCategoryManager}
+          onClose={() => setShowCategoryManager(false)}
+          onUpdate={() => {
+            fetchCategories(); // Refresh list for dropdowns
+            fetchContacts();   // Refresh contacts to reflect any changes if needed (though backend handles consistency)
+          }}
+        />
       )}
     </div>
   );

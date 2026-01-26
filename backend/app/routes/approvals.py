@@ -22,7 +22,9 @@ def get_pending_approvals():
         filters['inviter_group_id'] = current_user.inviter_group_id
     
     pending = ApprovalService.get_pending_approvals(filters)
-    return jsonify([p.to_dict(include_relations=True) for p in pending]), 200
+    # Check if contact details should be included
+    include_contact_details = request.args.get('include_contact_details', 'false').lower() == 'true'
+    return jsonify([p.to_dict(include_relations=True, include_contact_details=include_contact_details) for p in pending]), 200
 
 @approvals_bp.route('/approved', methods=['GET'])
 @login_required
@@ -36,7 +38,9 @@ def get_approved_invitees():
         filters['inviter_group_id'] = current_user.inviter_group_id
     
     approved = ApprovalService.get_approved_invitees(filters)
-    return jsonify([a.to_dict(include_relations=True) for a in approved]), 200
+    # Check if contact details should be included
+    include_contact_details = request.args.get('include_contact_details', 'false').lower() == 'true'
+    return jsonify([a.to_dict(include_relations=True, include_contact_details=include_contact_details) for a in approved]), 200
 
 @approvals_bp.route('/approve', methods=['POST'])
 @login_required
@@ -132,7 +136,7 @@ def cancel_approval():
 def get_approval_history(invitee_id):
     """Get approval history for an invitee"""
     history = ApprovalService.get_approval_history(invitee_id)
-    return jsonify([h.to_dict(include_relations=True) for h in history]), 200
+    return jsonify([h.to_dict(include_relations=True, include_contact_details=False) for h in history]), 200
 
 @approvals_bp.route('/my-approvals', methods=['GET'])
 @login_required
@@ -141,4 +145,4 @@ def get_my_approvals():
     """Get approvals made by current user"""
     limit = request.args.get('limit', 100, type=int)
     approvals = ApprovalService.get_approvals_by_approver(current_user.id, limit)
-    return jsonify([a.to_dict(include_relations=True) for a in approvals]), 200
+    return jsonify([a.to_dict(include_relations=True, include_contact_details=False) for a in approvals]), 200

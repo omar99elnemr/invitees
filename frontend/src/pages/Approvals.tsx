@@ -5,7 +5,6 @@ import {
   Clock,
   Users,
   Search,
-  Filter,
   Check,
   X,
   ChevronLeft,
@@ -15,7 +14,7 @@ import {
   Phone,
   Building,
   User,
-} from 'lucide-react';
+} from 'lucide-react'; // keep all other imports except Filter
 import { approvalsAPI, eventsAPI, inviterGroupsAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import type { Event, EventInvitee, InviterGroup } from '../types';
@@ -69,7 +68,7 @@ export default function Approvals() {
       setPendingApprovals(approvalsRes.data);
       setApprovedInvitees(approvedRes.data);
       setEvents(eventsRes.data);
-      
+
       // Only fetch inviter groups for admins
       if (user?.role === 'admin') {
         const groupsRes = await inviterGroupsAPI.getAll();
@@ -204,7 +203,7 @@ export default function Approvals() {
   // Quick reject single with notes
   const handleQuickReject = async () => {
     if (!quickRejectInvitee) return;
-    
+
     setSubmitting(true);
     try {
       await approvalsAPI.reject([quickRejectInvitee.id], quickRejectNotes || undefined);
@@ -233,7 +232,7 @@ export default function Approvals() {
       toast.error('Rejection notes are required');
       return;
     }
-    
+
     setSubmitting(true);
     try {
       await approvalsAPI.cancelApproval([cancelApprovalInvitee.id], cancelApprovalNotes);
@@ -304,21 +303,19 @@ export default function Approvals() {
         <nav className="-mb-px flex space-x-8">
           <button
             onClick={() => { setActiveTab('pending'); setSelectedIds(new Set()); }}
-            className={`py-2 px-1 border-b-2 font-medium text-sm ${
-              activeTab === 'pending'
+            className={`py-2 px-1 border-b-2 font-medium text-sm ${activeTab === 'pending'
                 ? 'border-primary text-primary'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
+              }`}
           >
             Pending ({pendingApprovals.length})
           </button>
           <button
             onClick={() => { setActiveTab('approved'); setSelectedIds(new Set()); }}
-            className={`py-2 px-1 border-b-2 font-medium text-sm ${
-              activeTab === 'approved'
+            className={`py-2 px-1 border-b-2 font-medium text-sm ${activeTab === 'approved'
                 ? 'border-primary text-primary'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
+              }`}
           >
             Approved ({approvedInvitees.length})
           </button>
@@ -438,144 +435,135 @@ export default function Approvals() {
                           className="rounded border-gray-300 text-primary focus:ring-primary"
                         />
                       </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Invitee
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Event
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Invited By
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Date
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {paginatedApprovals.map((approval) => (
-                  <tr key={approval.id} className={`hover:bg-gray-50 ${selectedIds.has(approval.id) ? 'bg-primary/5' : ''}`}>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <input
-                        type="checkbox"
-                        checked={selectedIds.has(approval.id)}
-                        onChange={() => toggleSelect(approval.id)}
-                        className="rounded border-gray-300 text-primary focus:ring-primary"
-                      />
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="flex-shrink-0 h-10 w-10 bg-primary/10 rounded-full flex items-center justify-center">
-                          <span className="text-primary font-medium">
-                            {approval.invitee_name?.charAt(0).toUpperCase()}
-                          </span>
-                        </div>
-                        <div className="ml-4">
-                          <div className="text-sm font-medium text-gray-900">
-                            {approval.invitee_name}
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Invitee
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Event
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Invited By
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Date
+                      </th>
+                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {paginatedApprovals.map((approval) => (
+                      <tr key={approval.id} className={`hover:bg-gray-50 ${selectedIds.has(approval.id) ? 'bg-primary/5' : ''}`}>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.has(approval.id)}
+                            onChange={() => toggleSelect(approval.id)}
+                            className="rounded border-gray-300 text-primary focus:ring-primary"
+                          />
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <div className="flex-shrink-0 h-10 w-10 bg-primary/10 rounded-full flex items-center justify-center">
+                              <span className="text-primary font-medium">
+                                {approval.invitee_name?.charAt(0).toUpperCase()}
+                              </span>
+                            </div>
+                            <div className="ml-4">
+                              <div className="text-sm font-medium text-gray-900">
+                                {approval.invitee_name}
+                              </div>
+                              {/* Email and Phone hidden for privacy */}
+                            </div>
                           </div>
-                          <div className="text-sm text-gray-500 flex items-center gap-2">
-                            <Mail className="w-3 h-3" />
-                            {approval.invitee_email}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">{approval.event_name}</div>
+                          {approval.category && (
+                            <div className="text-sm text-gray-500">{approval.category}</div>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900 flex items-center gap-1">
+                            <User className="w-3 h-3" />
+                            {approval.inviter_name}
                           </div>
-                          {approval.invitee_phone && (
-                            <div className="text-sm text-gray-500 flex items-center gap-2">
-                              <Phone className="w-3 h-3" />
-                              {approval.invitee_phone}
+                          {approval.inviter_group_name && (
+                            <div className="text-sm text-gray-500 flex items-center gap-1">
+                              <Building className="w-3 h-3" />
+                              {approval.inviter_group_name}
                             </div>
                           )}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{approval.event_name}</div>
-                      {approval.category && (
-                        <div className="text-sm text-gray-500">{approval.category}</div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900 flex items-center gap-1">
-                        <User className="w-3 h-3" />
-                        {approval.inviter_name}
-                      </div>
-                      {approval.inviter_group_name && (
-                        <div className="text-sm text-gray-500 flex items-center gap-1">
-                          <Building className="w-3 h-3" />
-                          {approval.inviter_group_name}
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-500 flex items-center gap-1">
-                        <Calendar className="w-3 h-3" />
-                        {new Date(approval.created_at).toLocaleDateString()}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => openQuickRejectModal(approval)}
-                          disabled={submitting}
-                          className="p-2 text-red-600 hover:bg-red-50 rounded-full transition-colors"
-                          title="Reject"
-                        >
-                          <X className="w-5 h-5" />
-                        </button>
-                        <button
-                          onClick={() => quickApprove(approval.id)}
-                          disabled={submitting}
-                          className="p-2 text-green-600 hover:bg-green-50 rounded-full transition-colors"
-                          title="Approve"
-                        >
-                          <Check className="w-5 h-5" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
-              <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-                <div>
-                  <p className="text-sm text-gray-700">
-                    Showing <span className="font-medium">{(currentPage - 1) * itemsPerPage + 1}</span> to{' '}
-                    <span className="font-medium">
-                      {Math.min(currentPage * itemsPerPage, filteredApprovals.length)}
-                    </span>{' '}
-                    of <span className="font-medium">{filteredApprovals.length}</span> results
-                  </p>
-                </div>
-                <div>
-                  <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
-                    <button
-                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                      disabled={currentPage === 1}
-                      className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
-                    >
-                      <ChevronLeft className="h-5 w-5" />
-                    </button>
-                    <button
-                      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                      disabled={currentPage === totalPages}
-                      className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
-                    >
-                      <ChevronRight className="h-5 w-5" />
-                    </button>
-                  </nav>
-                </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-500 flex items-center gap-1">
+                            <Calendar className="w-3 h-3" />
+                            {new Date(approval.created_at).toLocaleDateString()}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              onClick={() => openQuickRejectModal(approval)}
+                              disabled={submitting}
+                              className="p-2 text-red-600 hover:bg-red-50 rounded-full transition-colors"
+                              title="Reject"
+                            >
+                              <X className="w-5 h-5" />
+                            </button>
+                            <button
+                              onClick={() => quickApprove(approval.id)}
+                              disabled={submitting}
+                              className="p-2 text-green-600 hover:bg-green-50 rounded-full transition-colors"
+                              title="Approve"
+                            >
+                              <Check className="w-5 h-5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
+                  <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-sm text-gray-700">
+                        Showing <span className="font-medium">{(currentPage - 1) * itemsPerPage + 1}</span> to{' '}
+                        <span className="font-medium">
+                          {Math.min(currentPage * itemsPerPage, filteredApprovals.length)}
+                        </span>{' '}
+                        of <span className="font-medium">{filteredApprovals.length}</span> results
+                      </p>
+                    </div>
+                    <div>
+                      <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
+                        <button
+                          onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                          disabled={currentPage === 1}
+                          className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+                        >
+                          <ChevronLeft className="h-5 w-5" />
+                        </button>
+                        <button
+                          onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                          disabled={currentPage === totalPages}
+                          className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+                        >
+                          <ChevronRight className="h-5 w-5" />
+                        </button>
+                      </nav>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
-        </div>
-      )}
         </>
       )}
 
@@ -626,7 +614,7 @@ export default function Approvals() {
                             </div>
                             <div className="ml-4">
                               <div className="text-sm font-medium text-gray-900">{invitee.invitee_name}</div>
-                              <div className="text-sm text-gray-500">{invitee.invitee_email}</div>
+                              {/* <div className="text-sm text-gray-500">{invitee.invitee_email}</div> */}
                             </div>
                           </div>
                         </td>
@@ -641,9 +629,8 @@ export default function Approvals() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           {invitee.category && (
-                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                              invitee.category === 'Gold' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-800'
-                            }`}>
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${invitee.category === 'Gold' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-800'
+                              }`}>
                               {invitee.category}
                             </span>
                           )}
