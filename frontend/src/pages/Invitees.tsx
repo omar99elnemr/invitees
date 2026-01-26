@@ -96,7 +96,9 @@ export default function Invitees() {
 
   // Events tab - submission state
   const [selectedContactIds, setSelectedContactIds] = useState<number[]>([]);
-  // Removed unused submission state variables
+
+  // Contacts tab - selection state
+  const [selectedContactListIds, setSelectedContactListIds] = useState<number[]>([]);
 
   // Events tab - resubmit state
   // const [showResubmitModal, setShowResubmitModal] = useState(false); // Removed unused state
@@ -298,6 +300,49 @@ export default function Invitees() {
   // Handle resubmit rejected invitation
   // Removed unused handleResubmit function
 
+  // Handle toggle contact selection
+  const handleToggleContact = (contactId: number) => {
+    setSelectedContactIds(prev => {
+      if (prev.includes(contactId)) {
+        return prev.filter(id => id !== contactId);
+      } else {
+        return [...prev, contactId];
+      }
+    });
+  };
+
+  // Handle submit for approval (Bulk)
+  const handleSubmitForApproval = async () => {
+    if (!selectedEventId || selectedContactIds.length === 0) return;
+
+    try {
+      setSubmitting(true);
+
+      await inviteesAPI.inviteExistingToEvent(
+        selectedEventId,
+        selectedContactIds,
+        {
+          // We don't send inviter_id here as the backend will use the contact's existing inviter_id
+          // or the current user's group logic
+        }
+      );
+
+      toast.success(`${selectedContactIds.length} contact(s) submitted for approval`);
+
+      // Clear selection
+      setSelectedContactIds([]);
+
+      // Refresh data
+      fetchEventInvitees(selectedEventId);
+
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Failed to submit contacts');
+      console.error(error);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   // Handle add new contact
   const handleAddContact = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -365,6 +410,51 @@ export default function Invitees() {
       fetchContacts();
     } catch (error: any) {
       toast.error(error.response?.data?.error || 'Failed to delete contact');
+      console.error(error);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Contacts Tab - Bulk Selection Handlers
+  const handleToggleContactListSelection = (contactId: number) => {
+    setSelectedContactListIds(prev => {
+      if (prev.includes(contactId)) {
+        return prev.filter(id => id !== contactId);
+      } else {
+        return [...prev, contactId];
+      }
+    });
+  };
+
+  const handleSelectAllContacts = (checked: boolean) => {
+    if (checked) {
+      // Select all contacts in the CURRENT PAGE or FILTERED LIST? 
+      // Usually users expect "Select All" to select visible items. 
+      // Let's select from paginatedContacts to be safe/intuitive, or filteredContacts for all pages?
+      // Requirement: "Select All functionality". Let's do filteredContacts for power users.
+      setSelectedContactListIds(filteredContacts.map(c => c.id));
+    } else {
+      setSelectedContactListIds([]);
+    }
+  };
+
+  const handleBulkDeleteContacts = async () => {
+    if (selectedContactListIds.length === 0) return;
+
+    if (!window.confirm(`Are you sure you want to delete ${selectedContactListIds.length} contacts? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      await (inviteesAPI as any).deleteBulk(selectedContactListIds);
+      toast.success(`${selectedContactListIds.length} contacts deleted successfully`);
+
+      setSelectedContactListIds([]);
+      fetchContacts();
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Failed to delete contacts');
       console.error(error);
     } finally {
       setSubmitting(false);
@@ -615,7 +705,7 @@ export default function Invitees() {
                       )}
                     </div>
                     <button
-                      // onClick={handleSubmitForApproval} // temporarily removed to fix error
+                      onClick={handleSubmitForApproval}
                       disabled={selectedContactIds.length === 0 || submitting}
                       className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                     >
@@ -675,13 +765,13 @@ export default function Invitees() {
                               key={contact.id}
                               className={`hover:bg-gray-50 cursor-pointer ${selectedContactIds.includes(contact.id) ? 'bg-primary/5' : ''
                                 }`}
-                            // onClick={() => handleToggleContact(contact.id)} // temporarily removed to fix error
+                              onClick={() => handleToggleContact(contact.id)}
                             >
                               <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                                 <input
                                   type="checkbox"
                                   checked={selectedContactIds.includes(contact.id)}
-                                  // onChange={() => handleToggleContact(contact.id)} // temporarily removed to fix error
+                                  onChange={() => handleToggleContact(contact.id)}
                                   className="rounded border-gray-300 text-primary focus:ring-primary"
                                 />
                               </td>
@@ -752,13 +842,25 @@ export default function Invitees() {
             </div>
             <div className="flex gap-2">
               {isAdmin && (
-                <button
-                  onClick={() => setShowCategoryManager(true)}
-                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2"
-                >
-                  <Edit2 className="w-4 h-4" />
-                  Manage Categories
-                </button>
+                <>
+                  {selectedContactListIds.length > 0 && (
+                    <button
+                      onClick={handleBulkDeleteContacts}
+                      disabled={submitting}
+                      className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 flex items-center gap-2"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      Delete ({selectedContactListIds.length})
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setShowCategoryManager(true)}
+                    className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2"
+                  >
+                    <Edit2 className="w-4 h-4" />
+                    Manage Categories
+                  </button>
+                </>
               )}
               <button
                 onClick={() => setShowImportModal(true)}
@@ -795,6 +897,14 @@ export default function Invitees() {
                   <table className="w-full">
                     <thead className="bg-gray-50">
                       <tr>
+                        <th className="px-4 py-3 text-left">
+                          <input
+                            type="checkbox"
+                            checked={selectedContactListIds.length > 0 && selectedContactListIds.length === filteredContacts.length}
+                            onChange={(e) => handleSelectAllContacts(e.target.checked)}
+                            className="rounded border-gray-300 text-primary focus:ring-primary"
+                          />
+                        </th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Inviter</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
@@ -807,7 +917,19 @@ export default function Invitees() {
                     </thead>
                     <tbody className="divide-y divide-gray-200">
                       {paginatedContacts.map(contact => (
-                        <tr key={contact.id} className="hover:bg-gray-50">
+                        <tr
+                          key={contact.id}
+                          className={`hover:bg-gray-50 cursor-pointer ${selectedContactListIds.includes(contact.id) ? 'bg-primary/5' : ''}`}
+                          onClick={() => handleToggleContactListSelection(contact.id)}
+                        >
+                          <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                            <input
+                              type="checkbox"
+                              checked={selectedContactListIds.includes(contact.id)}
+                              onChange={() => handleToggleContactListSelection(contact.id)}
+                              className="rounded border-gray-300 text-primary focus:ring-primary"
+                            />
+                          </td>
                           <td className="px-4 py-3">
                             <div className="font-medium text-gray-900">{contact.name}</div>
                           </td>

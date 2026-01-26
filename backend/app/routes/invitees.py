@@ -273,6 +273,26 @@ def delete_invitee(invitee_id):
     
     return jsonify({'message': 'Invitee deleted successfully'}), 200
 
+@invitees_bp.route('/bulk', methods=['DELETE'])
+@login_required
+@admin_required
+def delete_invitees_bulk():
+    """Delete multiple invitees (admin only)"""
+    data = request.get_json()
+    invitee_ids = data.get('invitee_ids', [])
+    
+    if not invitee_ids:
+        return jsonify({'error': 'No invitees provided'}), 400
+        
+    success_count, failed_count, errors = InviteeService.bulk_delete_invitees(invitee_ids, current_user.id)
+    
+    return jsonify({
+        'message': f'Deleted {success_count} invitees',
+        'success_count': success_count,
+        'failed_count': failed_count,
+        'errors': errors
+    }), 200
+
 # Event-specific invitee routes
 
 @invitees_bp.route('/events/<int:event_id>/invitees', methods=['GET'])

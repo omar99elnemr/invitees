@@ -346,6 +346,50 @@ class InviteeService:
         return True, None
     
     @staticmethod
+    def bulk_delete_invitees(invitee_ids, deleted_by_user_id):
+        """
+        Delete multiple invitees (admin only)
+        Returns (success_count, failed_count, errors)
+        """
+        success_count = 0
+        failed_count = 0
+        errors = []
+        
+        for invitee_id in invitee_ids:
+            invitee = Invitee.query.get(invitee_id)
+            if not invitee:
+                failed_count += 1
+                errors.append(f'Invitee {invitee_id} not found')
+                continue
+            
+            try:
+                invitee_name = invitee.name
+                
+                # Log deletion
+                AuditLog.log(
+                    user_id=deleted_by_user_id,
+                    action='delete_invitee_bulk',
+                    table_name='invitees',
+                    record_id=invitee.id,
+                    old_value=f'Deleted invitee {invitee_name} (Bulk)',
+                    ip_address=request.remote_addr
+                )
+                
+                db.session.delete(invitee)
+                success_count += 1
+            except Exception as e:
+                failed_count += 1
+                errors.append(f'Failed to delete {invitee_name}: {str(e)}')
+        
+        try:
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            return 0, len(invitee_ids), [f'Database error: {str(e)}']
+            
+        return success_count, failed_count, errors
+    
+    @staticmethod
     def remove_invitee_from_event(event_id, invitee_id, removed_by_user_id):
         """
         Remove invitee from specific event (admin only)

@@ -122,10 +122,12 @@ export default function Approvals() {
   };
 
   const selectAll = () => {
-    if (selectedIds.size === filteredApprovals.length) {
+    const currentList = activeTab === 'pending' ? filteredApprovals : filteredApproved;
+
+    if (selectedIds.size === currentList.length) {
       setSelectedIds(new Set());
     } else {
-      setSelectedIds(new Set(filteredApprovals.map(a => a.id)));
+      setSelectedIds(new Set(currentList.map(a => a.id)));
     }
   };
 
@@ -220,26 +222,34 @@ export default function Approvals() {
   };
 
   // Open cancel approval modal
-  const openCancelApprovalModal = (invitee: EventInvitee) => {
-    setCancelApprovalInvitee(invitee);
+  const openCancelApprovalModal = (invitee: EventInvitee | null = null) => {
+    setCancelApprovalInvitee(invitee); // null means bulk cancel
     setCancelApprovalNotes('');
     setShowCancelApprovalModal(true);
   };
 
-  // Handle cancel approval
+  // Handle cancel approval (Single or Bulk)
   const handleCancelApproval = async () => {
-    if (!cancelApprovalInvitee || !cancelApprovalNotes.trim()) {
-      toast.error('Rejection notes are required');
+    if (!cancelApprovalNotes.trim()) {
+      toast.error('Reason for cancellation is required');
       return;
     }
 
     setSubmitting(true);
     try {
-      await approvalsAPI.cancelApproval([cancelApprovalInvitee.id], cancelApprovalNotes);
-      toast.success('Approval cancelled');
+      const idsToCancel = cancelApprovalInvitee
+        ? [cancelApprovalInvitee.id]
+        : Array.from(selectedIds);
+
+      await approvalsAPI.cancelApproval(idsToCancel, cancelApprovalNotes);
+
+      const count = idsToCancel.length;
+      toast.success(count > 1 ? `Cancelled ${count} approvals` : 'Approval cancelled');
+
       setShowCancelApprovalModal(false);
       setCancelApprovalInvitee(null);
       setCancelApprovalNotes('');
+      setSelectedIds(new Set());
       fetchData();
     } catch (error: any) {
       toast.error(error.response?.data?.error || 'Failed to cancel approval');
@@ -304,8 +314,8 @@ export default function Approvals() {
           <button
             onClick={() => { setActiveTab('pending'); setSelectedIds(new Set()); }}
             className={`py-2 px-1 border-b-2 font-medium text-sm ${activeTab === 'pending'
-                ? 'border-primary text-primary'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              ? 'border-primary text-primary'
+              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
           >
             Pending ({pendingApprovals.length})
@@ -313,8 +323,8 @@ export default function Approvals() {
           <button
             onClick={() => { setActiveTab('approved'); setSelectedIds(new Set()); }}
             className={`py-2 px-1 border-b-2 font-medium text-sm ${activeTab === 'approved'
-                ? 'border-primary text-primary'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              ? 'border-primary text-primary'
+              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
           >
             Approved ({approvedInvitees.length})
@@ -349,6 +359,30 @@ export default function Approvals() {
             >
               <CheckCircle className="w-4 h-4 inline mr-2" />
               Approve Selected
+            </button>
+          </div>
+        </div>
+      )}
+
+      {selectedIds.size > 0 && activeTab === 'approved' && (
+        <div className="bg-primary/5 border border-primary/20 rounded-lg p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <Users className="w-5 h-5 text-primary" />
+            <span className="font-medium">{selectedIds.size} selected</span>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setSelectedIds(new Set())}
+              className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+            >
+              Clear Selection
+            </button>
+            <button
+              onClick={() => openCancelApprovalModal(null)}
+              className="px-4 py-2 text-white bg-red-600 rounded-lg hover:bg-red-700"
+            >
+              <XCircle className="w-4 h-4 inline mr-2" />
+              Cancel Approval ({selectedIds.size})
             </button>
           </div>
         </div>
@@ -584,6 +618,14 @@ export default function Approvals() {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
+                      <th className="px-6 py-3 text-left">
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.size === filteredApproved.length && filteredApproved.length > 0}
+                          onChange={selectAll}
+                          className="rounded border-gray-300 text-primary focus:ring-primary"
+                        />
+                      </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Invitee
                       </th>
@@ -606,7 +648,15 @@ export default function Approvals() {
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {filteredApproved.map((invitee) => (
-                      <tr key={invitee.id} className="hover:bg-gray-50">
+                      <tr key={invitee.id} className={`hover:bg-gray-50 ${selectedIds.has(invitee.id) ? 'bg-primary/5' : ''}`}>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.has(invitee.id)}
+                            onChange={() => toggleSelect(invitee.id)}
+                            className="rounded border-gray-300 text-primary focus:ring-primary"
+                          />
+                        </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
                             <div className="flex-shrink-0 h-10 w-10 bg-green-100 rounded-full flex items-center justify-center">
