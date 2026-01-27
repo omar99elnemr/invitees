@@ -49,7 +49,7 @@ def get_all_invitees():
     # Check if contact details should be included (default False for privacy)
     include_contact_details = request.args.get('include_contact_details', 'false').lower() == 'true'
     
-    invitees = query.order_by(Invitee.name).all()
+    invitees = query.order_by(Invitee.created_at.desc()).all()
     
     # Get event counts for each invitee
     event_counts = db.session.query(

@@ -29,7 +29,12 @@ import ActionMenu, { ActionMenuItem } from '../components/common/ActionMenu';
 
 export default function Users() {
   const { user: currentUser } = useAuth();
-  const [activeTab, setActiveTab] = useState<'users' | 'groups' | 'inviters'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'groups'>('users');
+  
+  // Group detail modals
+  const [showGroupInvitersModal, setShowGroupInvitersModal] = useState(false);
+  const [showGroupMembersModal, setShowGroupMembersModal] = useState(false);
+  const [selectedGroupForDetail, setSelectedGroupForDetail] = useState<InviterGroup | null>(null);
   const [users, setUsers] = useState<User[]>([]);
   const [inviterGroups, setInviterGroups] = useState<InviterGroup[]>([]);
   const [loading, setLoading] = useState(true);
@@ -64,7 +69,6 @@ export default function Users() {
     position: '',
     inviter_group_id: undefined as number | undefined,
   });
-  const [inviterGroupFilter, setInviterGroupFilter] = useState<string>('all');
   const [inviterSearchQuery, setInviterSearchQuery] = useState('');
 
   // Pagination
@@ -383,16 +387,6 @@ export default function Users() {
     }
   };
 
-  // Filter inviters
-  const filteredInviters = inviters.filter(inviter => {
-    const matchesSearch =
-      inviter.name?.toLowerCase().includes(inviterSearchQuery.toLowerCase()) ||
-      inviter.email?.toLowerCase().includes(inviterSearchQuery.toLowerCase()) ||
-      inviter.phone?.toLowerCase().includes(inviterSearchQuery.toLowerCase());
-    const matchesGroup = inviterGroupFilter === 'all' || inviter.inviter_group_id === parseInt(inviterGroupFilter);
-    return matchesSearch && matchesGroup;
-  });
-
   // Open edit modal
   const openEditModal = (user: User) => {
     setSelectedUser(user);
@@ -456,21 +450,13 @@ export default function Users() {
             <UserPlus className="w-5 h-5" />
             Add User
           </button>
-        ) : activeTab === 'groups' ? (
+        ) : (
           <button
             onClick={() => openGroupModal()}
             className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors"
           >
             <FolderPlus className="w-5 h-5" />
             Add Group
-          </button>
-        ) : (
-          <button
-            onClick={() => openInviterModal()}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors"
-          >
-            <UserCog className="w-5 h-5" />
-            Add Inviter
           </button>
         )}
       </div>
@@ -500,17 +486,6 @@ export default function Users() {
             >
               <Building className="w-4 h-4 inline-block mr-2" />
               Inviter Groups ({inviterGroups.length})
-            </button>
-            <button
-              onClick={() => setActiveTab('inviters')}
-              className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === 'inviters'
-                  ? 'border-primary text-primary'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              <UserCog className="w-4 h-4 inline-block mr-2" />
-              Inviters ({inviters.length})
             </button>
           </nav>
         </div>
@@ -791,6 +766,9 @@ export default function Users() {
                       Description
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Inviters
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Members
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -804,6 +782,7 @@ export default function Users() {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {inviterGroups.map((group) => {
                     const memberCount = users.filter(u => u.inviter_group_id === group.id).length;
+                    const inviterCount = inviters.filter(i => i.inviter_group_id === group.id).length;
                     return (
                       <tr key={group.id} className="hover:bg-gray-50">
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -822,9 +801,28 @@ export default function Users() {
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                          <button
+                            onClick={() => {
+                              setSelectedGroupForDetail(group);
+                              setShowGroupInvitersModal(true);
+                            }}
+                            className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 hover:bg-indigo-200 transition-colors cursor-pointer"
+                          >
+                            <UserCog className="w-3 h-3" />
+                            {inviterCount} {inviterCount === 1 ? 'inviter' : 'inviters'}
+                          </button>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <button
+                            onClick={() => {
+                              setSelectedGroupForDetail(group);
+                              setShowGroupMembersModal(true);
+                            }}
+                            className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 hover:bg-gray-200 transition-colors cursor-pointer"
+                          >
+                            <UsersIcon className="w-3 h-3" />
                             {memberCount} {memberCount === 1 ? 'member' : 'members'}
-                          </span>
+                          </button>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           {new Date(group.created_at).toLocaleDateString()}
@@ -860,162 +858,6 @@ export default function Users() {
         </div>
       )}
 
-      {/* Inviters Tab Content */}
-      {activeTab === 'inviters' && (
-        <div className="space-y-4">
-          {/* Filters */}
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-              <input
-                type="text"
-                placeholder="Search by name, email, or phone..."
-                value={inviterSearchQuery}
-                onChange={(e) => setInviterSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-              />
-            </div>
-            <select
-              value={inviterGroupFilter}
-              onChange={(e) => setInviterGroupFilter(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white"
-            >
-              <option value="all">All Groups</option>
-              {inviterGroups.map((group) => (
-                <option key={group.id} value={group.id}>{group.name}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="bg-white rounded-lg shadow overflow-hidden">
-            {filteredInviters.length === 0 ? (
-              <div className="text-center py-12">
-                <UserCog className="mx-auto h-12 w-12 text-gray-400" />
-                <h3 className="mt-2 text-lg font-medium text-gray-900">No inviters found</h3>
-                <p className="mt-1 text-sm text-gray-500">
-                  {inviters.length === 0 
-                    ? 'Create inviters to assign them when submitting invitees to events'
-                    : 'No inviters match your search criteria'
-                  }
-                </p>
-                {inviters.length === 0 && inviterGroups.length > 0 && (
-                  <button
-                    onClick={() => openInviterModal()}
-                    className="mt-4 inline-flex items-center px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark"
-                  >
-                    <Plus className="w-5 h-5 mr-2" />
-                    Add Inviter
-                  </button>
-                )}
-                {inviterGroups.length === 0 && (
-                  <p className="mt-2 text-sm text-orange-600">
-                    Please create an inviter group first in the "Inviter Groups" tab.
-                  </p>
-                )}
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Name
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Contact
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Position
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Group
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Status
-                      </th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {filteredInviters.map((inviter) => {
-                      const group = inviterGroups.find(g => g.id === inviter.inviter_group_id);
-                      return (
-                        <tr key={inviter.id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex items-center">
-                              <div className="flex-shrink-0 h-10 w-10 bg-indigo-100 rounded-full flex items-center justify-center">
-                                <UserCog className="w-5 h-5 text-indigo-600" />
-                              </div>
-                              <div className="ml-4">
-                                <div className="text-sm font-medium text-gray-900">{inviter.name}</div>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="text-sm text-gray-900">{inviter.email || '-'}</div>
-                            <div className="text-sm text-gray-500">{inviter.phone || '-'}</div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-500">{inviter.position || '-'}</div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                              {group?.name || 'Unknown'}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                              inviter.is_active 
-                                ? 'bg-green-100 text-green-800' 
-                                : 'bg-red-100 text-red-800'
-                            }`}>
-                              {inviter.is_active ? 'Active' : 'Inactive'}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                            <div className="flex items-center justify-end gap-2">
-                              <button
-                                onClick={() => openInviterModal(inviter)}
-                                className="p-1 text-gray-400 hover:text-primary rounded-full hover:bg-gray-100"
-                                title="Edit"
-                              >
-                                <Edit2 className="w-5 h-5" />
-                              </button>
-                              <button
-                                onClick={() => handleToggleInviterStatus(inviter)}
-                                className={`p-1 rounded-full ${
-                                  inviter.is_active 
-                                    ? 'text-gray-400 hover:text-red-600 hover:bg-red-50'
-                                    : 'text-gray-400 hover:text-green-600 hover:bg-green-50'
-                                }`}
-                                title={inviter.is_active ? 'Deactivate' : 'Activate'}
-                              >
-                                {inviter.is_active ? <ShieldOff className="w-5 h-5" /> : <ShieldCheck className="w-5 h-5" />}
-                              </button>
-                              <button
-                                onClick={() => {
-                                  setSelectedInviter(inviter);
-                                  setShowDeleteInviterModal(true);
-                                }}
-                                className="p-1 text-gray-400 hover:text-red-600 rounded-full hover:bg-red-50"
-                                title="Delete"
-                              >
-                                <Trash2 className="w-5 h-5" />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
 
       {/* Create User Modal */}
       {showCreateModal && (
@@ -1111,23 +953,32 @@ export default function Users() {
                 </select>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Inviter Group
-                </label>
-                <select
-                  value={formData.inviter_group_id || ''}
-                  onChange={(e) => setFormData({ ...formData, inviter_group_id: e.target.value ? Number(e.target.value) : undefined })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white"
-                >
-                  <option value="">No Group</option>
-                  {inviterGroups.map((group) => (
-                    <option key={group.id} value={group.id}>
-                      {group.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {formData.role !== 'admin' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Inviter Group
+                  </label>
+                  <select
+                    value={formData.inviter_group_id || ''}
+                    onChange={(e) => setFormData({ ...formData, inviter_group_id: e.target.value ? Number(e.target.value) : undefined })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white"
+                  >
+                    <option value="">No Group</option>
+                    {inviterGroups.map((group) => (
+                      <option key={group.id} value={group.id}>
+                        {group.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              {formData.role === 'admin' && (
+                <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                  <p className="text-sm text-purple-700">
+                    Admin users do not belong to any inviter group. They have full system access.
+                  </p>
+                </div>
+              )}
 
               <div className="flex gap-3 pt-4">
                 <button
@@ -1221,23 +1072,32 @@ export default function Users() {
                 </select>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Inviter Group
-                </label>
-                <select
-                  value={formData.inviter_group_id || ''}
-                  onChange={(e) => setFormData({ ...formData, inviter_group_id: e.target.value ? Number(e.target.value) : undefined })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white"
-                >
-                  <option value="">No Group</option>
-                  {inviterGroups.map((group) => (
-                    <option key={group.id} value={group.id}>
-                      {group.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {formData.role !== 'admin' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Inviter Group
+                  </label>
+                  <select
+                    value={formData.inviter_group_id || ''}
+                    onChange={(e) => setFormData({ ...formData, inviter_group_id: e.target.value ? Number(e.target.value) : undefined })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white"
+                  >
+                    <option value="">No Group</option>
+                    {inviterGroups.map((group) => (
+                      <option key={group.id} value={group.id}>
+                        {group.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              {formData.role === 'admin' && (
+                <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                  <p className="text-sm text-purple-700">
+                    Admin users do not belong to any inviter group. They have full system access.
+                  </p>
+                </div>
+              )}
 
               <div className="flex gap-3 pt-4">
                 <button
@@ -1640,6 +1500,240 @@ export default function Users() {
                   {submitting ? 'Deleting...' : 'Delete'}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Group Inviters Modal */}
+      {showGroupInvitersModal && selectedGroupForDetail && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between p-6 border-b">
+              <div>
+                <h2 className="text-xl font-semibold">Inviters - {selectedGroupForDetail.name}</h2>
+                <p className="text-sm text-gray-500 mt-1">Manage inviters for this group</p>
+              </div>
+              <button
+                onClick={() => {
+                  setShowGroupInvitersModal(false);
+                  setSelectedGroupForDetail(null);
+                }}
+                className="p-2 hover:bg-gray-100 rounded-full"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto flex-1">
+              <div className="flex justify-between items-center mb-4">
+                <div className="relative flex-1 max-w-xs">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <input
+                    type="text"
+                    placeholder="Search inviters..."
+                    value={inviterSearchQuery}
+                    onChange={(e) => setInviterSearchQuery(e.target.value)}
+                    className="w-full pl-9 pr-4 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                  />
+                </div>
+                <button
+                  onClick={() => {
+                    setInviterFormData({ name: '', email: '', phone: '', position: '', inviter_group_id: selectedGroupForDetail.id });
+                    setSelectedInviter(null);
+                    setShowInviterModal(true);
+                  }}
+                  className="inline-flex items-center gap-2 px-3 py-2 bg-primary text-white text-sm rounded-lg hover:bg-primary-dark"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Inviter
+                </button>
+              </div>
+
+              {(() => {
+                const groupInviters = inviters.filter(i => 
+                  i.inviter_group_id === selectedGroupForDetail.id &&
+                  (inviterSearchQuery === '' || 
+                    i.name.toLowerCase().includes(inviterSearchQuery.toLowerCase()) ||
+                    i.email?.toLowerCase().includes(inviterSearchQuery.toLowerCase()) ||
+                    i.phone?.includes(inviterSearchQuery)
+                  )
+                );
+                
+                if (groupInviters.length === 0) {
+                  return (
+                    <div className="text-center py-8">
+                      <UserCog className="mx-auto h-10 w-10 text-gray-400" />
+                      <p className="mt-2 text-sm text-gray-500">No inviters in this group</p>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="space-y-2">
+                    {groupInviters.map((inviter) => (
+                      <div key={inviter.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <div className="flex items-center gap-3">
+                          <div className="h-9 w-9 bg-indigo-100 rounded-full flex items-center justify-center">
+                            <UserCog className="w-4 h-4 text-indigo-600" />
+                          </div>
+                          <div>
+                            <div className="text-sm font-medium text-gray-900">{inviter.name}</div>
+                            <div className="text-xs text-gray-500">
+                              {inviter.email || inviter.phone || inviter.position || 'No contact info'}
+                            </div>
+                          </div>
+                          <span className={`ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                            inviter.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                          }`}>
+                            {inviter.is_active ? 'Active' : 'Inactive'}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => openInviterModal(inviter)}
+                            className="p-1.5 text-gray-400 hover:text-primary rounded-full hover:bg-white"
+                            title="Edit"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleToggleInviterStatus(inviter)}
+                            className={`p-1.5 rounded-full ${
+                              inviter.is_active 
+                                ? 'text-gray-400 hover:text-red-600 hover:bg-red-50'
+                                : 'text-gray-400 hover:text-green-600 hover:bg-green-50'
+                            }`}
+                            title={inviter.is_active ? 'Deactivate' : 'Activate'}
+                          >
+                            {inviter.is_active ? <ShieldOff className="w-4 h-4" /> : <ShieldCheck className="w-4 h-4" />}
+                          </button>
+                          <button
+                            onClick={() => {
+                              setSelectedInviter(inviter);
+                              setShowDeleteInviterModal(true);
+                            }}
+                            className="p-1.5 text-gray-400 hover:text-red-600 rounded-full hover:bg-red-50"
+                            title="Delete"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+            </div>
+
+            <div className="p-4 border-t bg-gray-50">
+              <button
+                onClick={() => {
+                  setShowGroupInvitersModal(false);
+                  setSelectedGroupForDetail(null);
+                  setInviterSearchQuery('');
+                }}
+                className="w-full px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Group Members Modal */}
+      {showGroupMembersModal && selectedGroupForDetail && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between p-6 border-b">
+              <div>
+                <h2 className="text-xl font-semibold">Members - {selectedGroupForDetail.name}</h2>
+                <p className="text-sm text-gray-500 mt-1">System users in this group</p>
+              </div>
+              <button
+                onClick={() => {
+                  setShowGroupMembersModal(false);
+                  setSelectedGroupForDetail(null);
+                }}
+                className="p-2 hover:bg-gray-100 rounded-full"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto flex-1">
+              {(() => {
+                const groupMembers = users.filter(u => u.inviter_group_id === selectedGroupForDetail.id);
+                
+                if (groupMembers.length === 0) {
+                  return (
+                    <div className="text-center py-8">
+                      <UsersIcon className="mx-auto h-10 w-10 text-gray-400" />
+                      <p className="mt-2 text-sm text-gray-500">No members in this group</p>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="space-y-2">
+                    {groupMembers.map((member) => (
+                      <div key={member.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <div className="flex items-center gap-3">
+                          <div className="h-9 w-9 bg-primary/10 rounded-full flex items-center justify-center">
+                            <span className="text-primary text-sm font-medium">
+                              {member.full_name?.charAt(0).toUpperCase() || member.username.charAt(0).toUpperCase()}
+                            </span>
+                          </div>
+                          <div>
+                            <div className="text-sm font-medium text-gray-900">{member.full_name || member.username}</div>
+                            <div className="text-xs text-gray-500">@{member.username}</div>
+                          </div>
+                          <span className={`ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getRoleBadge(member.role)}`}>
+                            {member.role.charAt(0).toUpperCase() + member.role.slice(1)}
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => {
+                            setShowGroupMembersModal(false);
+                            setSelectedGroupForDetail(null);
+                            openEditModal(member);
+                          }}
+                          className="p-1.5 text-gray-400 hover:text-primary rounded-full hover:bg-white"
+                          title="Edit User"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+            </div>
+
+            <div className="p-4 border-t bg-gray-50 flex gap-3">
+              <button
+                onClick={() => {
+                  setShowGroupMembersModal(false);
+                  setSelectedGroupForDetail(null);
+                }}
+                className="flex-1 px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                Close
+              </button>
+              <button
+                onClick={() => {
+                  setShowGroupMembersModal(false);
+                  setSelectedGroupForDetail(null);
+                  setActiveTab('users');
+                  setFormData({ ...formData, inviter_group_id: selectedGroupForDetail.id });
+                  setShowCreateModal(true);
+                }}
+                className="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark inline-flex items-center justify-center gap-2"
+              >
+                <UserPlus className="w-4 h-4" />
+                Add User to Group
+              </button>
             </div>
           </div>
         </div>

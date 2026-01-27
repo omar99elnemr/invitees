@@ -92,6 +92,7 @@ export default function Invitees() {
 
   // Shared state
   const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
   const [submitting, setSubmitting] = useState(false);
 
   // Events tab - submission state
@@ -240,16 +241,33 @@ export default function Invitees() {
     );
   }, [contacts, searchQuery]);
 
-  // Filter available contacts by search
+  // Filter available contacts by search and status
   const filteredAvailableContacts = useMemo(() => {
     const query = searchQuery.toLowerCase();
+    
+    // If status filter is 'rejected', show rejected contacts from event
+    if (statusFilter === 'rejected') {
+      return rejectedInvitees.map(ei => {
+        const contact = contacts.find(c => c.id === ei.invitee_id);
+        return contact;
+      }).filter((c): c is InviteeWithStats => {
+        if (c === undefined) return false;
+        return (
+          c.name.toLowerCase().includes(query) ||
+          c.email.toLowerCase().includes(query) ||
+          c.phone.includes(query) ||
+          Boolean(c.company?.toLowerCase().includes(query))
+        );
+      });
+    }
+    
     return availableContacts.filter(c =>
       c.name.toLowerCase().includes(query) ||
       c.email.toLowerCase().includes(query) ||
       c.phone.includes(query) ||
       (c.company?.toLowerCase().includes(query))
     );
-  }, [availableContacts, searchQuery]);
+  }, [availableContacts, searchQuery, statusFilter, rejectedInvitees, contacts]);
 
   // Paginate
   const paginatedContacts = useMemo(() => {
@@ -647,34 +665,81 @@ export default function Invitees() {
                     </p>
                   </div>
                   <div className="flex gap-4 text-sm">
-                    <div className="text-center">
+                    <button
+                      onClick={() => {
+                        if (user?.role === 'admin' || user?.role === 'director') {
+                          window.location.href = '/approvals?tab=pending';
+                        } else {
+                          toast.error('Only Directors and Admins can access pending approvals');
+                        }
+                      }}
+                      className="text-center hover:bg-yellow-50 p-2 rounded-lg transition-colors cursor-pointer"
+                      title="View pending approvals"
+                    >
                       <div className="text-2xl font-bold text-yellow-600">{pendingInvitees.length}</div>
                       <div className="text-gray-500">Pending</div>
-                    </div>
-                    <div className="text-center">
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (user?.role === 'admin' || user?.role === 'director') {
+                          window.location.href = '/approvals?tab=approved';
+                        } else {
+                          toast.error('Only Directors and Admins can access approved invitees');
+                        }
+                      }}
+                      className="text-center hover:bg-green-50 p-2 rounded-lg transition-colors cursor-pointer"
+                      title="View approved invitees"
+                    >
                       <div className="text-2xl font-bold text-green-600">
                         {eventInvitees.filter(ei => ei.status === 'approved').length}
                       </div>
                       <div className="text-gray-500">Approved</div>
-                    </div>
-                    <div className="text-center">
+                    </button>
+                    <button
+                      onClick={() => {
+                        setStatusFilter('rejected');
+                        toast.success('Showing rejected contacts');
+                      }}
+                      className="text-center hover:bg-red-50 p-2 rounded-lg transition-colors cursor-pointer"
+                      title="Filter to rejected contacts"
+                    >
                       <div className="text-2xl font-bold text-red-600">{rejectedInvitees.length}</div>
                       <div className="text-gray-500">Rejected</div>
-                    </div>
+                    </button>
                   </div>
                 </div>
               </div>
 
 
 
+              {/* Status Filter Badge */}
+              {statusFilter !== 'all' && (
+                <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+                  <span className="text-sm text-red-700">
+                    Showing: <strong>{statusFilter}</strong> contacts
+                  </span>
+                  <button
+                    onClick={() => setStatusFilter('all')}
+                    className="ml-2 px-2 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200"
+                  >
+                    Clear Filter
+                  </button>
+                </div>
+              )}
+
               {/* Submit New Contacts Section */}
               <div className="bg-white rounded-lg shadow-sm border">
                 <div className="p-4 border-b">
                   <h3 className="font-semibold text-gray-900 flex items-center gap-2">
                     <UserCheck className="w-5 h-5 text-primary" />
-                    Submit Contacts for Approval
+                    {statusFilter === 'rejected' ? 'Rejected Contacts' : 'Submit Contacts for Approval'}
                   </h3>
-                  <p className="text-sm text-gray-500">Select contacts from your group's list to submit for this event</p>
+                  <p className="text-sm text-gray-500">
+                    {statusFilter === 'rejected' 
+                      ? 'These contacts were rejected - you can resubmit them'
+                      : 'Select contacts from your group\'s list to submit for this event'
+                    }
+                  </p>
                 </div>
 
                 {/* Submission Controls */}
@@ -704,23 +769,30 @@ export default function Invitees() {
                         </span>
                       )}
                     </div>
-                    <button
-                      onClick={handleSubmitForApproval}
-                      disabled={selectedContactIds.length === 0 || submitting}
-                      className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                    >
-                      {submitting ? (
-                        <>
-                          <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-                          Submitting...
-                        </>
-                      ) : (
-                        <>
-                          <UserCheck className="w-4 h-4" />
-                          Submit for Approval
-                        </>
-                      )}
-                    </button>
+                    {!isAdmin && (
+                      <button
+                        onClick={handleSubmitForApproval}
+                        disabled={selectedContactIds.length === 0 || submitting}
+                        className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                      >
+                        {submitting ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                            Submitting...
+                          </>
+                        ) : (
+                          <>
+                            <UserCheck className="w-4 h-4" />
+                            Submit for Approval
+                          </>
+                        )}
+                      </button>
+                    )}
+                    {isAdmin && (
+                      <div className="px-4 py-2 bg-gray-100 text-gray-500 rounded-lg text-sm">
+                        Admins cannot submit contacts - assign organizers to do this
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -864,20 +936,24 @@ export default function Invitees() {
                   </button>
                 </>
               )}
-              <button
-                onClick={() => setShowImportModal(true)}
-                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2"
-              >
-                <Upload className="w-4 h-4" />
-                Import
-              </button>
-              <button
-                onClick={() => { setShowAddContactModal(true); resetForm(); }}
-                className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark flex items-center gap-2"
-              >
-                <Plus className="w-4 h-4" />
-                Add Contact
-              </button>
+              {!isAdmin && (
+                <>
+                  <button
+                    onClick={() => setShowImportModal(true)}
+                    className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2"
+                  >
+                    <Upload className="w-4 h-4" />
+                    Import
+                  </button>
+                  <button
+                    onClick={() => { setShowAddContactModal(true); resetForm(); }}
+                    className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark flex items-center gap-2"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add Contact
+                  </button>
+                </>
+              )}
             </div>
           </div>
 

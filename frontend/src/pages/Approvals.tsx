@@ -10,8 +10,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Calendar,
-  Mail,
-  Phone,
   Building,
   User,
 } from 'lucide-react'; // keep all other imports except Filter
@@ -22,7 +20,15 @@ import toast from 'react-hot-toast';
 
 export default function Approvals() {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'pending' | 'approved'>('pending');
+  
+  // Read tab from URL query params
+  const getInitialTab = (): 'pending' | 'approved' => {
+    const params = new URLSearchParams(window.location.search);
+    const tab = params.get('tab');
+    return tab === 'approved' ? 'approved' : 'pending';
+  };
+  
+  const [activeTab, setActiveTab] = useState<'pending' | 'approved'>(getInitialTab());
   const [pendingApprovals, setPendingApprovals] = useState<EventInvitee[]>([]);
   const [approvedInvitees, setApprovedInvitees] = useState<EventInvitee[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
@@ -291,20 +297,30 @@ export default function Approvals() {
 
         {/* Stats */}
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2 px-4 py-2 bg-yellow-50 rounded-lg">
+          <button
+            onClick={() => { setActiveTab('pending'); setSelectedIds(new Set()); }}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors cursor-pointer ${
+              activeTab === 'pending' ? 'bg-yellow-100 ring-2 ring-yellow-400' : 'bg-yellow-50 hover:bg-yellow-100'
+            }`}
+          >
             <Clock className="w-5 h-5 text-yellow-600" />
             <span className="text-lg font-semibold text-yellow-700">
               {pendingApprovals.length}
             </span>
             <span className="text-sm text-yellow-600">Pending</span>
-          </div>
-          <div className="flex items-center gap-2 px-4 py-2 bg-green-50 rounded-lg">
+          </button>
+          <button
+            onClick={() => { setActiveTab('approved'); setSelectedIds(new Set()); }}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors cursor-pointer ${
+              activeTab === 'approved' ? 'bg-green-100 ring-2 ring-green-400' : 'bg-green-50 hover:bg-green-100'
+            }`}
+          >
             <CheckCircle className="w-5 h-5 text-green-600" />
             <span className="text-lg font-semibold text-green-700">
               {approvedInvitees.length}
             </span>
             <span className="text-sm text-green-600">Approved</span>
-          </div>
+          </button>
         </div>
       </div>
 
@@ -694,7 +710,14 @@ export default function Approvals() {
                           )}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="text-sm text-gray-900">{invitee.approved_by_name || '-'}</span>
+                          <div>
+                            <span className="text-sm text-gray-900">{invitee.approved_by_name || '-'}</span>
+                            {invitee.status_date && (
+                              <div className="text-xs text-gray-500">
+                                {new Date(invitee.status_date).toLocaleString()}
+                              </div>
+                            )}
+                          </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right">
                           <button

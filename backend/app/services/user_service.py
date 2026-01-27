@@ -31,6 +31,10 @@ class UserService:
         if role not in ('admin', 'director', 'organizer'):
             return None, 'Invalid role'
         
+        # Admin users should not belong to any inviter group
+        if role == 'admin':
+            inviter_group_id = None
+        
         # Validate inviter group exists
         if inviter_group_id:
             group = InviterGroup.query.get(inviter_group_id)
@@ -99,6 +103,13 @@ class UserService:
             if role not in ('admin', 'director', 'organizer'):
                 return None, 'Invalid role'
             user.role = role
+            # Admin users should not belong to any inviter group
+            if role == 'admin':
+                user.inviter_group_id = None
+        
+        # Skip inviter_group_id update if user is admin (already set to None above)
+        if user.role == 'admin':
+            inviter_group_id = None
         
         if inviter_group_id is not None and inviter_group_id != user.inviter_group_id:
             if inviter_group_id:
@@ -198,7 +209,7 @@ class UserService:
                 search_term = f'%{filters["search"]}%'
                 query = query.filter(User.username.ilike(search_term))
         
-        return query.order_by(User.username).all()
+        return query.order_by(User.created_at.desc()).all()
     
     @staticmethod
     def get_user_by_id(user_id):
