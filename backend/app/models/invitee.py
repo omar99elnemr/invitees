@@ -82,10 +82,19 @@ class Invitee(db.Model):
     
     @staticmethod
     def find_by_phone(phone):
-        """Find invitee by phone"""
-        clean_phone = phone.replace(' ', '').replace('-', '')
+        """Find invitee by phone (global search)"""
+        clean_phone = phone.replace(' ', '').replace('-', '').replace('(', '').replace(')', '')
         return Invitee.query.filter(
-            db.func.replace(db.func.replace(Invitee.phone, ' ', ''), '-', '') == clean_phone
+            db.func.replace(db.func.replace(db.func.replace(db.func.replace(Invitee.phone, ' ', ''), '-', ''), '(', ''), ')', '') == clean_phone
+        ).first()
+    
+    @staticmethod
+    def find_by_phone_in_group(phone, inviter_group_id):
+        """Find invitee by phone within a specific inviter group"""
+        clean_phone = phone.replace(' ', '').replace('-', '').replace('(', '').replace(')', '')
+        return Invitee.query.filter(
+            db.func.replace(db.func.replace(db.func.replace(db.func.replace(Invitee.phone, ' ', ''), '-', ''), '(', ''), ')', '') == clean_phone,
+            Invitee.inviter_group_id == inviter_group_id
         ).first()
     
     @staticmethod

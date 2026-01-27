@@ -72,7 +72,9 @@ class ImportService:
                 # Extract fields
                 name = str(row['name']).strip() if pd.notna(row['name']) else None
                 email = str(row['email']).strip().lower() if pd.notna(row['email']) else None
-                phone = str(row['phone']).strip() if pd.notna(row['phone']) else None
+                # Clean phone: remove whitespace and common separators
+                raw_phone = str(row['phone']).strip() if pd.notna(row['phone']) else None
+                phone = raw_phone.replace(' ', '').replace('-', '').replace('(', '').replace(')', '') if raw_phone else None
                 inviter_name = str(row['inviter']).strip() if pd.notna(row['inviter']) else None
                 category = str(row['category']).strip() if 'category' in row and pd.notna(row['category']) else None
                 allowed_guests = int(row['allowed_guests']) if 'allowed_guests' in row and pd.notna(row['allowed_guests']) else None
@@ -113,30 +115,54 @@ class ImportService:
 
                 inviter_id = inviter_obj.id
 
-                # Check if contact already exists by phone (not email)
-                existing_invitee = Invitee.find_by_phone(phone)
+                # Check if contact already exists by phone within this inviter group
+                existing_invitee = Invitee.find_by_phone_in_group(phone, user.inviter_group_id)
 
                 if existing_invitee:
-                    # Contact already exists - update info if provided
-                    updated = False
-                    if position:
+                    # Contact already exists in this group - update with new data
+                    updated_fields = []
+                    
+                    # Update name if different
+                    if name and existing_invitee.name != name:
+                        existing_invitee.name = name
+                        updated_fields.append('name')
+                    
+                    # Update email if different
+                    if email and existing_invitee.email != email:
+                        existing_invitee.email = email
+                        updated_fields.append('email')
+                    
+                    # Update position if provided
+                    if position and existing_invitee.position != position:
                         existing_invitee.position = position
-                        updated = True
-                    if company:
+                        updated_fields.append('position')
+                    
+                    # Update company if provided
+                    if company and existing_invitee.company != company:
                         existing_invitee.company = company
-                        updated = True
-                    if category:
+                        updated_fields.append('company')
+                    
+                    # Update category if provided
+                    if category and existing_invitee.category != category:
                         existing_invitee.category = category
-                        updated = True
-                    if inviter_id and (not existing_invitee.inviter_id or existing_invitee.inviter_id != inviter_id):
+                        updated_fields.append('category')
+                    
+                    # Update allowed_guests if provided
+                    if allowed_guests is not None and existing_invitee.allowed_guests != allowed_guests:
+                        existing_invitee.allowed_guests = allowed_guests
+                        updated_fields.append('allowed_guests')
+                    
+                    # Update inviter if different
+                    if inviter_id and existing_invitee.inviter_id != inviter_id:
                         existing_invitee.inviter_id = inviter_id
-                        updated = True
-                    if updated:
-                        skipped += 1
-                        errors.append(f"Row {index + 2}: Contact with phone '{phone}' already exists (info updated)")
+                        updated_fields.append('inviter')
+                    
+                    if updated_fields:
+                        successful += 1
+                        errors.append(f"Row {index + 2}: Updated existing contact '{phone}' ({', '.join(updated_fields)})")
                     else:
                         skipped += 1
-                        errors.append(f"Row {index + 2}: Contact with phone '{phone}' already exists")
+                        errors.append(f"Row {index + 2}: Contact with phone '{phone}' already exists (no changes)")
                     continue
 
                 # Create new contact
