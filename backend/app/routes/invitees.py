@@ -320,7 +320,9 @@ def get_event_invitees(event_id):
     # Check if contact details should be included
     include_contact_details = request.args.get('include_contact_details', 'false').lower() == 'true'
     
-    # No backend filtering for organizers; return all invitees for the event
+    # Directors and organizers only see their own group's invitees (isolation)
+    if current_user.role != 'admin' and current_user.inviter_group_id:
+        filters['inviter_group_id'] = current_user.inviter_group_id
     
     event_invitees = InviteeService.get_invitees_for_event(event_id, filters)
     return jsonify([ei.to_dict(include_relations=True, include_contact_details=include_contact_details) for ei in event_invitees]), 200
@@ -457,7 +459,7 @@ def resubmit_invitee(event_id, invitee_id):
     # Check if user can resubmit:
     # 1. Original inviter can always resubmit
     # 2. Admins can always resubmit
-    # 3. If the original inviter was an organizer, directors can also resubmit
+    # 3. If the original inviter was an organizer from same group, directors can also resubmit
     can_resubmit = False
     
     if event_invitee.inviter_user_id == current_user.id:
@@ -467,8 +469,11 @@ def resubmit_invitee(event_id, invitee_id):
         # Admins can always resubmit
         can_resubmit = True
     elif current_user.role == 'director' and event_invitee.inviter_role == 'organizer':
-        # Directors can resubmit if original inviter was an organizer
-        can_resubmit = True
+        # Directors can resubmit if original inviter was an organizer from same group
+        from app.models.user import User
+        original_submitter = User.query.get(event_invitee.inviter_user_id)
+        if original_submitter and original_submitter.inviter_group_id == current_user.inviter_group_id:
+            can_resubmit = True
     
     if not can_resubmit:
         return jsonify({'error': 'You do not have permission to resubmit this invitation'}), 403
@@ -565,16 +570,40 @@ def invite_existing_to_event(event_id):
                 'reason': 'Invitee not found'
             })
             continue
+        
+        # Verify invitee belongs to user's group (isolation check)
+        if current_user.role != 'admin':
+            if invitee.inviter_group_id != current_user.inviter_group_id:
+                results['failed'].append({
+                    'invitee_id': invitee_id,
+                    'reason': 'Invitee not in your group'
+                })
+                continue
 
         # Check if already invited to this event
         existing = EventInvitee.query.filter_by(event_id=event_id, invitee_id=invitee_id).first()
         if existing:
-            results['already_invited'].append({
-                'invitee_id': invitee_id,
-                'name': invitee.name,
-                'status': existing.status
-            })
-            continue
+            # If rejected, allow resubmission by updating status back to pending
+            if existing.status == 'rejected':
+                existing.status = 'waiting_for_approval'
+                existing.notes = invitation_data.get('notes', 'Resubmitted after rejection')
+                existing.status_date = datetime.utcnow()
+                existing.approved_by = None
+                existing.approval_notes = None
+                results['successful'].append({
+                    'invitee_id': invitee_id,
+                    'name': invitee.name,
+                    'event_invitee_id': existing.id,
+                    'resubmitted': True
+                })
+                continue
+            else:
+                results['already_invited'].append({
+                    'invitee_id': invitee_id,
+                    'name': invitee.name,
+                    'status': existing.status
+                })
+                continue
 
         # Use stored data from invitee if not provided
         final_inviter_id = inviter_id or invitee.inviter_id

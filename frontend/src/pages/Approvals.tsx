@@ -402,8 +402,8 @@ export default function Approvals() {
         </nav>
       </div>
 
-      {/* Bulk Actions Bar - Always visible, buttons hidden when no selection */}
-      {activeTab === 'pending' && (
+      {/* Bulk Actions Bar - Hidden for admin users */}
+      {activeTab === 'pending' && !isAdmin && (
         <div className={`rounded-lg p-4 flex flex-col sm:flex-row items-center justify-between gap-4 transition-all ${
           selectedIds.size > 0 
             ? 'bg-primary/5 border border-primary/20' 
@@ -442,7 +442,7 @@ export default function Approvals() {
         </div>
       )}
 
-      {activeTab === 'approved' && (
+      {activeTab === 'approved' && !isAdmin && (
         <div className={`rounded-lg p-4 flex flex-col sm:flex-row items-center justify-between gap-4 transition-all ${
           selectedIds.size > 0 
             ? 'bg-primary/5 border border-primary/20' 
@@ -572,9 +572,11 @@ export default function Approvals() {
                       <SortableHeader field="event_name">Event</SortableHeader>
                       <SortableHeader field="inviter_name">Invited By</SortableHeader>
                       <SortableHeader field="created_at">Date</SortableHeader>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Actions
-                      </th>
+                      {!isAdmin && (
+                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Actions
+                        </th>
+                      )}
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
@@ -631,26 +633,28 @@ export default function Approvals() {
                             {new Date(approval.created_at).toLocaleDateString()}
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right">
-                          <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
-                            <button
-                              onClick={() => openQuickRejectModal(approval)}
-                              disabled={submitting}
-                              className="p-2 text-red-600 hover:bg-red-50 rounded-full transition-colors"
-                              title="Reject"
-                            >
-                              <X className="w-5 h-5" />
-                            </button>
-                            <button
-                              onClick={() => quickApprove(approval.id)}
-                              disabled={submitting}
-                              className="p-2 text-green-600 hover:bg-green-50 rounded-full transition-colors"
-                              title="Approve"
-                            >
-                              <Check className="w-5 h-5" />
-                            </button>
-                          </div>
-                        </td>
+                        {!isAdmin && (
+                          <td className="px-6 py-4 whitespace-nowrap text-right">
+                            <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
+                              <button
+                                onClick={() => openQuickRejectModal(approval)}
+                                disabled={submitting}
+                                className="p-2 text-red-600 hover:bg-red-50 rounded-full transition-colors"
+                                title="Reject"
+                              >
+                                <X className="w-5 h-5" />
+                              </button>
+                              <button
+                                onClick={() => quickApprove(approval.id)}
+                                disabled={submitting}
+                                className="p-2 text-green-600 hover:bg-green-50 rounded-full transition-colors"
+                                title="Approve"
+                              >
+                                <Check className="w-5 h-5" />
+                              </button>
+                            </div>
+                          </td>
+                        )}
                       </tr>
                     ))}
                   </tbody>
@@ -726,9 +730,11 @@ export default function Approvals() {
                       <SortableHeader field="inviter_name">Inviter</SortableHeader>
                       <SortableHeader field="category">Category</SortableHeader>
                       <SortableHeader field="approved_by_name">Approved By</SortableHeader>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Actions
-                      </th>
+                      {!isAdmin && (
+                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Actions
+                        </th>
+                      )}
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
@@ -784,15 +790,17 @@ export default function Approvals() {
                             )}
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right">
-                          <button
-                            onClick={(e) => { e.stopPropagation(); openCancelApprovalModal(invitee); }}
-                            disabled={submitting}
-                            className="text-red-600 hover:text-red-800 text-sm font-medium disabled:opacity-50"
-                          >
-                            Cancel Approval
-                          </button>
-                        </td>
+                        {!isAdmin && (
+                          <td className="px-6 py-4 whitespace-nowrap text-right">
+                            <button
+                              onClick={(e) => { e.stopPropagation(); openCancelApprovalModal(invitee); }}
+                              disabled={submitting}
+                              className="text-red-600 hover:text-red-800 text-sm font-medium disabled:opacity-50"
+                            >
+                              Cancel Approval
+                            </button>
+                          </td>
+                        )}
                       </tr>
                     ))}
                   </tbody>
@@ -946,7 +954,7 @@ export default function Approvals() {
       )}
 
       {/* Cancel Approval Modal */}
-      {showCancelApprovalModal && cancelApprovalInvitee && (
+      {showCancelApprovalModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
             <div className="p-6">
@@ -955,8 +963,12 @@ export default function Approvals() {
               </div>
               <h3 className="text-lg font-semibold text-center mb-2">Cancel Approval</h3>
               <p className="text-gray-600 text-center mb-4">
-                You are about to cancel the approval for <strong>{cancelApprovalInvitee.invitee_name}</strong>.
-                This will change their status back to Rejected.
+                {cancelApprovalInvitee ? (
+                  <>You are about to cancel the approval for <strong>{cancelApprovalInvitee.invitee_name}</strong>.</>
+                ) : (
+                  <>You are about to cancel the approval for <strong>{selectedIds.size} selected invitees</strong>.</>
+                )}
+                {' '}This will change their status back to Rejected.
               </p>
 
               <div className="mb-4">
