@@ -58,7 +58,7 @@ def seed_database():
             full_name='System Administrator',
             password_hash=bcrypt.hashpw('Admin@123'.encode('utf-8'), bcrypt.gensalt()).decode('utf-8'),
             role='admin',
-            inviter_group_id=groups[0].id,  # Assign to first group
+            inviter_group_id=None,  # Admin users are not assigned to any inviter group
             is_active=True
         )
         

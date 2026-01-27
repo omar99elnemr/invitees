@@ -15,14 +15,16 @@ import {
   User,
   Search,
   RefreshCw,
+  Printer,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { reportsAPI, eventsAPI, inviterGroupsAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import type { Event, InviterGroup, EventInvitee } from '../types';
-import { exportToCSV, exportToExcel } from '../utils/exportHelpers';
+import { exportToCSV, exportToExcel, exportToPDF } from '../utils/exportHelpers';
 import toast from 'react-hot-toast';
 
-type ReportType = 'summary-event' | 'summary-inviter' | 'detail-event' | 'detail-going';
+type ReportType = 'summary-group' | 'summary-inviter' | 'detail-event' | 'detail-approved';
 
 interface SummaryData {
   event_id: number;
@@ -37,7 +39,7 @@ interface SummaryData {
 
 export default function Reports() {
   const { user } = useAuth();
-  const [activeReport, setActiveReport] = useState<ReportType>('summary-event');
+  const [activeReport, setActiveReport] = useState<ReportType>('summary-group');
   const [events, setEvents] = useState<Event[]>([]);
   const [inviterGroups, setInviterGroups] = useState<InviterGroup[]>([]);
   const [loading, setLoading] = useState(false);
@@ -91,7 +93,7 @@ export default function Reports() {
     try {
       let response;
       switch (activeReport) {
-        case 'summary-event':
+        case 'summary-group':
           response = await reportsAPI.summaryPerEvent(filters);
           setSummaryData(response.data);
           break;
@@ -103,7 +105,7 @@ export default function Reports() {
           response = await reportsAPI.detailPerEvent(filters);
           setDetailData(response.data);
           break;
-        case 'detail-going':
+        case 'detail-approved':
           response = await reportsAPI.detailGoing(filters);
           setDetailData(response.data);
           break;
@@ -117,89 +119,86 @@ export default function Reports() {
     }
   };
 
-  const handleExport = (format: 'csv' | 'excel') => {
+  // Helper function to get formatted export data
+  const getFormattedExportData = () => {
     const isSummary = activeReport.startsWith('summary');
     const rawData = isSummary ? summaryData : detailData;
 
-    if (rawData.length === 0) {
-      toast.error('No data to export');
-      return;
-    }
+    if (rawData.length === 0) return [];
 
-    // Transform data based on report type with prioritized column ordering
-    let exportData: any[];
-
-    if (activeReport === 'detail-going') {
-      // Attendee List: Focus on invitee info first, with event details
-      exportData = (rawData as EventInvitee[]).map(item => ({
-        'Name': item.invitee_name || '',
-        'Phone': item.invitee_phone || '',
-        'Email': item.invitee_email || '',
-        'Position': item.invitee_position || '',
-        'Company': item.invitee_company || '',
-        'Category': item.category || '',
-        // 'Class': item.invitation_class || '',
-        'Plus One': item.plus_one ? 'Yes' : 'No',
-        'RSVP': item.is_going === 'yes' ? 'Yes' : item.is_going === 'no' ? 'No' : item.is_going === 'maybe' ? 'Maybe' : 'Pending',
-        'Event': item.event_name || '',
-        'Event Date': item.event_date ? new Date(item.event_date).toLocaleDateString() : '',
-        'Location': item.event_location || '',
-        'Invited By': item.inviter_name || '',
-        'Group': item.inviter_group_name || '',
-      }));
-    } else if (activeReport === 'detail-event') {
-      // Detail by Event: Event first, then invitee info, then status
-      exportData = (rawData as EventInvitee[]).map(item => ({
-        'Event': item.event_name || '',
-        'Event Date': item.event_date ? new Date(item.event_date).toLocaleDateString() : '',
-        'Location': item.event_location || '',
-        'Name': item.invitee_name || '',
-        'Phone': item.invitee_phone || '',
-        'Email': item.invitee_email || '',
-        'Position': item.invitee_position || '',
-        'Company': item.invitee_company || '',
-        'Category': item.category || '',
-        // 'Class': item.invitation_class || '',
+    // Transform data based on report type with clean headers and proper column ordering
+    if (activeReport === 'detail-approved') {
+      // Full Approved Details: Event, Name, Phone, Email, Inviter, Category, Status, etc.
+      return (rawData as EventInvitee[]).map(item => ({
+        'Event': item.event_name || '—',
+        'Invitee Name': item.invitee_name || '—',
+        'Phone': item.invitee_phone || '—',
+        'Email': item.invitee_email || '—',
+        'Inviter': item.inviter_name || '—',
+        'Category': item.category || '—',
+        'Inviter Group': item.inviter_group_name || '—',
         'Status': item.status === 'waiting_for_approval' ? 'Pending' : 
                   item.status === 'approved' ? 'Approved' : 'Rejected',
-        'RSVP': item.is_going === 'yes' ? 'Yes' : item.is_going === 'no' ? 'No' : item.is_going === 'maybe' ? 'Maybe' : 'Pending',
-        'Plus One': item.plus_one ? 'Yes' : 'No',
-        'Invited By': item.inviter_name || '',
-        'Group': item.inviter_group_name || '',
-        'Approved/Rejected By': item.approved_by_name || '',
-        'Status Date': item.status_date ? new Date(item.status_date).toLocaleDateString() : '',
-        'Notes': item.approval_notes || item.notes || '',
+        'Status Date': item.status_date ? new Date(item.status_date).toLocaleDateString() : '—',
+        'Attending': item.is_going === 'yes' ? 'Yes' : item.is_going === 'no' ? 'No' : 'Pending',
+        'Guests': item.plus_one || 0,
       }));
-    } else if (activeReport === 'summary-event') {
-      // Summary by Event: Event-centric with group breakdown
-      exportData = (rawData as SummaryData[]).map(item => ({
-        'Event': item.event_name || '',
-        'Group': item.inviter_group_name || '',
+    } else if (activeReport === 'detail-event') {
+      // Detailed Invitees: Event, Name, Phone, Email, Position, Inviter, Category, Group, Status
+      return (rawData as EventInvitee[]).map(item => ({
+        'Event': item.event_name || '—',
+        'Invitee Name': item.invitee_name || '—',
+        'Phone': item.invitee_phone || '—',
+        'Email': item.invitee_email || '—',
+        'Position': item.invitee_position || '—',
+        'Inviter': item.inviter_name || '—',
+        'Category': item.category || '—',
+        'Inviter Group': item.inviter_group_name || '—',
+        'Status': item.status === 'waiting_for_approval' ? 'Pending' : 
+                  item.status === 'approved' ? 'Approved' : 'Rejected',
+      }));
+    } else if (activeReport === 'summary-group') {
+      // Summary by Group: Event, Inviter Group, Status, Total
+      return (rawData as SummaryData[]).map(item => ({
+        'Event': item.event_name || '—',
+        'Inviter Group': item.inviter_group_name || '—',
         'Status': item.status === 'waiting_for_approval' ? 'Pending' : 
                   item.status === 'approved' ? 'Approved' : 'Rejected',
         'Total Invitees': item.total_invitees || 0,
       }));
     } else if (activeReport === 'summary-inviter') {
-      // Summary by Inviter: Inviter-centric
-      exportData = (rawData as SummaryData[]).map(item => ({
-        'Event': item.event_name || '',
-        'Inviter': item.inviter_name || '',
-        'Group': item.inviter_group_name || '',
+      // Summary by Inviter: Event, Inviter, Group, Status, Total
+      return (rawData as SummaryData[]).map(item => ({
+        'Event': item.event_name || '—',
+        'Inviter': item.inviter_name || '—',
+        'Inviter Group': item.inviter_group_name || '—',
         'Status': item.status === 'waiting_for_approval' ? 'Pending' : 
                   item.status === 'approved' ? 'Approved' : 'Rejected',
         'Total Invitees': item.total_invitees || 0,
       }));
-    } else {
-      exportData = rawData as any[];
+    }
+    
+    return rawData as any[];
+  };
+
+  const handleExport = (format: 'csv' | 'excel' | 'pdf') => {
+    const exportData = getFormattedExportData();
+
+    if (exportData.length === 0) {
+      toast.error('No data to export');
+      return;
     }
 
-    const filename = `report_${activeReport}_${new Date().toISOString().split('T')[0]}`;
+    const reportName = reportTypes.find(r => r.id === activeReport)?.name || 'Report';
+    const filename = `${reportName.replace(/\s+/g, '_')}`;
 
     try {
       if (format === 'csv') {
         exportToCSV(exportData, filename);
-      } else {
-        exportToExcel(exportData, filename);
+      } else if (format === 'excel') {
+        exportToExcel(exportData, filename, reportName);
+      } else if (format === 'pdf') {
+        exportToPDF(exportData, filename, reportName, 'landscape');
       }
       toast.success(`Exported as ${format.toUpperCase()}`);
     } catch (error) {
@@ -240,27 +239,27 @@ export default function Reports() {
 
   const reportTypes = [
     {
-      id: 'summary-event' as ReportType,
-      name: 'Summary by Event',
-      description: 'Count of invitees per group for each event',
-      icon: BarChart3,
+      id: 'summary-group' as ReportType,
+      name: 'Invitees by Group',
+      description: 'Number of invitees per inviter group for each event',
+      icon: Building,
     },
     {
       id: 'summary-inviter' as ReportType,
-      name: 'Summary by Inviter',
-      description: 'Count of invitees per person who invited them',
+      name: 'Invitees by Inviter',
+      description: 'Number of invitees per inviter for each event',
       icon: Users,
     },
     {
       id: 'detail-event' as ReportType,
-      name: 'Detail by Event',
-      description: 'Full list of all invitees with contact info and status',
+      name: 'Detailed Invitees',
+      description: 'Detailed invitee list with name, position, inviter, group, status',
       icon: FileText,
     },
     {
-      id: 'detail-going' as ReportType,
-      name: 'Attendee List',
-      description: 'Approved invitees who confirmed attendance',
+      id: 'detail-approved' as ReportType,
+      name: 'Full Approved Details',
+      description: 'Approved invitees with phone, email, category, attendance status',
       icon: Check,
     },
   ];
@@ -395,20 +394,90 @@ export default function Reports() {
 
       {/* Export Buttons */}
       {dataLoaded && (summaryData.length > 0 || detailData.length > 0) && (
-        <div className="flex justify-end gap-2">
+        <div className="flex justify-end gap-2 flex-wrap">
           <button
             onClick={() => handleExport('csv')}
             className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
           >
             <Download className="w-4 h-4" />
-            Export CSV
+            CSV
           </button>
           <button
             onClick={() => handleExport('excel')}
             className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
           >
+            <FileSpreadsheet className="w-4 h-4" />
+            Excel
+          </button>
+          <button
+            onClick={() => handleExport('pdf')}
+            className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+          >
             <Download className="w-4 h-4" />
-            Export Excel
+            PDF
+          </button>
+          <button
+            onClick={() => {
+              const exportData = getFormattedExportData();
+              if (exportData.length === 0) {
+                toast.error('No data to print');
+                return;
+              }
+              const reportName = reportTypes.find(r => r.id === activeReport)?.name || 'Report';
+              const headers = Object.keys(exportData[0]);
+              
+              // Build HTML table from formatted data
+              const tableRows = exportData.map((row, idx) => 
+                `<tr style="${idx % 2 === 0 ? '' : 'background-color: #f9fafb;'}">
+                  ${headers.map(h => `<td>${row[h] ?? '—'}</td>`).join('')}
+                </tr>`
+              ).join('');
+              
+              const printWindow = window.open('', '_blank');
+              if (printWindow) {
+                printWindow.document.write(`
+                  <html>
+                    <head>
+                      <title>${reportName}</title>
+                      <style>
+                        body { font-family: 'Segoe UI', Arial, sans-serif; padding: 30px; margin: 0; }
+                        h1 { font-size: 22px; margin-bottom: 5px; color: #1f2937; }
+                        .meta { color: #6b7280; font-size: 11px; margin-bottom: 25px; }
+                        table { width: 100%; border-collapse: collapse; font-size: 11px; }
+                        th { background-color: #2980b9; color: white; padding: 10px 8px; text-align: left; font-weight: 600; }
+                        td { border-bottom: 1px solid #e5e7eb; padding: 8px; }
+                        tr:hover { background-color: #f3f4f6; }
+                        .footer { margin-top: 20px; font-size: 10px; color: #9ca3af; text-align: center; }
+                        @media print {
+                          body { padding: 15px; }
+                          table { font-size: 10px; }
+                          th, td { padding: 6px; }
+                        }
+                      </style>
+                    </head>
+                    <body>
+                      <h1>${reportName}</h1>
+                      <div class="meta">Generated: ${new Date().toLocaleString()}</div>
+                      <table>
+                        <thead>
+                          <tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr>
+                        </thead>
+                        <tbody>
+                          ${tableRows}
+                        </tbody>
+                      </table>
+                      <div class="footer">Total Records: ${exportData.length}</div>
+                    </body>
+                  </html>
+                `);
+                printWindow.document.close();
+                printWindow.print();
+              }
+            }}
+            className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+          >
+            <Printer className="w-4 h-4" />
+            Print
           </button>
         </div>
       )}
@@ -566,7 +635,7 @@ export default function Reports() {
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                       Status
                     </th>
-                    {activeReport === 'detail-going' && (
+                    {activeReport === 'detail-approved' && (
                       <>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                           Attending
@@ -615,7 +684,7 @@ export default function Reports() {
                           {item.status}
                         </span>
                       </td>
-                      {activeReport === 'detail-going' && (
+                      {activeReport === 'detail-approved' && (
                         <>
                           <td className="px-4 py-3 whitespace-nowrap text-sm">
                             {item.is_going === 'yes' ? (

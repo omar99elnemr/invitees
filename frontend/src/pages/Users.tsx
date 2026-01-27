@@ -70,6 +70,7 @@ export default function Users() {
     inviter_group_id: undefined as number | undefined,
   });
   const [inviterSearchQuery, setInviterSearchQuery] = useState('');
+  const [showInlineInviterForm, setShowInlineInviterForm] = useState(false);
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -494,9 +495,14 @@ export default function Users() {
       {/* Users Tab Content */}
       {activeTab === 'users' && (
         <>
-          {/* Stats */}
+          {/* Stats - Clickable Filters */}
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-            <div className="bg-white rounded-lg shadow p-4 flex items-center gap-4">
+            <button
+              onClick={() => { setRoleFilter('all'); setCurrentPage(1); }}
+              className={`bg-white rounded-lg shadow p-4 flex items-center gap-4 text-left transition-all hover:shadow-md ${
+                roleFilter === 'all' ? 'ring-2 ring-gray-400' : ''
+              }`}
+            >
               <div className="p-3 bg-gray-100 rounded-full">
                 <UsersIcon className="w-6 h-6 text-gray-600" />
               </div>
@@ -504,8 +510,13 @@ export default function Users() {
                 <p className="text-sm text-gray-600">Total Users</p>
                 <p className="text-2xl font-bold">{users.length}</p>
               </div>
-            </div>
-            <div className="bg-white rounded-lg shadow p-4 flex items-center gap-4">
+            </button>
+            <button
+              onClick={() => { setRoleFilter('admin'); setCurrentPage(1); }}
+              className={`bg-white rounded-lg shadow p-4 flex items-center gap-4 text-left transition-all hover:shadow-md ${
+                roleFilter === 'admin' ? 'ring-2 ring-purple-400' : ''
+              }`}
+            >
               <div className="p-3 bg-purple-100 rounded-full">
                 <Shield className="w-6 h-6 text-purple-600" />
               </div>
@@ -513,8 +524,13 @@ export default function Users() {
                 <p className="text-sm text-gray-600">Admins</p>
                 <p className="text-2xl font-bold">{users.filter(u => u.role === 'admin').length}</p>
               </div>
-            </div>
-            <div className="bg-white rounded-lg shadow p-4 flex items-center gap-4">
+            </button>
+            <button
+              onClick={() => { setRoleFilter('director'); setCurrentPage(1); }}
+              className={`bg-white rounded-lg shadow p-4 flex items-center gap-4 text-left transition-all hover:shadow-md ${
+                roleFilter === 'director' ? 'ring-2 ring-blue-400' : ''
+              }`}
+            >
               <div className="p-3 bg-blue-100 rounded-full">
                 <Shield className="w-6 h-6 text-blue-600" />
               </div>
@@ -522,8 +538,13 @@ export default function Users() {
                 <p className="text-sm text-gray-600">Directors</p>
                 <p className="text-2xl font-bold">{users.filter(u => u.role === 'director').length}</p>
               </div>
-            </div>
-            <div className="bg-white rounded-lg shadow p-4 flex items-center gap-4">
+            </button>
+            <button
+              onClick={() => { setRoleFilter('organizer'); setCurrentPage(1); }}
+              className={`bg-white rounded-lg shadow p-4 flex items-center gap-4 text-left transition-all hover:shadow-md ${
+                roleFilter === 'organizer' ? 'ring-2 ring-green-400' : ''
+              }`}
+            >
               <div className="p-3 bg-green-100 rounded-full">
                 <UsersIcon className="w-6 h-6 text-green-600" />
               </div>
@@ -531,7 +552,7 @@ export default function Users() {
                 <p className="text-sm text-gray-600">Organizers</p>
                 <p className="text-2xl font-bold">{users.filter(u => u.role === 'organizer').length}</p>
               </div>
-            </div>
+            </button>
           </div>
 
       {/* Filters */}
@@ -546,17 +567,6 @@ export default function Users() {
             className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
           />
         </div>
-
-        <select
-          value={roleFilter}
-          onChange={(e) => setRoleFilter(e.target.value)}
-          className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white"
-        >
-          <option value="all">All Roles</option>
-          <option value="admin">Admin</option>
-          <option value="director">Director</option>
-          <option value="organizer">Organizer</option>
-        </select>
 
         <select
           value={statusFilter}
@@ -576,7 +586,7 @@ export default function Users() {
           }}
           className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white"
         >
-          <option value={10}>10 / page</option>
+          <option value={20}>20 / page</option>
           <option value={50}>50 / page</option>
           <option value={100}>100 / page</option>
         </select>
@@ -1518,6 +1528,8 @@ export default function Users() {
                 onClick={() => {
                   setShowGroupInvitersModal(false);
                   setSelectedGroupForDetail(null);
+                  setShowInlineInviterForm(false);
+                  setInviterFormData({ name: '', email: '', phone: '', position: '', inviter_group_id: undefined });
                 }}
                 className="p-2 hover:bg-gray-100 rounded-full"
               >
@@ -1526,29 +1538,119 @@ export default function Users() {
             </div>
 
             <div className="p-6 overflow-y-auto flex-1">
-              <div className="flex justify-between items-center mb-4">
-                <div className="relative flex-1 max-w-xs">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                  <input
-                    type="text"
-                    placeholder="Search inviters..."
-                    value={inviterSearchQuery}
-                    onChange={(e) => setInviterSearchQuery(e.target.value)}
-                    className="w-full pl-9 pr-4 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                  />
+              {/* Inline Add Inviter Form */}
+              {showInlineInviterForm ? (
+                <div className="mb-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                  <h3 className="text-sm font-medium text-gray-900 mb-3">Add New Inviter</h3>
+                  <form onSubmit={async (e) => {
+                    e.preventDefault();
+                    if (!inviterFormData.name.trim()) {
+                      toast.error('Inviter name is required');
+                      return;
+                    }
+                    setSubmitting(true);
+                    try {
+                      await invitersAPI.create({ ...inviterFormData, inviter_group_id: selectedGroupForDetail.id });
+                      toast.success('Inviter created successfully');
+                      setShowInlineInviterForm(false);
+                      setInviterFormData({ name: '', email: '', phone: '', position: '', inviter_group_id: undefined });
+                      fetchData();
+                    } catch (error: any) {
+                      toast.error(error.response?.data?.error || 'Failed to create inviter');
+                    } finally {
+                      setSubmitting(false);
+                    }
+                  }} className="space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Name *</label>
+                        <input
+                          type="text"
+                          value={inviterFormData.name}
+                          onChange={(e) => setInviterFormData({ ...inviterFormData, name: e.target.value })}
+                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                          placeholder="Enter name"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Email</label>
+                        <input
+                          type="email"
+                          value={inviterFormData.email}
+                          onChange={(e) => setInviterFormData({ ...inviterFormData, email: e.target.value })}
+                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                          placeholder="Enter email"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Phone</label>
+                        <input
+                          type="tel"
+                          value={inviterFormData.phone}
+                          onChange={(e) => setInviterFormData({ ...inviterFormData, phone: e.target.value })}
+                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                          placeholder="Enter phone"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Position</label>
+                        <input
+                          type="text"
+                          value={inviterFormData.position}
+                          onChange={(e) => setInviterFormData({ ...inviterFormData, position: e.target.value })}
+                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                          placeholder="Enter position"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowInlineInviterForm(false);
+                          setInviterFormData({ name: '', email: '', phone: '', position: '', inviter_group_id: undefined });
+                        }}
+                        className="px-3 py-1.5 text-sm text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+                        disabled={submitting}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        className="px-3 py-1.5 text-sm bg-primary text-white rounded-lg hover:bg-primary-dark disabled:opacity-50"
+                        disabled={submitting}
+                      >
+                        {submitting ? 'Adding...' : 'Add Inviter'}
+                      </button>
+                    </div>
+                  </form>
                 </div>
-                <button
-                  onClick={() => {
-                    setInviterFormData({ name: '', email: '', phone: '', position: '', inviter_group_id: selectedGroupForDetail.id });
-                    setSelectedInviter(null);
-                    setShowInviterModal(true);
-                  }}
-                  className="inline-flex items-center gap-2 px-3 py-2 bg-primary text-white text-sm rounded-lg hover:bg-primary-dark"
-                >
-                  <Plus className="w-4 h-4" />
-                  Add Inviter
-                </button>
-              </div>
+              ) : (
+                <div className="flex justify-between items-center mb-4">
+                  <div className="relative flex-1 max-w-xs">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                    <input
+                      type="text"
+                      placeholder="Search inviters..."
+                      value={inviterSearchQuery}
+                      onChange={(e) => setInviterSearchQuery(e.target.value)}
+                      className="w-full pl-9 pr-4 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    />
+                  </div>
+                  <button
+                    onClick={() => {
+                      setInviterFormData({ name: '', email: '', phone: '', position: '', inviter_group_id: selectedGroupForDetail.id });
+                      setSelectedInviter(null);
+                      setShowInlineInviterForm(true);
+                    }}
+                    className="inline-flex items-center gap-2 px-3 py-2 bg-primary text-white text-sm rounded-lg hover:bg-primary-dark"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add Inviter
+                  </button>
+                </div>
+              )}
 
               {(() => {
                 const groupInviters = inviters.filter(i => 
@@ -1632,6 +1734,8 @@ export default function Users() {
                   setShowGroupInvitersModal(false);
                   setSelectedGroupForDetail(null);
                   setInviterSearchQuery('');
+                  setShowInlineInviterForm(false);
+                  setInviterFormData({ name: '', email: '', phone: '', position: '', inviter_group_id: undefined });
                 }}
                 className="w-full px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
               >

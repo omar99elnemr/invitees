@@ -37,6 +37,7 @@ export default function Approvals() {
   const [searchQuery, setSearchQuery] = useState('');
   const [eventFilter, setEventFilter] = useState<string>('all');
   const [groupFilter, setGroupFilter] = useState<string>('all');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [showApproveModal, setShowApproveModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
@@ -51,7 +52,36 @@ export default function Approvals() {
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [itemsPerPage, setItemsPerPage] = useState(20);
+
+  // Sorting state
+  const [sortField, setSortField] = useState<string | null>(null);
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+
+  // Handle sort
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  // Sortable header component
+  const SortableHeader = ({ field, children, className = '' }: { field: string; children: React.ReactNode; className?: string }) => (
+    <th
+      className={`px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none ${className}`}
+      onClick={() => handleSort(field)}
+    >
+      <div className="flex items-center gap-1">
+        {children}
+        {sortField === field && (
+          <span className="text-primary">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+        )}
+      </div>
+    </th>
+  );
 
   // Check permissions
   const canApprove = user?.role === 'admin' || user?.role === 'director';
@@ -87,27 +117,51 @@ export default function Approvals() {
     }
   };
 
+  // Sort helper function
+  const applySorting = <T extends Record<string, any>>(items: T[]): T[] => {
+    if (!sortField) return items;
+    return [...items].sort((a, b) => {
+      let aVal = a[sortField] || '';
+      let bVal = b[sortField] || '';
+      
+      if (typeof aVal === 'string') aVal = aVal.toLowerCase();
+      if (typeof bVal === 'string') bVal = bVal.toLowerCase();
+      
+      if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
+      if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+  };
+
+  // Get unique categories from approvals
+  const uniqueCategories = [...new Set([
+    ...pendingApprovals.map(a => a.category).filter(Boolean),
+    ...approvedInvitees.map(a => a.category).filter(Boolean)
+  ])];
+
   // Filter approvals
-  const filteredApprovals = pendingApprovals.filter(approval => {
+  const filteredApprovals = applySorting(pendingApprovals.filter(approval => {
     const matchesSearch =
       approval.invitee_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       approval.invitee_email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       approval.inviter_name?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesEvent = eventFilter === 'all' || approval.event_id.toString() === eventFilter;
     const matchesGroup = groupFilter === 'all' || approval.inviter_group_name === groupFilter;
-    return matchesSearch && matchesEvent && matchesGroup;
-  });
+    const matchesCategory = categoryFilter === 'all' || approval.category === categoryFilter;
+    return matchesSearch && matchesEvent && matchesGroup && matchesCategory;
+  }));
 
   // Filter approved invitees
-  const filteredApproved = approvedInvitees.filter(invitee => {
+  const filteredApproved = applySorting(approvedInvitees.filter(invitee => {
     const matchesSearch =
       invitee.invitee_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       invitee.invitee_email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       invitee.inviter_name?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesEvent = eventFilter === 'all' || invitee.event_id.toString() === eventFilter;
     const matchesGroup = groupFilter === 'all' || invitee.inviter_group_name === groupFilter;
-    return matchesSearch && matchesEvent && matchesGroup;
-  });
+    const matchesCategory = categoryFilter === 'all' || invitee.category === categoryFilter;
+    return matchesSearch && matchesEvent && matchesGroup && matchesCategory;
+  }));
 
   // Pagination
   const totalPages = Math.ceil(filteredApprovals.length / itemsPerPage);
@@ -348,59 +402,75 @@ export default function Approvals() {
         </nav>
       </div>
 
-      {/* Bulk Actions Bar */}
-      {selectedIds.size > 0 && activeTab === 'pending' && (
-        <div className="bg-primary/5 border border-primary/20 rounded-lg p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+      {/* Bulk Actions Bar - Always visible, buttons hidden when no selection */}
+      {activeTab === 'pending' && (
+        <div className={`rounded-lg p-4 flex flex-col sm:flex-row items-center justify-between gap-4 transition-all ${
+          selectedIds.size > 0 
+            ? 'bg-primary/5 border border-primary/20' 
+            : 'bg-gray-50 border border-gray-200'
+        }`}>
           <div className="flex items-center gap-2">
-            <Users className="w-5 h-5 text-primary" />
-            <span className="font-medium">{selectedIds.size} selected</span>
+            <Users className={`w-5 h-5 ${selectedIds.size > 0 ? 'text-primary' : 'text-gray-400'}`} />
+            <span className={`font-medium ${selectedIds.size > 0 ? 'text-gray-900' : 'text-gray-400'}`}>
+              {selectedIds.size > 0 ? `${selectedIds.size} selected` : 'Select items to perform bulk actions'}
+            </span>
           </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setSelectedIds(new Set())}
-              className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
-            >
-              Clear Selection
-            </button>
-            <button
-              onClick={() => setShowRejectModal(true)}
-              className="px-4 py-2 text-white bg-red-600 rounded-lg hover:bg-red-700"
-            >
-              <XCircle className="w-4 h-4 inline mr-2" />
-              Reject Selected
-            </button>
-            <button
-              onClick={() => setShowApproveModal(true)}
-              className="px-4 py-2 text-white bg-green-600 rounded-lg hover:bg-green-700"
-            >
-              <CheckCircle className="w-4 h-4 inline mr-2" />
-              Approve Selected
-            </button>
-          </div>
+          {selectedIds.size > 0 && (
+            <div className="flex gap-2">
+              <button
+                onClick={() => setSelectedIds(new Set())}
+                className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                Clear Selection
+              </button>
+              <button
+                onClick={() => setShowRejectModal(true)}
+                className="px-4 py-2 text-white bg-red-600 rounded-lg hover:bg-red-700"
+              >
+                <XCircle className="w-4 h-4 inline mr-2" />
+                Reject Selected
+              </button>
+              <button
+                onClick={() => setShowApproveModal(true)}
+                className="px-4 py-2 text-white bg-green-600 rounded-lg hover:bg-green-700"
+              >
+                <CheckCircle className="w-4 h-4 inline mr-2" />
+                Approve Selected
+              </button>
+            </div>
+          )}
         </div>
       )}
 
-      {selectedIds.size > 0 && activeTab === 'approved' && (
-        <div className="bg-primary/5 border border-primary/20 rounded-lg p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+      {activeTab === 'approved' && (
+        <div className={`rounded-lg p-4 flex flex-col sm:flex-row items-center justify-between gap-4 transition-all ${
+          selectedIds.size > 0 
+            ? 'bg-primary/5 border border-primary/20' 
+            : 'bg-gray-50 border border-gray-200'
+        }`}>
           <div className="flex items-center gap-2">
-            <Users className="w-5 h-5 text-primary" />
-            <span className="font-medium">{selectedIds.size} selected</span>
+            <Users className={`w-5 h-5 ${selectedIds.size > 0 ? 'text-primary' : 'text-gray-400'}`} />
+            <span className={`font-medium ${selectedIds.size > 0 ? 'text-gray-900' : 'text-gray-400'}`}>
+              {selectedIds.size > 0 ? `${selectedIds.size} selected` : 'Select items to perform bulk actions'}
+            </span>
           </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setSelectedIds(new Set())}
-              className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
-            >
-              Clear Selection
-            </button>
-            <button
-              onClick={() => openCancelApprovalModal(null)}
-              className="px-4 py-2 text-white bg-red-600 rounded-lg hover:bg-red-700"
-            >
-              <XCircle className="w-4 h-4 inline mr-2" />
-              Cancel Approval ({selectedIds.size})
-            </button>
-          </div>
+          {selectedIds.size > 0 && (
+            <div className="flex gap-2">
+              <button
+                onClick={() => setSelectedIds(new Set())}
+                className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                Clear Selection
+              </button>
+              <button
+                onClick={() => openCancelApprovalModal(null)}
+                className="px-4 py-2 text-white bg-red-600 rounded-lg hover:bg-red-700"
+              >
+                <XCircle className="w-4 h-4 inline mr-2" />
+                Cancel Approval ({selectedIds.size})
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -446,6 +516,19 @@ export default function Approvals() {
         )}
 
         <select
+          value={categoryFilter}
+          onChange={(e) => setCategoryFilter(e.target.value)}
+          className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white"
+        >
+          <option value="all">All Categories</option>
+          {uniqueCategories.map((cat) => (
+            <option key={cat} value={cat}>
+              {cat}
+            </option>
+          ))}
+        </select>
+
+        <select
           value={itemsPerPage}
           onChange={(e) => {
             setItemsPerPage(Number(e.target.value));
@@ -453,7 +536,7 @@ export default function Approvals() {
           }}
           className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white"
         >
-          <option value={10}>10 / page</option>
+          <option value={20}>20 / page</option>
           <option value={50}>50 / page</option>
           <option value={100}>100 / page</option>
         </select>
@@ -485,18 +568,10 @@ export default function Approvals() {
                           className="rounded border-gray-300 text-primary focus:ring-primary"
                         />
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Invitee
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Event
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Invited By
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Date
-                      </th>
+                      <SortableHeader field="invitee_name">Invitee</SortableHeader>
+                      <SortableHeader field="event_name">Event</SortableHeader>
+                      <SortableHeader field="inviter_name">Invited By</SortableHeader>
+                      <SortableHeader field="created_at">Date</SortableHeader>
                       <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Actions
                       </th>
@@ -646,21 +721,11 @@ export default function Approvals() {
                           className="rounded border-gray-300 text-primary focus:ring-primary"
                         />
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Invitee
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Event
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Inviter
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Category
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Approved By
-                      </th>
+                      <SortableHeader field="invitee_name">Invitee</SortableHeader>
+                      <SortableHeader field="event_name">Event</SortableHeader>
+                      <SortableHeader field="inviter_name">Inviter</SortableHeader>
+                      <SortableHeader field="category">Category</SortableHeader>
+                      <SortableHeader field="approved_by_name">Approved By</SortableHeader>
                       <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Actions
                       </th>

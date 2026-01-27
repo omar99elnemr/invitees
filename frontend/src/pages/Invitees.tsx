@@ -23,8 +23,8 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
-import { eventsAPI, inviteesAPI, invitersAPI, importAPI, categoriesAPI } from '../services/api';
-import type { Event, EventInvitee, Inviter, InviteeWithStats, InviteeFormData, Category } from '../types';
+import { eventsAPI, inviteesAPI, invitersAPI, importAPI, categoriesAPI, inviterGroupsAPI } from '../services/api';
+import type { Event, EventInvitee, Inviter, InviteeWithStats, InviteeFormData, Category, InviterGroup } from '../types';
 import CategoryManager from '../components/categories/CategoryManager';
 
 // Status display helpers
@@ -88,6 +88,7 @@ export default function Invitees() {
   const [contacts, setContacts] = useState<InviteeWithStats[]>([]);
   const [loadingContacts, setLoadingContacts] = useState(true);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [inviterGroups, setInviterGroups] = useState<InviterGroup[]>([]);
   const [showCategoryManager, setShowCategoryManager] = useState(false);
 
   // Shared state
@@ -97,6 +98,10 @@ export default function Invitees() {
 
   // Events tab - submission state
   const [selectedContactIds, setSelectedContactIds] = useState<number[]>([]);
+  
+  // Events tab - filters for available contacts
+  const [eventInviterFilter, setEventInviterFilter] = useState<string>('all');
+  const [eventCategoryFilter, setEventCategoryFilter] = useState<string>('all');
 
   // Contacts tab - selection state
   const [selectedContactListIds, setSelectedContactListIds] = useState<number[]>([]);
@@ -110,6 +115,7 @@ export default function Invitees() {
   const [showAddContactModal, setShowAddContactModal] = useState(false);
   const [showEditContactModal, setShowEditContactModal] = useState(false);
   const [showDeleteContactModal, setShowDeleteContactModal] = useState(false);
+  const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [selectedContact, setSelectedContact] = useState<InviteeWithStats | null>(null);
@@ -124,7 +130,41 @@ export default function Invitees() {
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 20;
+  const [itemsPerPage, setItemsPerPage] = useState(20);
+
+  // Contacts tab filters
+  const [inviterFilter, setInviterFilter] = useState<string>('all');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [groupFilter, setGroupFilter] = useState<string>('all');
+
+  // Sorting state
+  const [sortField, setSortField] = useState<string | null>(null);
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+
+  // Handle sort
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  // Sortable header component
+  const SortableHeader = ({ field, children, className = '' }: { field: string; children: React.ReactNode; className?: string }) => (
+    <th
+      className={`px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100 select-none ${className}`}
+      onClick={() => handleSort(field)}
+    >
+      <div className="flex items-center gap-1">
+        {children}
+        {sortField === field && (
+          <span className="text-primary">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+        )}
+      </div>
+    </th>
+  );
 
   // Fetch events (assigned to user's inviter group)
   const fetchEvents = useCallback(async () => {
@@ -192,13 +232,25 @@ export default function Invitees() {
     }
   }, []);
 
+  // Fetch inviter groups (for admin filtering)
+  const fetchInviterGroups = useCallback(async () => {
+    if (!isAdmin) return;
+    try {
+      const response = await inviterGroupsAPI.getAll();
+      setInviterGroups(response.data);
+    } catch (error) {
+      console.error('Failed to load inviter groups', error);
+    }
+  }, [isAdmin]);
+
   // Initial load
   useEffect(() => {
     fetchEvents();
     fetchInviters();
     fetchContacts();
     fetchCategories();
-  }, [fetchEvents, fetchInviters, fetchContacts, fetchCategories]);
+    fetchInviterGroups();
+  }, [fetchEvents, fetchInviters, fetchContacts, fetchCategories, fetchInviterGroups]);
 
   // Load event invitees when event is selected
   useEffect(() => {
@@ -230,44 +282,98 @@ export default function Invitees() {
     return eventInvitees.filter(ei => ei.status === 'waiting_for_approval');
   }, [eventInvitees]);
 
-  // Filter contacts by search
+  // Filter and sort contacts by search
   const filteredContacts = useMemo(() => {
     const query = searchQuery.toLowerCase();
-    return contacts.filter(c =>
-      c.name.toLowerCase().includes(query) ||
-      c.email.toLowerCase().includes(query) ||
-      c.phone.includes(query) ||
-      (c.company?.toLowerCase().includes(query))
-    );
-  }, [contacts, searchQuery]);
+    let result = contacts.filter(c => {
+      const matchesSearch = c.name.toLowerCase().includes(query) ||
+        c.email.toLowerCase().includes(query) ||
+        c.phone.includes(query) ||
+        (c.company?.toLowerCase().includes(query));
+      const matchesInviter = inviterFilter === 'all' || c.inviter_name === inviterFilter;
+      const matchesCategory = categoryFilter === 'all' || c.category === categoryFilter;
+      const matchesGroup = groupFilter === 'all' || c.inviter_group_name === groupFilter;
+      return matchesSearch && matchesInviter && matchesCategory && matchesGroup;
+    });
 
-  // Filter available contacts by search and status
+    // Apply sorting
+    if (sortField) {
+      result = [...result].sort((a, b) => {
+        let aVal = (a as any)[sortField] || '';
+        let bVal = (b as any)[sortField] || '';
+        
+        // Handle special fields
+        if (sortField === 'inviter_name') {
+          aVal = a.inviter_name || '';
+          bVal = b.inviter_name || '';
+        }
+        
+        if (typeof aVal === 'string') aVal = aVal.toLowerCase();
+        if (typeof bVal === 'string') bVal = bVal.toLowerCase();
+        
+        if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
+        if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+
+    return result;
+  }, [contacts, searchQuery, sortField, sortDirection, inviterFilter, categoryFilter, groupFilter]);
+
+  // Filter available contacts by search, status, inviter, and category
   const filteredAvailableContacts = useMemo(() => {
     const query = searchQuery.toLowerCase();
     
+    let result: InviteeWithStats[];
+    
     // If status filter is 'rejected', show rejected contacts from event
     if (statusFilter === 'rejected') {
-      return rejectedInvitees.map(ei => {
+      result = rejectedInvitees.map(ei => {
         const contact = contacts.find(c => c.id === ei.invitee_id);
         return contact;
       }).filter((c): c is InviteeWithStats => {
         if (c === undefined) return false;
-        return (
+        const matchesSearch = (
           c.name.toLowerCase().includes(query) ||
           c.email.toLowerCase().includes(query) ||
           c.phone.includes(query) ||
           Boolean(c.company?.toLowerCase().includes(query))
         );
+        const matchesInviter = eventInviterFilter === 'all' || c.inviter_name === eventInviterFilter;
+        const matchesCategory = eventCategoryFilter === 'all' || c.category === eventCategoryFilter;
+        return matchesSearch && matchesInviter && matchesCategory;
+      });
+    } else {
+      result = availableContacts.filter(c => {
+        const matchesSearch = (
+          c.name.toLowerCase().includes(query) ||
+          c.email.toLowerCase().includes(query) ||
+          c.phone.includes(query) ||
+          (c.company?.toLowerCase().includes(query))
+        );
+        const matchesInviter = eventInviterFilter === 'all' || c.inviter_name === eventInviterFilter;
+        const matchesCategory = eventCategoryFilter === 'all' || c.category === eventCategoryFilter;
+        return matchesSearch && matchesInviter && matchesCategory;
       });
     }
     
-    return availableContacts.filter(c =>
-      c.name.toLowerCase().includes(query) ||
-      c.email.toLowerCase().includes(query) ||
-      c.phone.includes(query) ||
-      (c.company?.toLowerCase().includes(query))
-    );
-  }, [availableContacts, searchQuery, statusFilter, rejectedInvitees, contacts]);
+    // Apply sorting
+    if (sortField) {
+      result = [...result].sort((a, b) => {
+        let aVal = (a as any)[sortField] || '';
+        let bVal = (b as any)[sortField] || '';
+        
+        if (typeof aVal === 'string') aVal = aVal.toLowerCase();
+        if (typeof bVal === 'string') bVal = bVal.toLowerCase();
+        
+        if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
+        if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+    
+    return result;
+  }, [availableContacts, searchQuery, statusFilter, rejectedInvitees, contacts, sortField, sortDirection, eventInviterFilter, eventCategoryFilter]);
 
   // Paginate
   const paginatedContacts = useMemo(() => {
@@ -460,16 +566,13 @@ export default function Invitees() {
   const handleBulkDeleteContacts = async () => {
     if (selectedContactListIds.length === 0) return;
 
-    if (!window.confirm(`Are you sure you want to delete ${selectedContactListIds.length} contacts? This action cannot be undone.`)) {
-      return;
-    }
-
     try {
       setSubmitting(true);
       await (inviteesAPI as any).deleteBulk(selectedContactListIds);
       toast.success(`${selectedContactListIds.length} contacts deleted successfully`);
 
       setSelectedContactListIds([]);
+      setShowBulkDeleteModal(false);
       fetchContacts();
     } catch (error: any) {
       toast.error(error.response?.data?.error || 'Failed to delete contacts');
@@ -663,6 +766,21 @@ export default function Invitees() {
                     <p className="text-gray-500">
                       {new Date(selectedEvent.start_date).toLocaleDateString()} - {selectedEvent.venue}
                     </p>
+                    {selectedEvent.inviter_group_names && selectedEvent.inviter_group_names.length > 0 && (
+                      <div className="flex items-center gap-2 mt-2">
+                        <span className="text-xs text-gray-500">Assigned Groups:</span>
+                        <div className="flex flex-wrap gap-1">
+                          {selectedEvent.inviter_group_names.map((groupName, idx) => (
+                            <span
+                              key={idx}
+                              className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
+                            >
+                              {groupName}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                   <div className="flex gap-4 text-sm">
                     <button
@@ -744,20 +862,51 @@ export default function Invitees() {
 
                 {/* Submission Controls */}
                 <div className="p-4 bg-gray-50 border-b space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
+                  <div className="flex flex-wrap gap-3 items-end">
                     {/* Search */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Search</label>
+                    <div className="flex-1 min-w-[200px]">
+                      <label className="block text-xs font-medium text-gray-500 mb-1">Search</label>
                       <div className="relative">
-                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                         <input
                           type="text"
                           value={searchQuery}
                           onChange={(e) => setSearchQuery(e.target.value)}
                           placeholder="Search contacts..."
-                          className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                          className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-sm"
                         />
                       </div>
+                    </div>
+                    {/* Inviter Filter */}
+                    <div className="min-w-[160px]">
+                      <label className="block text-xs font-medium text-gray-500 mb-1">Inviter</label>
+                      <Select
+                        value={eventInviterFilter === 'all' ? null : { value: eventInviterFilter, label: eventInviterFilter }}
+                        onChange={(option) => setEventInviterFilter(option ? option.value : 'all')}
+                        options={inviters.map(inv => ({ value: inv.name, label: inv.name }))}
+                        isClearable
+                        placeholder="All Inviters"
+                        className="text-sm"
+                        classNamePrefix="react-select"
+                        styles={{
+                          control: (base) => ({ ...base, minHeight: '38px', borderColor: '#d1d5db' }),
+                          placeholder: (base) => ({ ...base, color: '#6b7280' }),
+                        }}
+                      />
+                    </div>
+                    {/* Category Filter */}
+                    <div className="min-w-[140px]">
+                      <label className="block text-xs font-medium text-gray-500 mb-1">Category</label>
+                      <select
+                        value={eventCategoryFilter}
+                        onChange={(e) => setEventCategoryFilter(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white text-sm"
+                      >
+                        <option value="all">All Categories</option>
+                        {categories.map(cat => (
+                          <option key={cat.id} value={cat.name}>{cat.name}</option>
+                        ))}
+                      </select>
                     </div>
                   </div>
                   {/* Submit Button */}
@@ -820,14 +969,15 @@ export default function Invitees() {
                               className="rounded border-gray-300 text-primary focus:ring-primary"
                             />
                           </th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-                          {/* <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Phone</th> */}
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Inviter</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Guests</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Position</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Company</th>
+                          <SortableHeader field="name">Name</SortableHeader>
+                          <SortableHeader field="inviter_name">Inviter</SortableHeader>
+                          <SortableHeader field="category">Category</SortableHeader>
+                          <SortableHeader field="plus_one">Guests</SortableHeader>
+                          <SortableHeader field="position">Position</SortableHeader>
+                          <SortableHeader field="company">Company</SortableHeader>
+                          {!isAdmin && (
+                            <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Action</th>
+                          )}
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-200">
@@ -877,6 +1027,29 @@ export default function Invitees() {
                               <td className="px-4 py-3 text-gray-600">{contact.plus_one || 0}</td>
                               <td className="px-4 py-3 text-gray-600">{contact.position || '-'}</td>
                               <td className="px-4 py-3 text-gray-600">{contact.company || '-'}</td>
+                              {!isAdmin && (
+                                <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
+                                  <button
+                                    onClick={async () => {
+                                      if (!selectedEventId) return;
+                                      try {
+                                        setSubmitting(true);
+                                        await inviteesAPI.inviteExistingToEvent(selectedEventId, [contact.id], {});
+                                        toast.success(`${contact.name} submitted for approval`);
+                                        fetchEventInvitees(selectedEventId);
+                                      } catch (error: any) {
+                                        toast.error(error.response?.data?.error || 'Failed to submit contact');
+                                      } finally {
+                                        setSubmitting(false);
+                                      }
+                                    }}
+                                    disabled={submitting}
+                                    className="text-primary hover:text-primary-dark text-sm font-medium disabled:opacity-50"
+                                  >
+                                    Submit
+                                  </button>
+                                </td>
+                              )}
                             </tr>
                           );
                         })}
@@ -904,22 +1077,74 @@ export default function Invitees() {
         <div className="space-y-4">
           {/* Toolbar */}
           <div className="flex flex-col sm:flex-row justify-between gap-4">
-            <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
-                placeholder="Search contacts..."
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+            <div className="flex gap-2 flex-1 flex-wrap">
+              <div className="relative flex-1 min-w-[200px]">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+                  placeholder="Search contacts..."
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                />
+              </div>
+              <Select
+                value={inviterFilter === 'all' ? null : { value: inviterFilter, label: inviterFilter }}
+                onChange={(option) => { setInviterFilter(option ? option.value : 'all'); setCurrentPage(1); }}
+                options={inviters.map(inv => ({ value: inv.name, label: inv.name }))}
+                isClearable
+                placeholder="All Inviters"
+                className="min-w-[160px] text-sm"
+                classNamePrefix="react-select"
+                styles={{
+                  control: (base) => ({ ...base, minHeight: '38px', borderColor: '#d1d5db' }),
+                  placeholder: (base) => ({ ...base, color: '#6b7280' }),
+                }}
               />
+              {isAdmin && (
+                <Select
+                  value={groupFilter === 'all' ? null : { value: groupFilter, label: groupFilter }}
+                  onChange={(option) => { setGroupFilter(option ? option.value : 'all'); setCurrentPage(1); }}
+                  options={inviterGroups.map(g => ({ value: g.name, label: g.name }))}
+                  isClearable
+                  placeholder="All Groups"
+                  className="min-w-[160px] text-sm"
+                  classNamePrefix="react-select"
+                  styles={{
+                    control: (base) => ({ ...base, minHeight: '38px', borderColor: '#d1d5db' }),
+                    placeholder: (base) => ({ ...base, color: '#6b7280' }),
+                  }}
+                />
+              )}
+              <select
+                value={categoryFilter}
+                onChange={(e) => { setCategoryFilter(e.target.value); setCurrentPage(1); }}
+                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white text-sm"
+              >
+                <option value="all">All Categories</option>
+                {categories.map(cat => (
+                  <option key={cat.id} value={cat.name}>{cat.name}</option>
+                ))}
+              </select>
+              <select
+                value={itemsPerPage}
+                onChange={(e) => {
+                  setItemsPerPage(Number(e.target.value));
+                  setCurrentPage(1);
+                }}
+                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white text-sm"
+              >
+                <option value={20}>20 / page</option>
+                <option value={50}>50 / page</option>
+                <option value={100}>100 / page</option>
+              </select>
             </div>
             <div className="flex gap-2">
               {isAdmin && (
                 <>
                   {selectedContactListIds.length > 0 && (
                     <button
-                      onClick={handleBulkDeleteContacts}
+                      onClick={() => setShowBulkDeleteModal(true)}
                       disabled={submitting}
                       className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 flex items-center gap-2"
                     >
@@ -983,12 +1208,12 @@ export default function Invitees() {
                             className="rounded border-gray-300 text-primary focus:ring-primary"
                           />
                         </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Inviter</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Guests</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Position</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Company</th>
+                        <SortableHeader field="name">Name</SortableHeader>
+                        <SortableHeader field="inviter_name">Inviter</SortableHeader>
+                        <SortableHeader field="category">Category</SortableHeader>
+                        <SortableHeader field="plus_one">Guests</SortableHeader>
+                        <SortableHeader field="position">Position</SortableHeader>
+                        <SortableHeader field="company">Company</SortableHeader>
                         <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Events</th>
                         <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
                       </tr>
@@ -1525,6 +1750,39 @@ export default function Invitees() {
                   disabled={submitting}
                 >
                   {submitting ? 'Deleting...' : 'Delete'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Delete Contacts Modal (Admin Only) */}
+      {showBulkDeleteModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div className="p-6">
+              <div className="flex items-center justify-center w-12 h-12 mx-auto bg-red-100 rounded-full mb-4">
+                <Trash2 className="w-6 h-6 text-red-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-center mb-2">Delete Contacts</h3>
+              <p className="text-gray-600 text-center mb-6">
+                Are you sure you want to delete <strong>{selectedContactListIds.length}</strong> contact(s)? This will also remove them from all events. This action cannot be undone.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowBulkDeleteModal(false)}
+                  className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+                  disabled={submitting}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleBulkDeleteContacts}
+                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+                  disabled={submitting}
+                >
+                  {submitting ? 'Deleting...' : 'Delete All'}
                 </button>
               </div>
             </div>

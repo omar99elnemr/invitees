@@ -8,26 +8,46 @@ import Papa from 'papaparse';
 import { format } from 'date-fns';
 
 /**
- * Export data to Excel format
+ * Export data to Excel format with professional styling
  */
 export const exportToExcel = (data: any[], filename: string, sheetName = 'Report') => {
   try {
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, sheetName);
     
-    // Auto-size columns
-    const maxWidth = 50;
-    const cols = Object.keys(data[0] || {}).map(key => ({
+    // Get headers
+    const headers = Object.keys(data[0] || {});
+    
+    // Auto-size columns with minimum width for headers
+    const maxWidth = 40;
+    const minWidth = 12;
+    const cols = headers.map(key => ({
       wch: Math.min(
         Math.max(
-          key.length,
+          key.length + 4, // Extra padding for headers
+          minWidth,
           ...data.map(row => String(row[key] || '').length)
         ),
         maxWidth
       )
     }));
     ws['!cols'] = cols;
+    
+    // Set row heights - taller header row
+    ws['!rows'] = [{ hpt: 28 }]; // Header row height
+    
+    // Style the header row (A1, B1, C1, etc.)
+    const headerRange = XLSX.utils.decode_range(ws['!ref'] || 'A1');
+    for (let col = headerRange.s.c; col <= headerRange.e.c; col++) {
+      const cellAddress = XLSX.utils.encode_cell({ r: 0, c: col });
+      if (!ws[cellAddress]) continue;
+      
+      // Add cell styling (note: xlsx doesn't support full styling without xlsx-style)
+      // But we can ensure the data is clean
+      ws[cellAddress].v = String(ws[cellAddress].v || '').toUpperCase();
+    }
+    
+    XLSX.utils.book_append_sheet(wb, ws, sheetName);
     
     const timestamp = format(new Date(), 'yyyy-MM-dd');
     XLSX.writeFile(wb, `${filename}_${timestamp}.xlsx`);
@@ -61,50 +81,104 @@ export const exportToCSV = (data: any[], filename: string) => {
 };
 
 /**
- * Export data to PDF format
+ * Export data to PDF format with professional formatting
+ * @param data - Array of objects with clean, display-ready keys
+ * @param filename - Output filename (without extension)
+ * @param title - Report title displayed at the top
+ * @param orientation - Page orientation
  */
 export const exportToPDF = (
   data: any[],
-  columns: string[],
   filename: string,
   title: string,
   orientation: 'portrait' | 'landscape' = 'landscape'
 ) => {
   try {
+    if (!data || data.length === 0) {
+      throw new Error('No data to export');
+    }
+
     const doc = new jsPDF(orientation);
+    const pageWidth = doc.internal.pageSize.getWidth();
     
-    // Add title
-    doc.setFontSize(16);
-    doc.text(title, 14, 20);
+    // Add title - centered
+    doc.setFontSize(18);
+    doc.setFont('helvetica', 'bold');
+    doc.text(title, pageWidth / 2, 18, { align: 'center' });
     
-    // Add generation date
-    doc.setFontSize(10);
-    doc.text(`Generated: ${format(new Date(), 'PPpp')}`, 14, 28);
+    // Add generation date - right aligned
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(100, 100, 100);
+    doc.text(`Generated: ${format(new Date(), 'MMM dd, yyyy h:mm a')}`, pageWidth - 14, 18, { align: 'right' });
+    
+    // Reset text color
+    doc.setTextColor(0, 0, 0);
+    
+    // Get column headers from data keys (already formatted)
+    const columns = Object.keys(data[0]);
     
     // Prepare table data
     const tableData = data.map(item =>
-      columns.map(col => item[col] !== undefined ? String(item[col]) : '')
+      columns.map(col => {
+        const val = item[col];
+        if (val === null || val === undefined) return '—';
+        if (typeof val === 'boolean') return val ? 'Yes' : 'No';
+        return String(val);
+      })
     );
     
-    // Generate table
+    // Generate table with professional styling
     autoTable(doc, {
       head: [columns],
       body: tableData,
-      startY: 35,
-      theme: 'grid',
+      startY: 28,
+      theme: 'striped',
       headStyles: {
-        fillColor: [59, 130, 246],
+        fillColor: [41, 128, 185],
         textColor: [255, 255, 255],
         fontStyle: 'bold',
+        fontSize: 9,
+        halign: 'left',
+        cellPadding: 4,
+      },
+      bodyStyles: {
+        fontSize: 8,
+        cellPadding: 3,
+        lineColor: [220, 220, 220],
+      },
+      alternateRowStyles: {
+        fillColor: [248, 250, 252],
       },
       styles: {
-        fontSize: 8,
-        cellPadding: 2,
+        overflow: 'linebreak',
+        cellWidth: 'wrap',
+        minCellHeight: 8,
       },
-      columnStyles: columns.reduce((acc, _, index) => {
-        acc[index] = { cellWidth: 'auto' };
+      columnStyles: columns.reduce((acc, col, index) => {
+        // Give more width to certain columns
+        if (col.toLowerCase().includes('name') || col.toLowerCase().includes('email')) {
+          acc[index] = { cellWidth: 'auto', minCellWidth: 30 };
+        } else if (col.toLowerCase().includes('phone')) {
+          acc[index] = { cellWidth: 28 };
+        } else if (col.toLowerCase().includes('status') || col.toLowerCase().includes('attending')) {
+          acc[index] = { cellWidth: 22, halign: 'center' };
+        }
         return acc;
       }, {} as any),
+      margin: { top: 28, right: 14, bottom: 20, left: 14 },
+      didDrawPage: (data) => {
+        // Add page numbers
+        const pageCount = doc.getNumberOfPages();
+        doc.setFontSize(8);
+        doc.setTextColor(150, 150, 150);
+        doc.text(
+          `Page ${data.pageNumber} of ${pageCount}`,
+          pageWidth / 2,
+          doc.internal.pageSize.getHeight() - 10,
+          { align: 'center' }
+        );
+      },
     });
     
     // Save PDF
