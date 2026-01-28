@@ -28,7 +28,7 @@ class User(UserMixin, db.Model):
     created_events = db.relationship('Event', backref='creator', lazy='dynamic', foreign_keys='Event.created_by_user_id')
     event_invitees = db.relationship('EventInvitee', backref='submitter', lazy='dynamic', foreign_keys='EventInvitee.inviter_user_id')
     approved_invitations = db.relationship('EventInvitee', backref='approver', lazy='dynamic', foreign_keys='EventInvitee.approved_by_user_id')
-    audit_logs = db.relationship('AuditLog', backref='user', lazy='dynamic')
+    # audit_logs relationship defined in AuditLog model
     
     # Constraints
     __table_args__ = (

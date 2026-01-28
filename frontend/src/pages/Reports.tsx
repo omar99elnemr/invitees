@@ -17,6 +17,7 @@ import {
   RefreshCw,
   Printer,
   FileSpreadsheet,
+  Activity,
 } from 'lucide-react';
 import { reportsAPI, eventsAPI, inviterGroupsAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -24,7 +25,30 @@ import type { Event, InviterGroup, EventInvitee } from '../types';
 import { exportToCSV, exportToExcel, exportToPDF } from '../utils/exportHelpers';
 import toast from 'react-hot-toast';
 
-type ReportType = 'summary-group' | 'summary-inviter' | 'detail-event' | 'detail-approved';
+type ReportType = 'summary-group' | 'summary-inviter' | 'detail-event' | 'detail-approved' | 'activity-log';
+
+interface ActivityLogEntry {
+  id: number;
+  user_id: number | null;
+  username: string;
+  user_role: string | null;
+  inviter_group_name: string | null;
+  action: string;
+  table_name: string;
+  record_id: number | null;
+  old_value: string | null;
+  new_value: string | null;
+  ip_address: string | null;
+  timestamp: string;
+}
+
+interface ActivityUser {
+  id: number;
+  username: string;
+  name: string;
+  role: string;
+  inviter_group: string | null;
+}
 
 interface SummaryData {
   event_id: number;
@@ -49,12 +73,19 @@ export default function Reports() {
   const [summaryData, setSummaryData] = useState<SummaryData[]>([]);
   // Detail data
   const [detailData, setDetailData] = useState<EventInvitee[]>([]);
+  // Activity log data
+  const [activityData, setActivityData] = useState<ActivityLogEntry[]>([]);
+  const [activityActions, setActivityActions] = useState<string[]>([]);
+  const [activityUsers, setActivityUsers] = useState<ActivityUser[]>([]);
 
   // Filters
   const [eventFilter, setEventFilter] = useState<string>('');
   const [groupFilter, setGroupFilter] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
+  // Activity log filters
+  const [actionFilter, setActionFilter] = useState<string>('');
+  const [userFilter, setUserFilter] = useState<string>('');
 
   // Grouped data for summary reports
   const [expandedEvents, setExpandedEvents] = useState<Set<number>>(new Set());
@@ -69,12 +100,26 @@ export default function Reports() {
 
   const loadFilters = async () => {
     try {
+      // Load basic filters first
       const [eventsRes, groupsRes] = await Promise.all([
         eventsAPI.getAll(),
         inviterGroupsAPI.getAll(),
       ]);
       setEvents(eventsRes.data);
       setInviterGroups(groupsRes.data);
+      
+      // Load activity log filters separately (they might fail if no logs exist yet)
+      try {
+        const [actionsRes, usersRes] = await Promise.all([
+          reportsAPI.activityLogActions(),
+          reportsAPI.activityLogUsers(),
+        ]);
+        setActivityActions(actionsRes.data);
+        setActivityUsers(usersRes.data as ActivityUser[]);
+      } catch {
+        // Activity log filters are optional, don't show error
+        console.log('Activity log filters not loaded');
+      }
     } catch (error: any) {
       toast.error('Failed to load filter options');
     }
@@ -109,6 +154,13 @@ export default function Reports() {
           response = await reportsAPI.detailGoing(filters);
           setDetailData(response.data);
           break;
+        case 'activity-log':
+          const activityFilters: any = {};
+          if (actionFilter) activityFilters.action = actionFilter;
+          if (userFilter) activityFilters.user_id = userFilter;
+          response = await reportsAPI.activityLog(activityFilters);
+          setActivityData(response.data);
+          break;
       }
       setDataLoaded(true);
       toast.success('Report generated successfully');
@@ -119,8 +171,53 @@ export default function Reports() {
     }
   };
 
+  // Helper function to format action names for display
+  const formatActionName = (action: string) => {
+    const actionLabels: Record<string, string> = {
+      'login': 'User Login',
+      'logout': 'User Logout',
+      'change_password': 'Password Changed',
+      'reset_password': 'Password Reset',
+      'create_user': 'User Created',
+      'update_user': 'User Updated',
+      'activate_user': 'User Activated',
+      'deactivate_user': 'User Deactivated',
+      'create_event': 'Event Created',
+      'update_event': 'Event Updated',
+      'update_event_status': 'Event Status Changed',
+      'delete_event': 'Event Deleted',
+      'create_contact': 'Contact Created',
+      'add_invitee_to_event': 'Submitted for Approval',
+      'update_invitee': 'Contact Updated',
+      'update_event_invitee': 'Invitation Updated',
+      'delete_invitee': 'Contact Deleted',
+      'delete_invitee_bulk': 'Contacts Bulk Deleted',
+      'remove_invitee_from_event': 'Removed from Event',
+      'resubmit_invitation': 'Invitation Resubmitted',
+      'bulk_invite_to_event': 'Bulk Invitation',
+      'bulk_import_contacts': 'Contacts Imported',
+      'approve_invitation': 'Invitation Approved',
+      'reject_invitation': 'Invitation Rejected',
+      'cancel_approval': 'Approval Cancelled',
+    };
+    return actionLabels[action] || action.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  };
+
   // Helper function to get formatted export data
   const getFormattedExportData = () => {
+    if (activeReport === 'activity-log') {
+      return activityData.map(item => ({
+        'Timestamp': item.timestamp ? new Date(item.timestamp).toLocaleString() : '—',
+        'Action': formatActionName(item.action),
+        'Performed By': item.username || 'System',
+        'Role': item.user_role || '—',
+        'Group': item.inviter_group_name || '—',
+        'Table': item.table_name,
+        'Record ID': item.record_id || '—',
+        'Details': item.new_value || '—',
+      }));
+    }
+
     const isSummary = activeReport.startsWith('summary');
     const rawData = isSummary ? summaryData : detailData;
 
@@ -262,6 +359,12 @@ export default function Reports() {
       description: 'Approved invitees with phone, email, category, attendance status',
       icon: Check,
     },
+    {
+      id: 'activity-log' as ReportType,
+      name: 'Activity Log',
+      description: 'System activity log showing all actions performed',
+      icon: Activity,
+    },
   ];
 
   if (!canViewReports) {
@@ -321,51 +424,100 @@ export default function Reports() {
           <h2 className="font-medium text-gray-900">Filters</h2>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-          <select
-            value={eventFilter}
-            onChange={(e) => setEventFilter(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white"
-          >
-            <option value="">All Events</option>
-            {events.map((event) => (
-              <option key={event.id} value={event.id}>
-                {event.name}
-              </option>
-            ))}
-          </select>
+        {activeReport === 'activity-log' ? (
+          // Activity Log Filters
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <select
+              value={actionFilter}
+              onChange={(e) => setActionFilter(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white"
+            >
+              <option value="">All Actions</option>
+              {activityActions.map((action) => (
+                <option key={action} value={action}>
+                  {formatActionName(action)}
+                </option>
+              ))}
+            </select>
 
-          <select
-            value={groupFilter}
-            onChange={(e) => setGroupFilter(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white"
-          >
-            <option value="">All Groups</option>
-            {inviterGroups.map((group) => (
-              <option key={group.id} value={group.id}>
-                {group.name}
-              </option>
-            ))}
-          </select>
+            <select
+              value={userFilter}
+              onChange={(e) => setUserFilter(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white"
+            >
+              <option value="">All Users</option>
+              {activityUsers.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.name} ({u.role.charAt(0).toUpperCase() + u.role.slice(1)}{u.inviter_group ? ` - ${u.inviter_group}` : ''})
+                </option>
+              ))}
+            </select>
 
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white"
-          >
-            <option value="">All Statuses</option>
-            <option value="approved">Approved</option>
-            <option value="rejected">Rejected</option>
-            <option value="waiting_for_approval">Pending</option>
-          </select>
+            <button
+              onClick={generateReport}
+              disabled={loading}
+              className="flex items-center justify-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark disabled:opacity-50 transition-colors"
+            >
+              {loading ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <BarChart3 className="w-4 h-4" />
+                  Generate Report
+                </>
+              )}
+            </button>
+          </div>
+        ) : (
+          // Other Report Filters
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            <select
+              value={eventFilter}
+              onChange={(e) => setEventFilter(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white"
+            >
+              <option value="">All Events</option>
+              {events.map((event) => (
+                <option key={event.id} value={event.id}>
+                  {event.name}
+                </option>
+              ))}
+            </select>
 
-          {activeReport.startsWith('detail') && (
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <input
-                type="text"
-                placeholder="Search invitees..."
-                value={searchQuery}
+            <select
+              value={groupFilter}
+              onChange={(e) => setGroupFilter(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white"
+            >
+              <option value="">All Groups</option>
+              {inviterGroups.map((group) => (
+                <option key={group.id} value={group.id}>
+                  {group.name}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white"
+            >
+              <option value="">All Statuses</option>
+              <option value="approved">Approved</option>
+              <option value="rejected">Rejected</option>
+              <option value="waiting_for_approval">Pending</option>
+            </select>
+
+            {activeReport.startsWith('detail') && (
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <input
+                  type="text"
+                  placeholder="Search invitees..."
+                  value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
               />
@@ -389,11 +541,12 @@ export default function Reports() {
               </>
             )}
           </button>
-        </div>
+          </div>
+        )}
       </div>
 
       {/* Export Buttons */}
-      {dataLoaded && (summaryData.length > 0 || detailData.length > 0) && (
+      {dataLoaded && (summaryData.length > 0 || detailData.length > 0 || activityData.length > 0) && (
         <div className="flex justify-end gap-2 flex-wrap">
           <button
             onClick={() => handleExport('csv')}
@@ -491,6 +644,9 @@ export default function Reports() {
             Select filters and click "Generate Report" to view data.
           </p>
         </div>
+      ) : activeReport === 'activity-log' ? (
+        // Activity Log Report - handled separately below
+        null
       ) : activeReport.startsWith('summary') ? (
         // Summary Reports
         <div className="space-y-4">
@@ -719,6 +875,114 @@ export default function Reports() {
           {detailData.length > 0 && (
             <div className="px-4 py-3 bg-gray-50 border-t text-sm text-gray-600">
               Total: {detailData.length} record(s)
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Activity Log Report */}
+      {dataLoaded && activeReport === 'activity-log' && (
+        <div className="bg-white rounded-lg shadow overflow-hidden">
+          {activityData.length === 0 ? (
+            <div className="p-12 text-center">
+              <Activity className="mx-auto h-12 w-12 text-gray-300" />
+              <h3 className="mt-4 text-lg font-medium text-gray-900">No Activity Found</h3>
+              <p className="mt-2 text-sm text-gray-500">
+                Try adjusting your filters or check back later.
+              </p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Timestamp
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Action
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Performed By
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Role
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Group
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Table
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Record ID
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Details
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {activityData.map((item) => (
+                    <tr key={item.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                        {item.timestamp
+                          ? new Date(item.timestamp).toLocaleString()
+                          : '—'}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
+                          item.action.includes('approve') ? 'bg-green-100 text-green-800' :
+                          item.action.includes('reject') ? 'bg-red-100 text-red-800' :
+                          item.action.includes('delete') ? 'bg-red-100 text-red-800' :
+                          item.action.includes('create') || item.action.includes('add') ? 'bg-blue-100 text-blue-800' :
+                          item.action.includes('update') ? 'bg-yellow-100 text-yellow-800' :
+                          item.action.includes('login') || item.action.includes('logout') ? 'bg-purple-100 text-purple-800' :
+                          'bg-gray-100 text-gray-800'
+                        }`}>
+                          {formatActionName(item.action)}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                        {item.username || 'System'}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        {item.user_role ? (
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                            item.user_role === 'admin' ? 'bg-purple-100 text-purple-800' :
+                            item.user_role === 'director' ? 'bg-blue-100 text-blue-800' :
+                            'bg-gray-100 text-gray-800'
+                          }`}>
+                            {item.user_role.charAt(0).toUpperCase() + item.user_role.slice(1)}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                        {item.inviter_group_name || '—'}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                        {item.table_name}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                        {item.record_id || '—'}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-500 max-w-xs truncate" title={item.new_value || ''}>
+                        {item.new_value ? (
+                          item.new_value.length > 50 ? item.new_value.substring(0, 50) + '...' : item.new_value
+                        ) : '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          
+          {activityData.length > 0 && (
+            <div className="px-4 py-3 bg-gray-50 border-t text-sm text-gray-600">
+              Total: {activityData.length} record(s)
             </div>
           )}
         </div>

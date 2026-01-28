@@ -265,6 +265,16 @@ export const reportsAPI = {
 
   detailGoing: (filters?: ReportFilters) =>
     api.get<EventInvitee[]>('/reports/detail-going', { params: filters }),
+
+  // Activity Log
+  activityLog: (filters?: { action?: string; user_id?: string; start_date?: string; end_date?: string; limit?: number }) =>
+    api.get('/reports/activity-log', { params: filters }),
+
+  activityLogActions: () =>
+    api.get<string[]>('/reports/activity-log/actions'),
+
+  activityLogUsers: () =>
+    api.get<{ id: number; username: string; name: string }[]>('/reports/activity-log/users'),
 };
 
 // =========================

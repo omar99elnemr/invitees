@@ -12,7 +12,7 @@ class AuditLog(db.Model):
     
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True, index=True)
-    action = db.Column(db.String(50), nullable=False)
+    action = db.Column(db.String(50), nullable=False, index=True)
     table_name = db.Column(db.String(50), nullable=False)
     record_id = db.Column(db.Integer, nullable=True)
     old_value = db.Column(db.Text, nullable=True)
@@ -25,10 +25,23 @@ class AuditLog(db.Model):
     
     def to_dict(self):
         """Convert audit log to dictionary"""
+        from app.models.user import User
+        username = 'System'
+        user_role = None
+        inviter_group_name = None
+        if self.user_id:
+            user = User.query.get(self.user_id)
+            if user:
+                username = user.full_name or user.username
+                user_role = user.role
+                if user.inviter_group:
+                    inviter_group_name = user.inviter_group.name
         return {
             'id': self.id,
             'user_id': self.user_id,
-            'username': self.user.username if self.user else 'System',
+            'username': username,
+            'user_role': user_role,
+            'inviter_group_name': inviter_group_name,
             'action': self.action,
             'table_name': self.table_name,
             'record_id': self.record_id,
