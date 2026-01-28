@@ -141,11 +141,14 @@ def create_contact():
     if not InviteeService.validate_phone(data['phone']):
         return jsonify({'error': 'Invalid phone format. Use international format (e.g., 201012345678)'}), 400
     
-    # Check if invitee already exists in this group
+    # Clean email
     email = data['email'].lower().strip()
-    existing = Invitee.query.filter_by(email=email, inviter_group_id=inviter_group_id).first()
-    if existing:
-        return jsonify({'error': f'A contact with email {email} already exists in this group'}), 400
+    
+    # Check if phone already exists in this group (phone must be unique)
+    phone = data['phone']
+    existing_by_phone = Invitee.query.filter_by(phone=phone, inviter_group_id=inviter_group_id).first()
+    if existing_by_phone:
+        return jsonify({'error': f'Phone number {phone} already exists for contact "{existing_by_phone.name}"'}), 400
     
     # Resolve category
     category_id = None

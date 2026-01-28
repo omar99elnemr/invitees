@@ -176,6 +176,10 @@ export default function Events() {
       }
     }
     
+    if (!formData.inviter_group_ids || formData.inviter_group_ids.length === 0) {
+      errors.inviter_group_ids = 'Inviter group must be selected';
+    }
+    
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -584,7 +588,7 @@ export default function Events() {
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Inviter Groups
                       </label>
-                      <div className="border border-gray-300 rounded-lg p-3 max-h-40 overflow-y-auto">
+                      <div className={`border rounded-lg p-3 max-h-40 overflow-y-auto ${formErrors.inviter_group_ids ? 'border-red-300' : 'border-gray-300'}`}>
                         {inviterGroups.length === 0 ? (
                           <p className="text-sm text-gray-500">No inviter groups available</p>
                         ) : (
@@ -615,6 +619,9 @@ export default function Events() {
                           </div>
                         )}
                       </div>
+                      {formErrors.inviter_group_ids && (
+                        <p className="mt-1 text-xs text-red-600">{formErrors.inviter_group_ids}</p>
+                      )}
                       <p className="mt-1 text-xs text-gray-500">
                         Select which inviter groups can access this event
                       </p>

@@ -66,7 +66,16 @@ class InviteeService:
         # Clean email
         email = email.lower().strip()
         
-        # Check if invitee exists within the same group
+        # Check if phone already exists in the group (phone must be unique within group)
+        if phone:
+            phone_query = Invitee.query.filter_by(phone=phone)
+            if inviter_group_id:
+                phone_query = phone_query.filter_by(inviter_group_id=inviter_group_id)
+            existing_by_phone = phone_query.first()
+            if existing_by_phone:
+                return None, False, f'Phone number {phone} already exists for contact "{existing_by_phone.name}"'
+        
+        # Check if invitee exists by email within the same group (for updating existing)
         query = Invitee.query.filter_by(email=email)
         if inviter_group_id:
             query = query.filter_by(inviter_group_id=inviter_group_id)
@@ -321,26 +330,50 @@ class InviteeService:
     def delete_invitee(invitee_id, deleted_by_user_id):
         """
         Delete an invitee (admin only)
+        - Removes from non-ended events (upcoming/ongoing/onhold)
+        - Preserves records for ended events (for reporting)
+        - Only deletes invitee record if no event records remain
         Returns (success, error_message)
         """
+        from app.models.event import Event
+        
         invitee = Invitee.query.get(invitee_id)
         if not invitee:
             return False, 'Invitee not found'
         
         invitee_name = invitee.name
         
-        # Log deletion
+        # Get all event_invitee records for this invitee
+        event_invitees = EventInvitee.query.filter_by(invitee_id=invitee_id).all()
+        
+        # Separate into ended vs active events
+        ended_count = 0
+        removed_count = 0
+        
+        for ei in event_invitees:
+            event = Event.query.get(ei.event_id)
+            if event and event.status == 'ended':
+                # Preserve record for ended events (reporting)
+                ended_count += 1
+            else:
+                # Remove from active events
+                db.session.delete(ei)
+                removed_count += 1
+        
+        # Log the action
         AuditLog.log(
             user_id=deleted_by_user_id,
             action='delete_invitee',
             table_name='invitees',
             record_id=invitee.id,
-            old_value=f'Deleted invitee {invitee_name}',
+            old_value=f'Deleted invitee {invitee_name} (removed from {removed_count} active events, preserved in {ended_count} ended events)',
             ip_address=request.remote_addr
         )
         
-        # Delete will cascade to event_invitees
-        db.session.delete(invitee)
+        # Only delete invitee record if no event records remain
+        if ended_count == 0:
+            db.session.delete(invitee)
+        
         db.session.commit()
         
         return True, None
@@ -349,8 +382,13 @@ class InviteeService:
     def bulk_delete_invitees(invitee_ids, deleted_by_user_id):
         """
         Delete multiple invitees (admin only)
+        - Removes from non-ended events (upcoming/ongoing/onhold)
+        - Preserves records for ended events (for reporting)
+        - Only deletes invitee record if no event records remain
         Returns (success_count, failed_count, errors)
         """
+        from app.models.event import Event
+        
         success_count = 0
         failed_count = 0
         errors = []
@@ -365,17 +403,35 @@ class InviteeService:
             try:
                 invitee_name = invitee.name
                 
+                # Get all event_invitee records for this invitee
+                event_invitees = EventInvitee.query.filter_by(invitee_id=invitee_id).all()
+                
+                # Separate into ended vs active events
+                ended_count = 0
+                removed_count = 0
+                
+                for ei in event_invitees:
+                    event = Event.query.get(ei.event_id)
+                    if event and event.status == 'ended':
+                        ended_count += 1
+                    else:
+                        db.session.delete(ei)
+                        removed_count += 1
+                
                 # Log deletion
                 AuditLog.log(
                     user_id=deleted_by_user_id,
                     action='delete_invitee_bulk',
                     table_name='invitees',
                     record_id=invitee.id,
-                    old_value=f'Deleted invitee {invitee_name} (Bulk)',
+                    old_value=f'Deleted invitee {invitee_name} (Bulk) - removed from {removed_count} active events, preserved in {ended_count} ended events',
                     ip_address=request.remote_addr
                 )
                 
-                db.session.delete(invitee)
+                # Only delete invitee record if no event records remain
+                if ended_count == 0:
+                    db.session.delete(invitee)
+                
                 success_count += 1
             except Exception as e:
                 failed_count += 1

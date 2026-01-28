@@ -29,7 +29,10 @@ import ActionMenu, { ActionMenuItem } from '../components/common/ActionMenu';
 
 export default function Users() {
   const { user: currentUser } = useAuth();
-  const [activeTab, setActiveTab] = useState<'users' | 'groups'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'groups' | 'inviters'>(() => {
+    const savedTab = sessionStorage.getItem('users_activeTab');
+    return (savedTab === 'users' || savedTab === 'groups' || savedTab === 'inviters') ? savedTab : 'users';
+  });
   
   // Group detail modals
   const [showGroupInvitersModal, setShowGroupInvitersModal] = useState(false);
@@ -71,6 +74,9 @@ export default function Users() {
   });
   const [inviterSearchQuery, setInviterSearchQuery] = useState('');
   const [showInlineInviterForm, setShowInlineInviterForm] = useState(false);
+  const [inviterGroupFilter, setInviterGroupFilter] = useState<string>('all'); // 'all', 'unassigned', or group id
+  const [selectedInviterIds, setSelectedInviterIds] = useState<number[]>([]);
+  const [showBulkDeleteInvitersModal, setShowBulkDeleteInvitersModal] = useState(false);
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -100,26 +106,16 @@ export default function Users() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [usersRes, groupsRes] = await Promise.all([
+      const [usersRes, groupsRes, invitersRes] = await Promise.all([
         usersAPI.getAll(),
         inviterGroupsAPI.getAll(),
+        invitersAPI.getAll(),
       ]);
       setUsers(usersRes.data);
       setInviterGroups(groupsRes.data);
-      
-      // Fetch all inviters from all groups
-      const allInviters: Inviter[] = [];
-      for (const group of groupsRes.data) {
-        try {
-          const invitersRes = await invitersAPI.getByGroup(group.id, false);
-          allInviters.push(...invitersRes.data);
-        } catch {
-          // Group may not have inviters
-        }
-      }
-      setInviters(allInviters);
+      setInviters(invitersRes.data);
     } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Failed to load users');
+      toast.error(error.response?.data?.error || 'Failed to load data');
     } finally {
       setLoading(false);
     }
@@ -332,10 +328,6 @@ export default function Users() {
       toast.error('Inviter name is required');
       return;
     }
-    if (!inviterFormData.inviter_group_id) {
-      toast.error('Please select an inviter group');
-      return;
-    }
 
     setSubmitting(true);
     try {
@@ -343,11 +335,8 @@ export default function Users() {
         await invitersAPI.update(selectedInviter.id, inviterFormData);
         toast.success('Inviter updated successfully');
       } else {
-        if (typeof inviterFormData.inviter_group_id === 'number') {
-          await invitersAPI.create(inviterFormData);
-        } else {
-          toast.error('Inviter group is required');
-        }
+        // Create inviter without group - will be assigned later
+        await invitersAPI.create(inviterFormData);
         toast.success('Inviter created successfully');
       }
       setShowInviterModal(false);
@@ -385,6 +374,41 @@ export default function Users() {
       fetchData();
     } catch (error: any) {
       toast.error(error.response?.data?.error || 'Failed to update inviter status');
+    }
+  };
+
+  const handleBulkDeleteInviters = async () => {
+    if (selectedInviterIds.length === 0) return;
+    
+    setSubmitting(true);
+    try {
+      await invitersAPI.deleteBulk(selectedInviterIds);
+      toast.success(`${selectedInviterIds.length} inviter(s) deleted successfully`);
+      setShowBulkDeleteInvitersModal(false);
+      setSelectedInviterIds([]);
+      fetchData();
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Failed to delete inviters');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const toggleInviterSelection = (inviterId: number) => {
+    setSelectedInviterIds(prev => 
+      prev.includes(inviterId) 
+        ? prev.filter(id => id !== inviterId)
+        : [...prev, inviterId]
+    );
+  };
+
+  const toggleAllInvitersSelection = (filteredInviters: Inviter[]) => {
+    const filteredIds = filteredInviters.map(inv => inv.id);
+    const allSelected = filteredIds.every(id => selectedInviterIds.includes(id));
+    if (allSelected) {
+      setSelectedInviterIds(prev => prev.filter(id => !filteredIds.includes(id)));
+    } else {
+      setSelectedInviterIds(prev => [...new Set([...prev, ...filteredIds])]);
     }
   };
 
@@ -432,6 +456,19 @@ export default function Users() {
     );
   }
 
+  // Compute filtered inviters for the Inviters tab
+  const filteredInviters = inviters.filter(inv => {
+    if (inviterGroupFilter === 'unassigned' && inv.inviter_group_id) return false;
+    if (inviterGroupFilter !== 'all' && inviterGroupFilter !== 'unassigned' && inv.inviter_group_id !== parseInt(inviterGroupFilter)) return false;
+    const searchMatch = inviterSearchQuery === '' || 
+      inv.name?.toLowerCase().includes(inviterSearchQuery.toLowerCase()) ||
+      inv.email?.toLowerCase().includes(inviterSearchQuery.toLowerCase()) ||
+      inv.position?.toLowerCase().includes(inviterSearchQuery.toLowerCase());
+    return searchMatch;
+  });
+  const filteredInviterIds = filteredInviters.map(inv => inv.id);
+  const allInvitersSelected = filteredInviters.length > 0 && filteredInviterIds.every(id => selectedInviterIds.includes(id));
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -467,7 +504,7 @@ export default function Users() {
         <div className="border-b border-gray-200">
           <nav className="-mb-px flex">
             <button
-              onClick={() => setActiveTab('users')}
+              onClick={() => { setActiveTab('users'); sessionStorage.setItem('users_activeTab', 'users'); }}
               className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
                 activeTab === 'users'
                   ? 'border-primary text-primary'
@@ -478,7 +515,7 @@ export default function Users() {
               Users ({users.length})
             </button>
             <button
-              onClick={() => setActiveTab('groups')}
+              onClick={() => { setActiveTab('groups'); sessionStorage.setItem('users_activeTab', 'groups'); }}
               className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
                 activeTab === 'groups'
                   ? 'border-primary text-primary'
@@ -487,6 +524,17 @@ export default function Users() {
             >
               <Building className="w-4 h-4 inline-block mr-2" />
               Inviter Groups ({inviterGroups.length})
+            </button>
+            <button
+              onClick={() => { setActiveTab('inviters'); sessionStorage.setItem('users_activeTab', 'inviters'); }}
+              className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
+                activeTab === 'inviters'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              <UserCog className="w-4 h-4 inline-block mr-2" />
+              Inviters ({inviters.length})
             </button>
           </nav>
         </div>
@@ -868,6 +916,158 @@ export default function Users() {
         </div>
       )}
 
+      {/* Inviters Tab Content */}
+      {activeTab === 'inviters' && (
+        <div className="bg-white rounded-lg shadow overflow-hidden">
+          <div className="p-4 border-b flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div className="flex flex-1 gap-3 items-center">
+              <div className="relative flex-1 max-w-xs">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <input
+                  type="text"
+                  placeholder="Search inviters..."
+                  value={inviterSearchQuery}
+                  onChange={(e) => setInviterSearchQuery(e.target.value)}
+                  className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                />
+              </div>
+              <select
+                value={inviterGroupFilter}
+                onChange={(e) => setInviterGroupFilter(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white"
+              >
+                <option value="all">All Inviters</option>
+                <option value="unassigned">Unassigned</option>
+                {inviterGroups.map((group) => (
+                  <option key={group.id} value={group.id.toString()}>{group.name}</option>
+                ))}
+              </select>
+            </div>
+            <button
+              onClick={() => {
+                setSelectedInviter(null);
+                setInviterFormData({ name: '', email: '', phone: '', position: '', inviter_group_id: undefined });
+                setShowInviterModal(true);
+              }}
+              className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4" />
+              Add Inviter
+            </button>
+          </div>
+
+          {/* Bulk Delete Bar */}
+          {selectedInviterIds.length > 0 && (
+            <div className="px-4 py-3 bg-red-50 border-b flex items-center justify-between">
+              <span className="text-sm text-red-800">
+                {selectedInviterIds.length} inviter(s) selected
+              </span>
+              <button
+                onClick={() => setShowBulkDeleteInvitersModal(true)}
+                className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 flex items-center gap-1"
+              >
+                <Trash2 className="w-4 h-4" />
+                Delete Selected
+              </button>
+            </div>
+          )}
+
+          {inviters.length === 0 ? (
+            <div className="p-8 text-center text-gray-500">
+              <UserCog className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+              <p>No inviters found</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left">
+                      <input
+                        type="checkbox"
+                        checked={allInvitersSelected}
+                        onChange={() => toggleAllInvitersSelection(filteredInviters)}
+                        className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
+                      />
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Phone</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Position</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Group</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {filteredInviters.map(inviter => {
+                      const group = inviterGroups.find(g => g.id === inviter.inviter_group_id);
+                      return (
+                        <tr key={inviter.id} className={`hover:bg-gray-50 ${selectedInviterIds.includes(inviter.id) ? 'bg-red-50' : ''}`}>
+                          <td className="px-4 py-4 whitespace-nowrap">
+                            <input
+                              type="checkbox"
+                              checked={selectedInviterIds.includes(inviter.id)}
+                              onChange={() => toggleInviterSelection(inviter.id)}
+                              className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
+                            />
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-900">{inviter.name}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-gray-600">{inviter.email || '-'}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-gray-600">{inviter.phone || '-'}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-gray-600">{inviter.position || '-'}</td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            {group ? (
+                              <span className="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded">{group.name}</span>
+                            ) : (
+                              <span className="text-gray-400">Unassigned</span>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`px-2 py-1 text-xs rounded ${inviter.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>
+                              {inviter.is_active ? 'Active' : 'Inactive'}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right">
+                            <div className="flex justify-end gap-2">
+                              <button
+                                onClick={() => {
+                                  setSelectedInviter(inviter);
+                                  setInviterFormData({
+                                    name: inviter.name,
+                                    email: inviter.email || '',
+                                    phone: inviter.phone || '',
+                                    position: inviter.position || '',
+                                    inviter_group_id: inviter.inviter_group_id,
+                                  });
+                                  setShowInviterModal(true);
+                                }}
+                                className="p-1 text-gray-400 hover:text-primary rounded-full hover:bg-gray-100"
+                                title="Edit"
+                              >
+                                <Edit2 className="w-5 h-5" />
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setSelectedInviter(inviter);
+                                  setShowDeleteInviterModal(true);
+                                }}
+                                className="p-1 text-gray-400 hover:text-red-600 rounded-full hover:bg-red-50"
+                                title="Delete"
+                              >
+                                <Trash2 className="w-5 h-5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Create User Modal */}
       {showCreateModal && (
@@ -1435,22 +1635,6 @@ export default function Users() {
                   />
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Inviter Group *
-                  </label>
-                  <select
-                    value={inviterFormData.inviter_group_id || ''}
-                    onChange={(e) => setInviterFormData({ ...inviterFormData, inviter_group_id: parseInt(e.target.value) })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white"
-                    required
-                  >
-                    <option value="">Select a group</option>
-                    {inviterGroups.map((group) => (
-                      <option key={group.id} value={group.id}>{group.name}</option>
-                    ))}
-                  </select>
-                </div>
               </div>
 
               <div className="flex justify-end gap-3 p-6 border-t">
@@ -1515,6 +1699,44 @@ export default function Users() {
         </div>
       )}
 
+      {/* Bulk Delete Inviters Modal */}
+      {showBulkDeleteInvitersModal && selectedInviterIds.length > 0 && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div className="p-6">
+              <div className="flex items-center justify-center w-12 h-12 mx-auto bg-red-100 rounded-full mb-4">
+                <Trash2 className="w-6 h-6 text-red-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-center mb-2">Delete {selectedInviterIds.length} Inviter(s)</h3>
+              <p className="text-gray-600 text-center mb-2">
+                This will permanently delete the selected inviters.
+              </p>
+              <p className="text-sm text-amber-600 text-center mb-6">
+                Their invitations from active events will be removed. Ended event records will be preserved.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    setShowBulkDeleteInvitersModal(false);
+                  }}
+                  className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+                  disabled={submitting}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleBulkDeleteInviters}
+                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+                  disabled={submitting}
+                >
+                  {submitting ? 'Deleting...' : 'Delete All'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Group Inviters Modal */}
       {showGroupInvitersModal && selectedGroupForDetail && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -1538,93 +1760,87 @@ export default function Users() {
             </div>
 
             <div className="p-6 overflow-y-auto flex-1">
-              {/* Inline Add Inviter Form */}
+              {/* Assign Existing Inviter Form */}
               {showInlineInviterForm ? (
                 <div className="mb-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                  <h3 className="text-sm font-medium text-gray-900 mb-3">Add New Inviter</h3>
-                  <form onSubmit={async (e) => {
-                    e.preventDefault();
-                    if (!inviterFormData.name.trim()) {
-                      toast.error('Inviter name is required');
-                      return;
+                  <h3 className="text-sm font-medium text-gray-900 mb-3">Assign Inviter to Group</h3>
+                  {(() => {
+                    const unassignedInviters = inviters.filter(i => !i.inviter_group_id);
+                    if (unassignedInviters.length === 0) {
+                      return (
+                        <div className="text-center py-4">
+                          <p className="text-sm text-gray-500 mb-3">No unassigned inviters available.</p>
+                          <p className="text-xs text-gray-400">Create new inviters in the Inviters tab first.</p>
+                          <button
+                            type="button"
+                            onClick={() => setShowInlineInviterForm(false)}
+                            className="mt-3 px-3 py-1.5 text-sm text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+                          >
+                            Close
+                          </button>
+                        </div>
+                      );
                     }
-                    setSubmitting(true);
-                    try {
-                      await invitersAPI.create({ ...inviterFormData, inviter_group_id: selectedGroupForDetail.id });
-                      toast.success('Inviter created successfully');
-                      setShowInlineInviterForm(false);
-                      setInviterFormData({ name: '', email: '', phone: '', position: '', inviter_group_id: undefined });
-                      fetchData();
-                    } catch (error: any) {
-                      toast.error(error.response?.data?.error || 'Failed to create inviter');
-                    } finally {
-                      setSubmitting(false);
-                    }
-                  }} className="space-y-3">
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Name *</label>
-                        <input
-                          type="text"
-                          value={inviterFormData.name}
-                          onChange={(e) => setInviterFormData({ ...inviterFormData, name: e.target.value })}
-                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                          placeholder="Enter name"
-                          required
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Email</label>
-                        <input
-                          type="email"
-                          value={inviterFormData.email}
-                          onChange={(e) => setInviterFormData({ ...inviterFormData, email: e.target.value })}
-                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                          placeholder="Enter email"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Phone</label>
-                        <input
-                          type="tel"
-                          value={inviterFormData.phone}
-                          onChange={(e) => setInviterFormData({ ...inviterFormData, phone: e.target.value })}
-                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                          placeholder="Enter phone"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Position</label>
-                        <input
-                          type="text"
-                          value={inviterFormData.position}
-                          onChange={(e) => setInviterFormData({ ...inviterFormData, position: e.target.value })}
-                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                          placeholder="Enter position"
-                        />
-                      </div>
-                    </div>
-                    <div className="flex justify-end gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
+                    return (
+                      <form onSubmit={async (e) => {
+                        e.preventDefault();
+                        const selectedId = inviterFormData.inviter_group_id;
+                        if (!selectedId) {
+                          toast.error('Please select an inviter');
+                          return;
+                        }
+                        setSubmitting(true);
+                        try {
+                          await invitersAPI.update(selectedId as number, { inviter_group_id: selectedGroupForDetail.id });
+                          toast.success('Inviter assigned to group successfully');
                           setShowInlineInviterForm(false);
                           setInviterFormData({ name: '', email: '', phone: '', position: '', inviter_group_id: undefined });
-                        }}
-                        className="px-3 py-1.5 text-sm text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
-                        disabled={submitting}
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        type="submit"
-                        className="px-3 py-1.5 text-sm bg-primary text-white rounded-lg hover:bg-primary-dark disabled:opacity-50"
-                        disabled={submitting}
-                      >
-                        {submitting ? 'Adding...' : 'Add Inviter'}
-                      </button>
-                    </div>
-                  </form>
+                          fetchData();
+                        } catch (error: any) {
+                          toast.error(error.response?.data?.error || 'Failed to assign inviter');
+                        } finally {
+                          setSubmitting(false);
+                        }
+                      }} className="space-y-3">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Select Inviter *</label>
+                          <select
+                            value={inviterFormData.inviter_group_id || ''}
+                            onChange={(e) => setInviterFormData({ ...inviterFormData, inviter_group_id: Number(e.target.value) || undefined })}
+                            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                            required
+                          >
+                            <option value="">-- Select an unassigned inviter --</option>
+                            {unassignedInviters.map(inv => (
+                              <option key={inv.id} value={inv.id}>
+                                {inv.name} {inv.email ? `(${inv.email})` : ''} {inv.position ? `- ${inv.position}` : ''}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="flex justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowInlineInviterForm(false);
+                              setInviterFormData({ name: '', email: '', phone: '', position: '', inviter_group_id: undefined });
+                            }}
+                            className="px-3 py-1.5 text-sm text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+                            disabled={submitting}
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="submit"
+                            className="px-3 py-1.5 text-sm bg-primary text-white rounded-lg hover:bg-primary-dark disabled:opacity-50"
+                            disabled={submitting}
+                          >
+                            {submitting ? 'Assigning...' : 'Assign to Group'}
+                          </button>
+                        </div>
+                      </form>
+                    );
+                  })()}
                 </div>
               ) : (
                 <div className="flex justify-between items-center mb-4">
@@ -1640,14 +1856,14 @@ export default function Users() {
                   </div>
                   <button
                     onClick={() => {
-                      setInviterFormData({ name: '', email: '', phone: '', position: '', inviter_group_id: selectedGroupForDetail.id });
+                      setInviterFormData({ name: '', email: '', phone: '', position: '', inviter_group_id: undefined });
                       setSelectedInviter(null);
                       setShowInlineInviterForm(true);
                     }}
                     className="inline-flex items-center gap-2 px-3 py-2 bg-primary text-white text-sm rounded-lg hover:bg-primary-dark"
                   >
                     <Plus className="w-4 h-4" />
-                    Add Inviter
+                    Assign Inviter
                   </button>
                 </div>
               )}
@@ -1711,14 +1927,19 @@ export default function Users() {
                             {inviter.is_active ? <ShieldOff className="w-4 h-4" /> : <ShieldCheck className="w-4 h-4" />}
                           </button>
                           <button
-                            onClick={() => {
-                              setSelectedInviter(inviter);
-                              setShowDeleteInviterModal(true);
+                            onClick={async () => {
+                              try {
+                                await invitersAPI.update(inviter.id, { inviter_group_id: null as any });
+                                toast.success('Inviter unassigned from group');
+                                fetchData();
+                              } catch (error: any) {
+                                toast.error(error.response?.data?.error || 'Failed to unassign inviter');
+                              }
                             }}
-                            className="p-1.5 text-gray-400 hover:text-red-600 rounded-full hover:bg-red-50"
-                            title="Delete"
+                            className="p-1.5 text-gray-400 hover:text-orange-600 rounded-full hover:bg-orange-50"
+                            title="Unassign from group"
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <X className="w-4 h-4" />
                           </button>
                         </div>
                       </div>

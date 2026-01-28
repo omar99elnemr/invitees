@@ -170,7 +170,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 onClick={handleSessionExpiredClose}
                 className="w-full px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark"
               >
-                Go to Login
+                Login Again
               </button>
             </div>
           </div>

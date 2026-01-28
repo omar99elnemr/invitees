@@ -17,13 +17,13 @@ class Inviter(db.Model):
     email = db.Column(db.String(150), nullable=True)
     phone = db.Column(db.String(30), nullable=True)
     position = db.Column(db.String(100), nullable=True)
-    inviter_group_id = db.Column(db.Integer, db.ForeignKey('inviter_groups.id', ondelete='CASCADE'), nullable=False, index=True)
+    inviter_group_id = db.Column(db.Integer, db.ForeignKey('inviter_groups.id', ondelete='SET NULL'), nullable=True, index=True)
     is_active = db.Column(db.Boolean, default=True, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
     
     # Relationships
-    inviter_group = db.relationship('InviterGroup', backref=db.backref('inviters', lazy='dynamic', cascade='all, delete-orphan'))
+    inviter_group = db.relationship('InviterGroup', backref=db.backref('inviters', lazy='dynamic'))
     
     def __repr__(self):
         return f'<Inviter {self.name} (Group: {self.inviter_group_id})>'

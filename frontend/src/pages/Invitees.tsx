@@ -73,8 +73,11 @@ export default function Invitees() {
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
 
-  // Active tab state
-  const [activeTab, setActiveTab] = useState<'events' | 'contacts'>('events');
+  // Active tab state - persist in sessionStorage
+  const [activeTab, setActiveTab] = useState<'events' | 'contacts'>(() => {
+    const savedTab = sessionStorage.getItem('invitees_activeTab');
+    return (savedTab === 'events' || savedTab === 'contacts') ? savedTab : 'events';
+  });
 
   // Events tab state
   const [events, setEvents] = useState<Event[]>([]);
@@ -568,7 +571,7 @@ export default function Invitees() {
 
     try {
       setSubmitting(true);
-      await (inviteesAPI as any).deleteBulk(selectedContactListIds);
+      await inviteesAPI.deleteBulk(selectedContactListIds);
       toast.success(`${selectedContactListIds.length} contacts deleted successfully`);
 
       setSelectedContactListIds([]);
@@ -619,19 +622,67 @@ export default function Invitees() {
       setImporting(true);
       const response = await importAPI.uploadContacts(importFile);
 
+      console.log('Full response:', response.data); // Debug full response
       const { successful, skipped, failed, errors } = response.data;
 
+      // Show success count
       if (successful > 0) {
         toast.success(`${successful} contact(s) imported successfully`);
       }
-      if (skipped > 0) {
-        toast(`${skipped} contact(s) already exist`, { icon: 'ℹ️' });
-      }
-      if (failed > 0) {
-        toast(`${failed} row(s) failed to import`, { icon: '⚠️' });
-      }
+
+      // Analyze errors to show specific reasons
       if (errors && errors.length > 0) {
-        console.log('Import errors:', errors);
+        console.log('Errors array:', errors); // Debug errors array
+        const duplicatePhones: string[] = [];
+        const invalidPhones: string[] = [];
+        const missingFields: string[] = [];
+        const updated: string[] = [];
+        const otherErrors: string[] = [];
+
+        errors.forEach((err: string) => {
+          console.log('Processing error:', err); // Debug log
+          if (err.includes('already exists (no changes)')) {
+            duplicatePhones.push(err);
+          } else if (err.includes('Updated existing contact')) {
+            updated.push(err);
+          } else if (err.includes('Invalid phone format')) {
+            invalidPhones.push(err);
+          } else if (err.includes('Missing required field')) {
+            missingFields.push(err);
+          } else {
+            otherErrors.push(err);
+          }
+        });
+
+        // Show categorized messages
+        console.log('Counts:', { updated: updated.length, duplicatePhones: duplicatePhones.length, invalidPhones: invalidPhones.length });
+        if (updated.length > 0) {
+          toast.success(`${updated.length} existing contact(s) updated`);
+        }
+        if (duplicatePhones.length > 0) {
+          toast(`${duplicatePhones.length} contact(s) already exist (no changes)`, { icon: 'ℹ️' });
+        }
+        if (invalidPhones.length > 0) {
+          toast.error(`${invalidPhones.length} skipped: Invalid phone format (must start with 20, 12 digits)`);
+        }
+        // Email validation removed - no invalid email messages
+        if (missingFields.length > 0) {
+          toast.error(`${missingFields.length} skipped: Missing required fields (name, email, phone, inviter)`);
+        }
+        if (otherErrors.length > 0) {
+          console.log('Other import errors:', otherErrors);
+        }
+
+        // Log all errors for debugging
+        console.log('Import details:', errors);
+      } else {
+        // No errors array, show generic messages
+        if (skipped > 0) {
+          toast(`${skipped} contact(s) skipped`, { icon: 'ℹ️' });
+        }
+        if (failed > 0) {
+          toast.error(`${failed} row(s) failed to import`);
+        }
       }
 
       setShowImportModal(false);
@@ -687,7 +738,7 @@ export default function Invitees() {
       <div className="border-b border-gray-200 mb-6">
         <nav className="-mb-px flex space-x-8">
           <button
-            onClick={() => { setActiveTab('events'); setSearchQuery(''); }}
+            onClick={() => { setActiveTab('events'); sessionStorage.setItem('invitees_activeTab', 'events'); setSearchQuery(''); }}
             className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === 'events'
               ? 'border-primary text-primary'
               : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -697,7 +748,7 @@ export default function Invitees() {
             Events
           </button>
           <button
-            onClick={() => { setActiveTab('contacts'); setSearchQuery(''); setCurrentPage(1); }}
+            onClick={() => { setActiveTab('contacts'); sessionStorage.setItem('invitees_activeTab', 'contacts'); setSearchQuery(''); setCurrentPage(1); }}
             className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === 'contacts'
               ? 'border-primary text-primary'
               : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -1260,7 +1311,7 @@ export default function Invitees() {
                               </span>
                             </div>
                           </td>
-                          <td className="px-4 py-3">
+                          <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                             <div className="flex justify-end gap-1">
                               <button
                                 onClick={() => handleViewHistory(contact)}

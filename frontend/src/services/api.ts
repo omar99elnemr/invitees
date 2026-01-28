@@ -112,6 +112,9 @@ export const inviterGroupsAPI = {
 // Inviters API
 // =========================
 export const invitersAPI = {
+  getAll: (activeOnly = false) =>
+    api.get<Inviter[]>('/inviters', { params: { active_only: activeOnly } }),
+
   getByGroup: (groupId: number, activeOnly = true) =>
     api.get<Inviter[]>(`/inviters/group/${groupId}`, { params: { active_only: activeOnly } }),
 
@@ -132,6 +135,9 @@ export const invitersAPI = {
 
   delete: (id: number) =>
     api.delete(`/inviters/${id}`),
+
+  deleteBulk: (ids: number[]) =>
+    api.post<{ message: string; deleted: number; errors: string[] }>('/inviters/bulk-delete', { inviter_ids: ids }),
 };
 
 // =========================
@@ -190,6 +196,9 @@ export const inviteesAPI = {
 
   delete: (id: number) =>
     api.delete(`/invitees/${id}`),
+
+  deleteBulk: (inviteeIds: number[]) =>
+    api.delete('/invitees/bulk', { data: { invitee_ids: inviteeIds } }),
 
   // Event-specific invitees
   getForEvent: (eventId: number, filters?: ReportFilters) =>

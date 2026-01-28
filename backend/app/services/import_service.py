@@ -48,11 +48,44 @@ class ImportService:
         # Normalize column names
         df.columns = df.columns.str.strip().str.lower().str.replace(' ', '_')
 
+        # Debug: Print actual column names found
+        print(f"DEBUG: Original columns: {list(df.columns)}")
+        print(f"DEBUG: Normalized columns: {list(df.columns)}")
+
         # Validate required columns
         required_columns = ['name', 'email', 'phone', 'inviter']
         missing_columns = [col for col in required_columns if col not in df.columns]
+        
+        # Try alternative column name patterns if some are missing
         if missing_columns:
-            raise ValueError(f"Missing required columns: {', '.join(missing_columns)}")
+            print(f"DEBUG: Missing columns: {missing_columns}")
+            
+            # Check if columns exist with different spacing/casing
+            for col in missing_columns:
+                if col == 'inviter':
+                    # Check for 'inviter_name' or other variations
+                    if 'inviter_name' in df.columns:
+                        df.rename(columns={'inviter_name': 'inviter'}, inplace=True)
+                        missing_columns.remove(col)
+                        print(f"DEBUG: Renamed 'inviter_name' to 'inviter'")
+                    elif 'inviter' not in df.columns and 'inviter' in [c.lower() for c in df.columns]:
+                        # Case insensitive match
+                        for c in df.columns:
+                            if c.lower() == 'inviter':
+                                df.rename(columns={c: 'inviter'}, inplace=True)
+                                missing_columns.remove(col)
+                                print(f"DEBUG: Renamed '{c}' to 'inviter'")
+                                break
+            
+            # Re-check after renaming
+            missing_columns = [col for col in required_columns if col not in df.columns]
+        
+        if missing_columns:
+            raise ValueError(
+                f"Missing required columns: {', '.join(missing_columns)}. "
+                "Please make sure the first row contains properly named column headers: Name, Email, Phone, Inviter. "
+                "Your file appears to have data in the first row instead of headers."
+            )
 
         # Get user info for audit
         user = User.query.get(user_id)
@@ -76,7 +109,18 @@ class ImportService:
                 raw_phone = str(row['phone']).strip() if pd.notna(row['phone']) else None
                 phone = raw_phone.replace(' ', '').replace('-', '').replace('(', '').replace(')', '') if raw_phone else None
                 inviter_name = str(row['inviter']).strip() if pd.notna(row['inviter']) else None
-                category = str(row['category']).strip() if 'category' in row and pd.notna(row['category']) else None
+                category_name = str(row['category']).strip() if 'category' in row and pd.notna(row['category']) else None
+                category_id = None
+                from app.models.category import Category
+                if category_name:
+                    category_obj = Category.query.filter_by(name=category_name).first()
+                    if category_obj:
+                        category_id = category_obj.id
+                    else:
+                        # Category not found - leave as null (no category)
+                        category_id = None
+                        errors.append(f"Row {index + 2}: Category '{category_name}' not found, imported without category.")
+                # Empty category - leave as null (no category assigned)
                 allowed_guests = int(row['allowed_guests']) if 'allowed_guests' in row and pd.notna(row['allowed_guests']) else None
                 position = str(row['position']).strip() if 'position' in row and pd.notna(row['position']) else None
                 company = str(row['company']).strip() if 'company' in row and pd.notna(row['company']) else None
@@ -93,11 +137,11 @@ class ImportService:
                     errors.append(f"Row {index + 2}: Invalid phone format (must start with 201 and be 12 digits)")
                     continue
 
-                # Validate email format (optional, can skip if not needed)
-                if not ImportService.validate_email(email):
-                    skipped += 1
-                    errors.append(f"Row {index + 2}: Invalid email format")
-                    continue
+                # Email validation commented out - no need to validate email
+                # if not ImportService.validate_email(email):
+                #     skipped += 1
+                #     errors.append(f"Row {index + 2}: Invalid email format")
+                #     continue
 
                 # Find inviter by name in user's group, create if not found
                 inviter_obj = Inviter.query.filter_by(
@@ -143,14 +187,14 @@ class ImportService:
                         updated_fields.append('company')
                     
                     # Update category if provided
-                    if category and existing_invitee.category != category:
-                        existing_invitee.category = category
+                    if category_id and existing_invitee.category_id != category_id:
+                        existing_invitee.category_id = category_id
                         updated_fields.append('category')
                     
-                    # Update allowed_guests if provided
-                    if allowed_guests is not None and existing_invitee.allowed_guests != allowed_guests:
-                        existing_invitee.allowed_guests = allowed_guests
-                        updated_fields.append('allowed_guests')
+                    # Update plus_one (allowed guests) if provided
+                    if allowed_guests is not None and existing_invitee.plus_one != allowed_guests:
+                        existing_invitee.plus_one = allowed_guests
+                        updated_fields.append('plus_one')
                     
                     # Update inviter if different
                     if inviter_id and existing_invitee.inviter_id != inviter_id:
@@ -172,7 +216,8 @@ class ImportService:
                     phone=phone,
                     position=position,
                     company=company,
-                    category=category,
+                    category_id=category_id,
+                    plus_one=allowed_guests,  # Use plus_one field
                     inviter_group_id=user.inviter_group_id,  # Assign to user's group
                     inviter_id=inviter_id
                 )
