@@ -2,7 +2,8 @@
 Attendance routes
 API endpoints for attendance tracking and management
 """
-from flask import Blueprint, request, jsonify, g
+from flask import Blueprint, request, jsonify
+from flask_login import current_user
 from app.utils.decorators import login_required, admin_required
 from app.services.attendance_service import AttendanceService
 from app.models.event import Event
@@ -86,7 +87,7 @@ def generate_codes(event_id):
     
     result = AttendanceService.generate_codes_for_event(
         event_id=event_id,
-        user_id=g.current_user.id,
+        user_id=current_user.id,
         event_prefix=event_prefix
     )
     
@@ -118,7 +119,7 @@ def mark_invitations_sent():
     result = AttendanceService.mark_invitations_sent(
         invitee_ids=invitee_ids,
         method=method,
-        user_id=g.current_user.id
+        user_id=current_user.id
     )
     
     if result.get('error'):
@@ -146,7 +147,7 @@ def check_in_attendee():
     
     result = AttendanceService.check_in_attendee(
         attendance_code=code,
-        checked_in_by_user_id=g.current_user.id,
+        checked_in_by_user_id=current_user.id,
         actual_guests=actual_guests,
         notes=notes
     )
@@ -167,7 +168,7 @@ def undo_check_in(invitee_id):
     """Undo a check-in"""
     result = AttendanceService.undo_check_in(
         invitee_id=invitee_id,
-        user_id=g.current_user.id
+        user_id=current_user.id
     )
     
     if result.get('error'):
