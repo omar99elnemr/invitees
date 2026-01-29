@@ -85,6 +85,7 @@ export default function Invitees() {
   const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
   const [eventInvitees, setEventInvitees] = useState<EventInvitee[]>([]);
   const [inviters, setInviters] = useState<Inviter[]>([]);
+  const [editModalInviters, setEditModalInviters] = useState<Inviter[]>([]); // Inviters for edit modal (group-specific for admin)
   const [loadingEvents, setLoadingEvents] = useState(true);
   const [loadingEventInvitees, setLoadingEventInvitees] = useState(false);
 
@@ -188,15 +189,22 @@ export default function Invitees() {
     }
   }, []);
 
-  // Fetch inviters for the user's group
+  // Fetch inviters for filter dropdowns
+  // Admin: fetch ALL inviters (for filtering across all groups)
+  // Non-admin: fetch only their group's inviters
   const fetchInviters = useCallback(async () => {
     try {
-      const response = await invitersAPI.getMyGroupInviters();
-      setInviters(response.data);
+      if (isAdmin) {
+        const response = await invitersAPI.getAll(true); // active only
+        setInviters(response.data);
+      } else {
+        const response = await invitersAPI.getMyGroupInviters();
+        setInviters(response.data);
+      }
     } catch (error: any) {
       console.error('Failed to load inviters:', error);
     }
-  }, []);
+  }, [isAdmin]);
 
   // Fetch invitees for selected event
   const fetchEventInvitees = useCallback(async (eventId: number) => {
@@ -699,7 +707,9 @@ export default function Invitees() {
   };
 
   // Open edit modal
-  const openEditModal = (contact: InviteeWithStats) => {
+  // For admin: fetch inviters from the contact's inviter group to maintain group isolation
+  // For non-admin: use the already loaded inviters (from their own group)
+  const openEditModal = async (contact: InviteeWithStats) => {
     setSelectedContact(contact);
     setFormData({
       name: contact.name,
@@ -715,6 +725,21 @@ export default function Invitees() {
       plus_one: (contact as any).plus_one || 0,
       notes: (contact as any).notes || '',
     });
+    
+    // For admin, fetch inviters only from the contact's inviter group
+    if (isAdmin && contact.inviter_group_id) {
+      try {
+        const response = await invitersAPI.getByGroup(contact.inviter_group_id, true);
+        setEditModalInviters(response.data);
+      } catch (error) {
+        console.error('Failed to load group inviters for edit modal:', error);
+        setEditModalInviters([]);
+      }
+    } else {
+      // Non-admin uses the regular inviters list (their own group)
+      setEditModalInviters(inviters);
+    }
+    
     setShowEditContactModal(true);
   };
 
@@ -1600,16 +1625,16 @@ export default function Invitees() {
               </div>
               <form onSubmit={handleEditContact}>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {/* Inviter */}
+                  {/* Inviter - Use editModalInviters which respects group isolation for admin */}
                   <div className="col-span-1">
                     <label className="block text-sm font-medium text-gray-700 mb-1">Inviter <span className="text-red-500">*</span></label>
                     <Select
                       classNamePrefix="react-select"
-                      options={inviters.map(inviter => ({
+                      options={editModalInviters.map(inviter => ({
                         value: inviter.id,
                         label: inviter.name + (inviter.position ? ` (${inviter.position})` : '')
                       }))}
-                      value={inviters
+                      value={editModalInviters
                         .filter(inviter => inviter.id === formData.inviter_id)
                         .map(inviter => ({
                           value: inviter.id,
