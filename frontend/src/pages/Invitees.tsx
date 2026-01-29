@@ -26,6 +26,7 @@ import { useAuth } from '../context/AuthContext';
 import { eventsAPI, inviteesAPI, invitersAPI, importAPI, categoriesAPI, inviterGroupsAPI } from '../services/api';
 import type { Event, EventInvitee, Inviter, InviteeWithStats, InviteeFormData, Category, InviterGroup } from '../types';
 import CategoryManager from '../components/categories/CategoryManager';
+import { formatDateEgypt } from '../utils/formatters';
 
 // Status display helpers
 const statusColors: Record<string, string> = {
@@ -795,7 +796,7 @@ export default function Invitees() {
                       </span>
                     </div>
                     <p className="text-sm text-gray-500">
-                      {new Date(event.start_date).toLocaleDateString()}
+                      {formatDateEgypt(event.start_date)}
                     </p>
                     {event.venue && (
                       <p className="text-sm text-gray-400 truncate">{event.venue}</p>
@@ -815,7 +816,7 @@ export default function Invitees() {
                   <div>
                     <h2 className="text-xl font-semibold text-gray-900">{selectedEvent.name}</h2>
                     <p className="text-gray-500">
-                      {new Date(selectedEvent.start_date).toLocaleDateString()} - {selectedEvent.venue}
+                      {formatDateEgypt(selectedEvent.start_date)} - {selectedEvent.venue}
                     </p>
                     {selectedEvent.inviter_group_names && selectedEvent.inviter_group_names.length > 0 && (
                       <div className="flex items-center gap-2 mt-2">
@@ -1905,7 +1906,7 @@ export default function Invitees() {
                             {eventInvitee.inviter_group_name && ` (${eventInvitee.inviter_group_name})`}
                           </p>
                           <p className="text-xs text-gray-400">
-                            {new Date(eventInvitee.created_at).toLocaleDateString()}
+                            {formatDateEgypt(eventInvitee.created_at)}
                           </p>
                         </div>
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColors[getDisplayStatus(eventInvitee)]}`}>

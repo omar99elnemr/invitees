@@ -5,6 +5,12 @@ Represents groups/departments that organize invitations
 from app import db
 from datetime import datetime
 
+
+def to_utc_isoformat(dt):
+    """Convert datetime to ISO format with UTC indicator"""
+    return dt.isoformat() + 'Z' if dt else None
+
+
 class InviterGroup(db.Model):
     """Inviter group model for organizing users by department/team"""
     
@@ -24,7 +30,7 @@ class InviterGroup(db.Model):
             'id': self.id,
             'name': self.name,
             'description': self.description,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'created_at': to_utc_isoformat(self.created_at),
             'member_count': len(self.users) if hasattr(self, 'users') else 0
         }
     

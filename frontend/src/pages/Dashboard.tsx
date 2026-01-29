@@ -23,6 +23,7 @@ import {
   MapPin,
   X,
 } from 'lucide-react';
+import { formatDateEgypt } from '../utils/formatters';
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -281,7 +282,7 @@ export default function Dashboard() {
                         <h3 className="font-medium text-gray-900">{event.name}</h3>
                         <div className="flex items-center gap-2 text-sm text-gray-500 mt-1">
                           <Calendar className="w-3 h-3" />
-                          {new Date(event.start_date).toLocaleDateString()}
+                          {formatDateEgypt(event.start_date)}
                         </div>
                         {event.venue && (
                           <div className="flex items-center gap-2 text-sm text-gray-500">
@@ -346,7 +347,7 @@ export default function Dashboard() {
                           <div className="flex items-center gap-4 text-sm text-gray-500 mt-2">
                             <div className="flex items-center gap-1">
                               <Calendar className="w-4 h-4" />
-                              {new Date(event.start_date).toLocaleDateString()}
+                              {formatDateEgypt(event.start_date)}
                             </div>
                             {event.venue && (
                               <div className="flex items-center gap-1">

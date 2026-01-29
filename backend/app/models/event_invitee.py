@@ -7,6 +7,11 @@ from app import db
 from datetime import datetime
 
 
+def to_utc_isoformat(dt):
+    """Convert datetime to ISO format with UTC indicator"""
+    return dt.isoformat() + 'Z' if dt else None
+
+
 # Category choices for event invitees
 # Category choices for event invitees - LEGACY
 EVENT_INVITEE_CATEGORIES = ['White', 'Gold']
@@ -94,27 +99,27 @@ class EventInvitee(db.Model):
             'inviter_user_id': self.inviter_user_id,
             'inviter_role': self.inviter_role,
             'status': self.status,
-            'status_date': self.status_date.isoformat() if self.status_date else None,
+            'status_date': to_utc_isoformat(self.status_date),
             'approved_by_user_id': self.approved_by_user_id,
             'approver_role': self.approver_role,
             'approval_notes': self.approval_notes,
             'is_going': self.is_going,
             'plus_one': self.plus_one,
             'notes': self.notes,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+            'created_at': to_utc_isoformat(self.created_at),
+            'updated_at': to_utc_isoformat(self.updated_at),
             # Attendance tracking fields
             'attendance_code': self.attendance_code,
-            'code_generated_at': self.code_generated_at.isoformat() if self.code_generated_at else None,
+            'code_generated_at': to_utc_isoformat(self.code_generated_at),
             'invitation_sent': self.invitation_sent,
-            'invitation_sent_at': self.invitation_sent_at.isoformat() if self.invitation_sent_at else None,
+            'invitation_sent_at': to_utc_isoformat(self.invitation_sent_at),
             'invitation_method': self.invitation_method,
-            'portal_accessed_at': self.portal_accessed_at.isoformat() if self.portal_accessed_at else None,
+            'portal_accessed_at': to_utc_isoformat(self.portal_accessed_at),
             'attendance_confirmed': self.attendance_confirmed,
-            'confirmed_at': self.confirmed_at.isoformat() if self.confirmed_at else None,
+            'confirmed_at': to_utc_isoformat(self.confirmed_at),
             'confirmed_guests': self.confirmed_guests,
             'checked_in': self.checked_in,
-            'checked_in_at': self.checked_in_at.isoformat() if self.checked_in_at else None,
+            'checked_in_at': to_utc_isoformat(self.checked_in_at),
             'checked_in_by_user_id': self.checked_in_by_user_id,
             'actual_guests': self.actual_guests,
             'check_in_notes': self.check_in_notes,
@@ -123,7 +128,7 @@ class EventInvitee(db.Model):
         if include_relations:
             # Add related entity names
             data['event_name'] = self.event.name if self.event else None
-            data['event_date'] = self.event.start_date.isoformat() if self.event and self.event.start_date else None
+            data['event_date'] = to_utc_isoformat(self.event.start_date) if self.event else None
             data['event_location'] = self.event.venue if self.event else None
             data['invitee_name'] = self.invitee.name if self.invitee else None
             if include_contact_details:

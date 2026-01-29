@@ -79,7 +79,8 @@ export default function Portal() {
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
-    return date.toLocaleDateString('en-US', {
+    return date.toLocaleDateString('en-EG', {
+      timeZone: 'Africa/Cairo',
       weekday: 'long',
       year: 'numeric',
       month: 'long',

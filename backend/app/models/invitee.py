@@ -6,6 +6,11 @@ from app import db
 from datetime import datetime
 
 
+def to_utc_isoformat(dt):
+    """Convert datetime to ISO format with UTC indicator"""
+    return dt.isoformat() + 'Z' if dt else None
+
+
 # Category choices
 # Category choices - LEGACY, will be removed after migration
 INVITEE_CATEGORIES = ['White', 'Gold']
@@ -64,8 +69,8 @@ class Invitee(db.Model):
             'inviter_group_name': self.inviter_group.name if self.inviter_group else None,
             'inviter_id': self.inviter_id,
             'inviter_name': self.inviter.name if self.inviter else None,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+            'created_at': to_utc_isoformat(self.created_at),
+            'updated_at': to_utc_isoformat(self.updated_at),
         }
         
         if include_contact_details:

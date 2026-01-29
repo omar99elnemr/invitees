@@ -16,6 +16,11 @@ def get_egypt_time():
     return egypt_now.replace(tzinfo=None)
 
 
+def to_utc_isoformat(dt):
+    """Convert datetime to ISO format with UTC indicator"""
+    return dt.isoformat() + 'Z' if dt else None
+
+
 # Association table for Event-InviterGroup many-to-many relationship
 event_inviter_groups = db.Table('event_inviter_groups',
     db.Column('event_id', db.Integer, db.ForeignKey('events.id', ondelete='CASCADE'), primary_key=True),
@@ -90,15 +95,15 @@ class Event(db.Model):
         return {
             'id': self.id,
             'name': self.name,
-            'start_date': self.start_date.isoformat() if self.start_date else None,
-            'end_date': self.end_date.isoformat() if self.end_date else None,
+            'start_date': to_utc_isoformat(self.start_date),
+            'end_date': to_utc_isoformat(self.end_date),
             'venue': self.venue,
             'description': self.description,
             'status': self.status,  # Use actual stored status
             'created_by_user_id': self.created_by_user_id,
             'creator_name': self.creator.username if self.creator else None,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+            'created_at': to_utc_isoformat(self.created_at),
+            'updated_at': to_utc_isoformat(self.updated_at),
             'invitee_count': self.event_invitees.count() if hasattr(self, 'event_invitees') else 0,
             'inviter_group_ids': [g.id for g in self.inviter_groups] if self.inviter_groups else [],
             'inviter_group_names': [g.name for g in self.inviter_groups] if self.inviter_groups else [],

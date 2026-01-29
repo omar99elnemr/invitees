@@ -6,6 +6,12 @@ from app import db
 from flask_login import UserMixin
 from datetime import datetime
 
+
+def to_utc_isoformat(dt):
+    """Convert datetime to ISO format with UTC indicator"""
+    return dt.isoformat() + 'Z' if dt else None
+
+
 class User(UserMixin, db.Model):
     """User model with role-based access control"""
     
@@ -49,9 +55,9 @@ class User(UserMixin, db.Model):
             'inviter_group_id': self.inviter_group_id,
             'inviter_group_name': self.inviter_group.name if self.inviter_group else None,
             'is_active': self.is_active,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
-            'last_login': self.last_login.isoformat() if self.last_login else None,
+            'created_at': to_utc_isoformat(self.created_at),
+            'updated_at': to_utc_isoformat(self.updated_at),
+            'last_login': to_utc_isoformat(self.last_login),
         }
         
         if include_sensitive:

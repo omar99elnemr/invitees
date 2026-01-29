@@ -17,6 +17,7 @@ import { approvalsAPI, eventsAPI, inviterGroupsAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import type { Event, EventInvitee, InviterGroup } from '../types';
 import toast from 'react-hot-toast';
+import { formatDateEgypt, formatDateTimeEgypt } from '../utils/formatters';
 
 export default function Approvals() {
   const { user } = useAuth();
@@ -630,7 +631,7 @@ export default function Approvals() {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-500 flex items-center gap-1">
                             <Calendar className="w-3 h-3" />
-                            {new Date(approval.created_at).toLocaleDateString()}
+                            {formatDateEgypt(approval.created_at)}
                           </div>
                         </td>
                         {!isAdmin && (
@@ -785,7 +786,7 @@ export default function Approvals() {
                             <span className="text-sm text-gray-900">{invitee.approved_by_name || '-'}</span>
                             {invitee.status_date && (
                               <div className="text-xs text-gray-500">
-                                {new Date(invitee.status_date).toLocaleString()}
+                                {formatDateTimeEgypt(invitee.status_date)}
                               </div>
                             )}
                           </div>

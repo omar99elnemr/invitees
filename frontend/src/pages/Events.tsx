@@ -137,9 +137,10 @@ export default function Events() {
     return matchesSearch && matchesStatus;
   });
 
-  // Format date for display
+  // Format date for display in Egypt timezone
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
+    return new Date(dateString).toLocaleDateString('en-EG', {
+      timeZone: 'Africa/Cairo',
       year: 'numeric',
       month: 'short',
       day: 'numeric',

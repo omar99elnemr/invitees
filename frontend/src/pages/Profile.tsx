@@ -15,6 +15,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { authAPI } from '../services/api';
 import toast from 'react-hot-toast';
+import { formatDateEgypt, formatDateTimeEgypt } from '../utils/formatters';
 
 export default function Profile() {
   const { user } = useAuth();
@@ -160,7 +161,7 @@ export default function Profile() {
                 <p className="text-xs text-gray-500">Account Created</p>
                 <p className="font-medium text-gray-900">
                   {user?.created_at
-                    ? new Date(user.created_at).toLocaleDateString()
+                    ? formatDateEgypt(user.created_at)
                     : '—'}
                 </p>
               </div>
@@ -341,7 +342,7 @@ export default function Profile() {
           <div className="text-sm text-gray-600">
             <p>
               <span className="font-medium">Last Login:</span>{' '}
-              {new Date(user.last_login).toLocaleString()}
+              {formatDateTimeEgypt(user.last_login)}
             </p>
           </div>
         </div>

@@ -5,6 +5,12 @@ Tracks all critical system actions for security and compliance
 from app import db
 from datetime import datetime
 
+
+def to_utc_isoformat(dt):
+    """Convert datetime to ISO format with UTC indicator"""
+    return dt.isoformat() + 'Z' if dt else None
+
+
 class AuditLog(db.Model):
     """Audit log model for tracking system actions"""
     
@@ -48,7 +54,7 @@ class AuditLog(db.Model):
             'old_value': self.old_value,
             'new_value': self.new_value,
             'ip_address': self.ip_address,
-            'timestamp': self.timestamp.isoformat() if self.timestamp else None,
+            'timestamp': to_utc_isoformat(self.timestamp),
         }
     
     @staticmethod

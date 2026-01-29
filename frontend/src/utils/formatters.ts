@@ -3,8 +3,11 @@
  */
 import { format, parseISO } from 'date-fns';
 
+// Egypt timezone constant
+const EGYPT_TIMEZONE = 'Africa/Cairo';
+
 /**
- * Format date/time for display
+ * Format date/time for display (local timezone)
  */
 export const formatDate = (dateString: string | null | undefined, formatStr = 'PPP'): string => {
   if (!dateString) return 'N/A';
@@ -16,17 +19,74 @@ export const formatDate = (dateString: string | null | undefined, formatStr = 'P
 };
 
 /**
- * Format date and time
+ * Format date and time (local timezone)
  */
 export const formatDateTime = (dateString: string | null | undefined): string => {
   return formatDate(dateString, 'PPp');
 };
 
 /**
- * Format time only
+ * Format time only (local timezone)
  */
 export const formatTime = (dateString: string | null | undefined): string => {
   return formatDate(dateString, 'p');
+};
+
+/**
+ * Format date/time in Egypt timezone
+ */
+export const formatDateTimeEgypt = (dateString: string | null | undefined): string => {
+  if (!dateString) return '—';
+  try {
+    const date = new Date(dateString);
+    return date.toLocaleString('en-EG', {
+      timeZone: EGYPT_TIMEZONE,
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    });
+  } catch {
+    return 'Invalid Date';
+  }
+};
+
+/**
+ * Format date only in Egypt timezone
+ */
+export const formatDateEgypt = (dateString: string | null | undefined): string => {
+  if (!dateString) return '—';
+  try {
+    const date = new Date(dateString);
+    return date.toLocaleString('en-EG', {
+      timeZone: EGYPT_TIMEZONE,
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
+  } catch {
+    return 'Invalid Date';
+  }
+};
+
+/**
+ * Format time only in Egypt timezone
+ */
+export const formatTimeEgypt = (dateString: string | null | undefined): string => {
+  if (!dateString) return '—';
+  try {
+    const date = new Date(dateString);
+    return date.toLocaleString('en-EG', {
+      timeZone: EGYPT_TIMEZONE,
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    });
+  } catch {
+    return 'Invalid Time';
+  }
 };
 
 /**

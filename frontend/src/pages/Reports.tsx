@@ -23,6 +23,7 @@ import { reportsAPI, eventsAPI, inviterGroupsAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import type { Event, InviterGroup, EventInvitee } from '../types';
 import { exportToCSV, exportToExcel, exportToPDF } from '../utils/exportHelpers';
+import { formatDateTimeEgypt, formatDateEgypt } from '../utils/formatters';
 import toast from 'react-hot-toast';
 
 type ReportType = 'summary-group' | 'summary-inviter' | 'detail-event' | 'detail-approved' | 'activity-log';
@@ -207,7 +208,7 @@ export default function Reports() {
   const getFormattedExportData = () => {
     if (activeReport === 'activity-log') {
       return activityData.map(item => ({
-        'Timestamp': item.timestamp ? new Date(item.timestamp).toLocaleString() : '—',
+        'Timestamp': item.timestamp ? formatDateTimeEgypt(item.timestamp) : '—',
         'Action': formatActionName(item.action),
         'Performed By': item.username || 'System',
         'Role': item.user_role || '—',
@@ -898,7 +899,7 @@ export default function Reports() {
                       )}
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
                         {item.created_at
-                          ? new Date(item.created_at).toLocaleDateString()
+                          ? formatDateEgypt(item.created_at)
                           : '—'}
                       </td>
                     </tr>
@@ -963,7 +964,7 @@ export default function Reports() {
                     <tr key={item.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
                         {item.timestamp
-                          ? new Date(item.timestamp).toLocaleString()
+                          ? formatDateTimeEgypt(item.timestamp)
                           : '—'}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">

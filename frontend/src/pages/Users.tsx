@@ -26,6 +26,7 @@ import { useAuth } from '../context/AuthContext';
 import type { User, InviterGroup, Inviter, UserFormData } from '../types';
 import toast from 'react-hot-toast';
 import ActionMenu, { ActionMenuItem } from '../components/common/ActionMenu';
+import { formatDateTimeEgypt, formatDateEgypt } from '../utils/formatters';
 
 export default function Users() {
   const { user: currentUser } = useAuth();
@@ -716,7 +717,7 @@ export default function Users() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {user.last_login
-                      ? new Date(user.last_login).toLocaleString()
+                      ? formatDateTimeEgypt(user.last_login)
                       : 'Never'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -883,7 +884,7 @@ export default function Users() {
                           </button>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {new Date(group.created_at).toLocaleDateString()}
+                          {formatDateEgypt(group.created_at)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                           <div className="flex items-center justify-end gap-2">

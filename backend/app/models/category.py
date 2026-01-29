@@ -5,6 +5,12 @@ Represents categories for invitees (e.g., White, Gold)
 from app import db
 from datetime import datetime
 
+
+def to_utc_isoformat(dt):
+    """Convert datetime to ISO format with UTC indicator"""
+    return dt.isoformat() + 'Z' if dt else None
+
+
 class Category(db.Model):
     """Category model"""
     
@@ -29,6 +35,6 @@ class Category(db.Model):
             'name': self.name,
             'is_active': self.is_active,
             'invitee_count': self.invitees.count(), 
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+            'created_at': to_utc_isoformat(self.created_at),
+            'updated_at': to_utc_isoformat(self.updated_at),
         }

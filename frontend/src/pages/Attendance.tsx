@@ -22,6 +22,7 @@ import { attendanceAPI, AttendanceStats, AttendanceFilters } from '../services/a
 import type { Event, EventInvitee } from '../types';
 import toast from 'react-hot-toast';
 import { exportToExcel, exportToPDF, exportToCSV } from '../utils/exportHelpers';
+import { formatDateEgypt, formatTimeEgypt } from '../utils/formatters';
 
 export default function Attendance() {
   const [events, setEvents] = useState<Event[]>([]);
@@ -327,7 +328,7 @@ export default function Attendance() {
                 <div className="flex flex-wrap gap-4 mt-2 text-sm opacity-90">
                   <span className="flex items-center gap-1">
                     <Calendar className="w-4 h-4" />
-                    {new Date(selectedEvent.start_date).toLocaleDateString()}
+                    {formatDateEgypt(selectedEvent.start_date)}
                   </span>
                   {selectedEvent.venue && (
                     <span className="flex items-center gap-1">
@@ -767,7 +768,7 @@ export default function Attendance() {
                       <div className="flex justify-between py-2">
                         <span className="text-gray-500">Checked In At</span>
                         <span className="font-medium">
-                          {checkInResult.checked_in_at ? new Date(checkInResult.checked_in_at).toLocaleTimeString() : '-'}
+                          {checkInResult.checked_in_at ? formatTimeEgypt(checkInResult.checked_in_at) : '-'}
                         </span>
                       </div>
                     </div>
