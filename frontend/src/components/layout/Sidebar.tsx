@@ -11,6 +11,7 @@ import {
   CheckSquare,
   FileText,
   UserCog,
+  UserCheck,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -46,10 +47,16 @@ export function Sidebar({ isOpen }: SidebarProps) {
       roles: ['admin', 'director'],
     },
     {
+      name: 'Attendance',
+      path: '/attendance',
+      icon: UserCheck,
+      roles: ['admin'],
+    },
+    {
       name: 'Reports',
       path: '/reports',
       icon: FileText,
-      roles: ['admin'], // Only admins can see reports
+      roles: ['admin'],
     },
     {
       name: 'Users',

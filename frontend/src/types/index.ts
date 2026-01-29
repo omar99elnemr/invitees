@@ -108,7 +108,9 @@ export interface EventInvitee {
   invitee_phone?: string;
   invitee_position?: string;
   invitee_company?: string;
+  invitee_title?: string;
   category?: InviteeCategory;
+  category_id?: number;
   inviter_id?: number;
   inviter_name?: string;
   inviter_user_id: number;
@@ -122,10 +124,26 @@ export interface EventInvitee {
   approver_role?: string;
   approval_notes?: string;
   is_going?: 'yes' | 'no' | 'maybe';
-  plus_one: boolean;
+  plus_one: number;
   notes?: string;
   created_at: string;
   updated_at: string;
+  // Attendance tracking fields
+  attendance_code?: string;
+  code_generated_at?: string;
+  invitation_sent?: boolean;
+  invitation_sent_at?: string;
+  invitation_method?: 'email' | 'whatsapp' | 'physical' | 'sms';
+  portal_accessed_at?: string;
+  attendance_confirmed?: boolean | null;
+  confirmed_at?: string;
+  confirmed_guests?: number;
+  checked_in?: boolean;
+  checked_in_at?: string;
+  checked_in_by_user_id?: number;
+  checked_in_by_name?: string;
+  actual_guests?: number;
+  check_in_notes?: string;
 }
 
 export interface DashboardStats {

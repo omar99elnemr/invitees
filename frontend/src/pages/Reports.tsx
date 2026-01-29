@@ -225,7 +225,7 @@ export default function Reports() {
 
     // Transform data based on report type with clean headers and proper column ordering
     if (activeReport === 'detail-approved') {
-      // Full Approved Details: Event, Name, Phone, Email, Inviter, Category, Status, etc.
+      // Full Approved Details: Event, Name, Phone, Email, Inviter, Category, Status, Attendance tracking
       return (rawData as EventInvitee[]).map(item => ({
         'Event': item.event_name || '—',
         'Invitee Name': item.invitee_name || '—',
@@ -236,9 +236,15 @@ export default function Reports() {
         'Inviter Group': item.inviter_group_name || '—',
         'Status': item.status === 'waiting_for_approval' ? 'Pending' : 
                   item.status === 'approved' ? 'Approved' : 'Rejected',
-        'Status Date': item.status_date ? new Date(item.status_date).toLocaleDateString() : '—',
-        'Attending': item.is_going === 'yes' ? 'Yes' : item.is_going === 'no' ? 'No' : 'Pending',
-        'Guests': item.plus_one || 0,
+        'Attendance Code': item.attendance_code || '—',
+        'Invitation Sent': item.invitation_sent ? 'Yes' : 'No',
+        'Sent Via': item.invitation_method || '—',
+        'Confirmed': item.attendance_confirmed === true ? 'Yes' : 
+                     item.attendance_confirmed === false ? 'No' : 'Pending',
+        'Confirmed Guests': item.confirmed_guests ?? '—',
+        'Checked In': item.checked_in ? 'Yes' : 'No',
+        'Actual Guests': item.actual_guests ?? 0,
+        'Plus One Allowed': item.plus_one || 0,
       }));
     } else if (activeReport === 'detail-event') {
       // Detailed Invitees: Event, Name, Phone, Email, Position, Inviter, Category, Group, Status
@@ -794,10 +800,19 @@ export default function Reports() {
                     {activeReport === 'detail-approved' && (
                       <>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                          Attending
+                          Code
                         </th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                          Plus One
+                          Invite Sent
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                          Confirmed
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                          Checked In
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                          Guests
                         </th>
                       </>
                     )}
@@ -843,20 +858,41 @@ export default function Reports() {
                       {activeReport === 'detail-approved' && (
                         <>
                           <td className="px-4 py-3 whitespace-nowrap text-sm">
-                            {item.is_going === 'yes' ? (
-                              <span className="text-green-600">Yes</span>
-                            ) : item.is_going === 'no' ? (
-                              <span className="text-red-600">No</span>
+                            {item.attendance_code ? (
+                              <code className="px-2 py-0.5 bg-gray-100 rounded text-xs font-mono">
+                                {item.attendance_code}
+                              </code>
+                            ) : (
+                              <span className="text-gray-400">—</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm">
+                            {item.invitation_sent ? (
+                              <span className="text-green-600">{item.invitation_method || 'Yes'}</span>
+                            ) : (
+                              <span className="text-gray-400">No</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm">
+                            {item.attendance_confirmed === true ? (
+                              <span className="text-green-600">Yes ({item.confirmed_guests || 0} guests)</span>
+                            ) : item.attendance_confirmed === false ? (
+                              <span className="text-red-600">Not Coming</span>
                             ) : (
                               <span className="text-gray-400">Pending</span>
                             )}
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm">
-                            {item.plus_one ? (
-                              <span className="text-green-600">Yes</span>
+                            {item.checked_in ? (
+                              <span className="text-green-600">✓</span>
                             ) : (
-                              <span className="text-gray-400">No</span>
+                              <span className="text-gray-400">—</span>
                             )}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm">
+                            <span className="text-gray-700">
+                              {item.checked_in ? item.actual_guests : item.plus_one || 0}
+                            </span>
                           </td>
                         </>
                       )}

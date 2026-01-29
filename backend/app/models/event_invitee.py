@@ -36,6 +36,28 @@ class EventInvitee(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
     
+    # Attendance tracking fields
+    attendance_code = db.Column(db.String(12), unique=True, nullable=True, index=True)
+    code_generated_at = db.Column(db.DateTime, nullable=True)
+    
+    # Invitation dispatch tracking
+    invitation_sent = db.Column(db.Boolean, default=False, nullable=False)
+    invitation_sent_at = db.Column(db.DateTime, nullable=True)
+    invitation_method = db.Column(db.String(20), nullable=True)  # email, whatsapp, physical, sms
+    
+    # Portal confirmation tracking
+    portal_accessed_at = db.Column(db.DateTime, nullable=True)
+    attendance_confirmed = db.Column(db.Boolean, nullable=True)  # True=coming, False=not coming, None=not responded
+    confirmed_at = db.Column(db.DateTime, nullable=True)
+    confirmed_guests = db.Column(db.Integer, nullable=True)  # How many guests they're bringing
+    
+    # Check-in tracking (at event)
+    checked_in = db.Column(db.Boolean, default=False, nullable=False)
+    checked_in_at = db.Column(db.DateTime, nullable=True)
+    checked_in_by_user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    actual_guests = db.Column(db.Integer, default=0, nullable=False)
+    check_in_notes = db.Column(db.Text, nullable=True)
+    
     # Relationships
     inviter = db.relationship('Inviter', backref=db.backref('event_invitations', lazy='dynamic'), foreign_keys=[inviter_id])
     
@@ -46,7 +68,7 @@ class EventInvitee(db.Model):
         db.CheckConstraint("status IN ('waiting_for_approval', 'approved', 'rejected')", name='check_status'),
         db.CheckConstraint("approver_role IN ('admin', 'director') OR approver_role IS NULL", name='check_approver_role'),
         db.CheckConstraint("is_going IN ('yes', 'no', 'maybe') OR is_going IS NULL", name='check_is_going'),
-        # db.CheckConstraint("category IN ('White', 'Gold') OR category IS NULL", name='check_event_invitee_category'),
+        db.CheckConstraint("invitation_method IN ('email', 'whatsapp', 'physical', 'sms') OR invitation_method IS NULL", name='check_invitation_method'),
     )
     
     # Relationship to Category
@@ -81,6 +103,21 @@ class EventInvitee(db.Model):
             'notes': self.notes,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+            # Attendance tracking fields
+            'attendance_code': self.attendance_code,
+            'code_generated_at': self.code_generated_at.isoformat() if self.code_generated_at else None,
+            'invitation_sent': self.invitation_sent,
+            'invitation_sent_at': self.invitation_sent_at.isoformat() if self.invitation_sent_at else None,
+            'invitation_method': self.invitation_method,
+            'portal_accessed_at': self.portal_accessed_at.isoformat() if self.portal_accessed_at else None,
+            'attendance_confirmed': self.attendance_confirmed,
+            'confirmed_at': self.confirmed_at.isoformat() if self.confirmed_at else None,
+            'confirmed_guests': self.confirmed_guests,
+            'checked_in': self.checked_in,
+            'checked_in_at': self.checked_in_at.isoformat() if self.checked_in_at else None,
+            'checked_in_by_user_id': self.checked_in_by_user_id,
+            'actual_guests': self.actual_guests,
+            'check_in_notes': self.check_in_notes,
         }
         
         if include_relations:
@@ -103,6 +140,14 @@ class EventInvitee(db.Model):
             if self.approved_by_user_id:
                 approver = User.query.get(self.approved_by_user_id)
                 data['approved_by_name'] = approver.username if approver else None
+            # Add checked_in_by name
+            if self.checked_in_by_user_id:
+                checked_in_by = User.query.get(self.checked_in_by_user_id)
+                data['checked_in_by_name'] = checked_in_by.username if checked_in_by else None
+            else:
+                data['checked_in_by_name'] = None
+            # Add invitee title for welcome page
+            data['invitee_title'] = self.invitee.title if self.invitee else None
         
         return data
     
@@ -123,6 +168,76 @@ class EventInvitee(db.Model):
         self.status_date = datetime.utcnow()
         if notes:
             self.approval_notes = notes
+    
+    def generate_attendance_code(self, event_prefix=None):
+        """Generate a unique attendance code for this invitation"""
+        import secrets
+        import string
+        
+        if self.attendance_code:
+            return self.attendance_code  # Already has a code
+        
+        # Generate format: PREFIX-XXXX (e.g., EVT1-7X9K)
+        prefix = event_prefix or f'EVT{self.event_id}'
+        # Generate 4-character alphanumeric code (uppercase)
+        chars = string.ascii_uppercase + string.digits
+        # Remove confusing characters
+        chars = chars.replace('O', '').replace('0', '').replace('I', '').replace('1', '').replace('L', '')
+        
+        max_attempts = 100
+        for _ in range(max_attempts):
+            code_suffix = ''.join(secrets.choice(chars) for _ in range(4))
+            code = f"{prefix}-{code_suffix}"
+            # Check if code is unique
+            existing = EventInvitee.query.filter_by(attendance_code=code).first()
+            if not existing:
+                self.attendance_code = code
+                self.code_generated_at = datetime.utcnow()
+                return code
+        
+        raise ValueError("Could not generate unique attendance code after maximum attempts")
+    
+    def mark_invitation_sent(self, method='physical'):
+        """Mark the invitation as sent"""
+        self.invitation_sent = True
+        self.invitation_sent_at = datetime.utcnow()
+        self.invitation_method = method
+    
+    def record_portal_access(self):
+        """Record when attendee accesses the portal"""
+        if not self.portal_accessed_at:
+            self.portal_accessed_at = datetime.utcnow()
+    
+    def confirm_attendance(self, is_coming, guest_count=None):
+        """Record attendee's confirmation from portal"""
+        self.attendance_confirmed = is_coming
+        self.confirmed_at = datetime.utcnow()
+        if guest_count is not None:
+            self.confirmed_guests = min(guest_count, self.plus_one)  # Can't exceed allowed guests
+    
+    def check_in(self, checked_in_by_user_id, actual_guests=0, notes=None):
+        """Check in the attendee at the event"""
+        self.checked_in = True
+        self.checked_in_at = datetime.utcnow()
+        self.checked_in_by_user_id = checked_in_by_user_id
+        self.actual_guests = actual_guests
+        if notes:
+            self.check_in_notes = notes
+    
+    def undo_check_in(self):
+        """Undo a check-in (in case of mistake)"""
+        self.checked_in = False
+        self.checked_in_at = None
+        self.checked_in_by_user_id = None
+        self.actual_guests = 0
+        self.check_in_notes = None
+    
+    @staticmethod
+    def get_by_attendance_code(code):
+        """Find an event invitee by their attendance code"""
+        if not code:
+            return None
+        return EventInvitee.query.filter_by(attendance_code=code.upper().strip()).first()
     
     @staticmethod
     def get_pending_approvals(filters=None):

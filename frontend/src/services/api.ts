@@ -342,6 +342,92 @@ export const categoriesAPI = {
     api.get<{ contacts: number; event_invitations: number }>(`/categories/${id}/usage`),
 };
 
+// =========================
+// Attendance API (Admin)
+// =========================
+export const attendanceAPI = {
+  getEvents: () =>
+    api.get<{ success: boolean; events: Event[] }>('/attendance/events'),
+
+  getEventStats: (eventId: number) =>
+    api.get<{ success: boolean; event: Event; stats: AttendanceStats }>(`/attendance/event/${eventId}/stats`),
+
+  getEventAttendees: (eventId: number, filters?: AttendanceFilters) =>
+    api.get<{ success: boolean; attendees: EventInvitee[]; total: number }>(`/attendance/event/${eventId}/attendees`, { params: filters }),
+
+  generateCodes: (eventId: number, prefix?: string) =>
+    api.post<{ success: boolean; generated: number; errors?: string[] }>(`/attendance/event/${eventId}/generate-codes`, { prefix }),
+
+  markInvitationsSent: (inviteeIds: number[], method: 'email' | 'whatsapp' | 'physical' | 'sms') =>
+    api.post<{ success: boolean; updated: number }>('/attendance/mark-sent', { invitee_ids: inviteeIds, method }),
+
+  checkIn: (code: string, actualGuests?: number, notes?: string) =>
+    api.post<{ success: boolean; attendee?: EventInvitee; error?: string }>('/attendance/check-in', { code, actual_guests: actualGuests, notes }),
+
+  undoCheckIn: (inviteeId: number) =>
+    api.post<{ success: boolean }>(`/attendance/undo-check-in/${inviteeId}`),
+
+  search: (query: string, eventId?: number) =>
+    api.get<{ success: boolean; results: EventInvitee[] }>('/attendance/search', { params: { q: query, event_id: eventId } }),
+};
+
+// =========================
+// Portal API (Public - No Auth)
+// =========================
+export const portalAPI = {
+  verifyCode: (code: string) =>
+    api.post<PortalVerifyResponse>('/portal/verify', { code }),
+
+  confirmAttendance: (code: string, isComing: boolean, guestCount?: number) =>
+    api.post<{ success: boolean; confirmed: boolean; guests?: number }>('/portal/confirm', { code, is_coming: isComing, guest_count: guestCount }),
+};
+
+// Type definitions for attendance
+export interface AttendanceStats {
+  total_approved: number;
+  codes_generated: number;
+  invitations_sent: number;
+  confirmed_coming: number;
+  confirmed_not_coming: number;
+  not_responded: number;
+  checked_in: number;
+  not_checked_in: number;
+  total_plus_one_allowed: number;
+  total_confirmed_guests: number;
+  total_actual_guests: number;
+  expected_total: number;
+  actual_total: number;
+}
+
+export interface AttendanceFilters {
+  has_code?: boolean;
+  invitation_sent?: boolean;
+  checked_in?: boolean;
+  attendance_confirmed?: 'yes' | 'no' | 'pending';
+  search?: string;
+}
+
+export interface PortalVerifyResponse {
+  valid: boolean;
+  error?: string;
+  attendee?: {
+    name: string;
+    title: string;
+    company: string;
+    position: string;
+    category: string;
+    plus_one: number;
+    inviter_name: string;
+    event_name: string;
+    event_date: string;
+    event_end_date: string;
+    event_venue: string;
+    attendance_confirmed: boolean | null;
+    confirmed_guests: number | null;
+    checked_in: boolean;
+  };
+}
+
 import { Category } from '../types';
 
 export default api;

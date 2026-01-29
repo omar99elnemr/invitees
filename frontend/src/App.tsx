@@ -17,6 +17,8 @@ import Approvals from './pages/Approvals';
 import Reports from './pages/Reports';
 import Users from './pages/Users';
 import Profile from './pages/Profile';
+import Attendance from './pages/Attendance';
+import Portal from './pages/Portal';
 
 function App() {
   return (
@@ -49,6 +51,8 @@ function App() {
         
         <Routes>
           <Route path="/login" element={<Login />} />
+          {/* Public Portal Route - No Auth Required */}
+          <Route path="/portal" element={<Portal />} />
           
           <Route
             path="/"
@@ -94,6 +98,14 @@ function App() {
               }
             />
             <Route path="profile" element={<Profile />} />
+            <Route
+              path="attendance"
+              element={
+                <ProtectedRoute roles={['admin']}>
+                  <Attendance />
+                </ProtectedRoute>
+              }
+            />
           </Route>
         </Routes>
       </AuthProvider>
