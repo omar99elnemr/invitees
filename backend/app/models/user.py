@@ -22,7 +22,7 @@ class User(UserMixin, db.Model):
     email = db.Column(db.String(120), unique=True, nullable=False, index=True)
     full_name = db.Column(db.String(100), nullable=True)
     password_hash = db.Column(db.String(255), nullable=False)
-    role = db.Column(db.String(20), nullable=False, index=True)  # admin, director, organizer
+    role = db.Column(db.String(20), nullable=False, index=True)  # admin, director, organizer, check_in_attendant
     inviter_group_id = db.Column(db.Integer, db.ForeignKey('inviter_groups.id'), nullable=True)
     is_active = db.Column(db.Boolean, default=True, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
@@ -38,7 +38,7 @@ class User(UserMixin, db.Model):
     
     # Constraints
     __table_args__ = (
-        db.CheckConstraint("role IN ('admin', 'director', 'organizer')", name='check_user_role'),
+        db.CheckConstraint("role IN ('admin', 'director', 'organizer', 'check_in_attendant')", name='check_user_role'),
     )
     
     def __repr__(self):
@@ -84,3 +84,11 @@ class User(UserMixin, db.Model):
     def can_manage_events(self):
         """Check if user can create/edit events"""
         return self.role == 'admin'
+    
+    def is_check_in_attendant(self):
+        """Check if user is a check-in attendant"""
+        return self.role == 'check_in_attendant'
+    
+    def can_check_in(self):
+        """Check if user can perform check-ins"""
+        return self.role in ('admin', 'check_in_attendant')

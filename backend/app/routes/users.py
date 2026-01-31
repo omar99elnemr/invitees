@@ -137,3 +137,102 @@ def reset_password(user_id):
     AuthService.reset_password(user, data['new_password'], current_user.id)
     
     return jsonify({'message': 'Password reset successfully'}), 200
+
+
+# =========================
+# Check-in Attendant Event Assignment Routes
+# =========================
+
+@users_bp.route('/<int:user_id>/event-assignments', methods=['GET'])
+@login_required
+@admin_required
+def get_user_event_assignments(user_id):
+    """Get all event assignments for a user"""
+    from app.models.user_event_assignment import UserEventAssignment
+    
+    user = UserService.get_user_by_id(user_id)
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+    
+    assignments = UserEventAssignment.query.filter_by(user_id=user_id).all()
+    return jsonify({
+        'success': True,
+        'assignments': [a.to_dict() for a in assignments]
+    }), 200
+
+
+@users_bp.route('/<int:user_id>/event-assignments', methods=['POST'])
+@login_required
+@admin_required
+def assign_user_to_event(user_id):
+    """Assign a user to an event for check-in access"""
+    from app.models.user_event_assignment import UserEventAssignment
+    from app.models.event import Event
+    
+    data = request.get_json()
+    if not data or not data.get('event_id'):
+        return jsonify({'error': 'event_id is required'}), 400
+    
+    user = UserService.get_user_by_id(user_id)
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+    
+    event = Event.query.get(data['event_id'])
+    if not event:
+        return jsonify({'error': 'Event not found'}), 404
+    
+    assignment = UserEventAssignment.assign_user_to_event(
+        user_id=user_id,
+        event_id=data['event_id'],
+        created_by_user_id=current_user.id
+    )
+    
+    return jsonify({
+        'success': True,
+        'assignment': assignment.to_dict()
+    }), 201
+
+
+@users_bp.route('/<int:user_id>/event-assignments/<int:event_id>', methods=['DELETE'])
+@login_required
+@admin_required
+def remove_user_from_event(user_id, event_id):
+    """Remove a user's access to an event"""
+    from app.models.user_event_assignment import UserEventAssignment
+    
+    user = UserService.get_user_by_id(user_id)
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+    
+    success = UserEventAssignment.remove_user_from_event(user_id, event_id)
+    
+    if not success:
+        return jsonify({'error': 'Assignment not found'}), 404
+    
+    return jsonify({'success': True}), 200
+
+
+@users_bp.route('/check-in-attendants', methods=['GET'])
+@login_required
+@admin_required
+def get_check_in_attendants():
+    """Get all check-in attendants with their event assignments"""
+    from app.models.user import User
+    from app.models.user_event_assignment import UserEventAssignment
+    
+    attendants = User.query.filter_by(role='check_in_attendant').all()
+    
+    result = []
+    for attendant in attendants:
+        attendant_dict = attendant.to_dict()
+        assignments = UserEventAssignment.query.filter_by(
+            user_id=attendant.id,
+            is_active=True
+        ).all()
+        attendant_dict['event_assignments'] = [a.to_dict() for a in assignments]
+        result.append(attendant_dict)
+    
+    return jsonify({
+        'success': True,
+        'attendants': result
+    }), 200

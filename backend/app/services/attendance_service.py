@@ -274,6 +274,67 @@ class AttendanceService:
         }
     
     @staticmethod
+    def verify_by_phone(phone, event_id=None):
+        """Verify an attendee by phone number and return details for portal"""
+        from app.models.invitee import Invitee
+        
+        if not phone:
+            return {'valid': False, 'error': 'Phone number required'}
+        
+        # Clean up phone number - remove common formatting
+        clean_phone = ''.join(c for c in phone if c.isdigit() or c == '+')
+        
+        # Build query for approved invitees with matching phone
+        query = EventInvitee.query.join(Invitee).filter(
+            EventInvitee.status == 'approved',
+            db.or_(
+                Invitee.phone.like(f'%{clean_phone[-10:]}%'),  # Match last 10 digits
+                Invitee.secondary_phone.like(f'%{clean_phone[-10:]}%')
+            )
+        )
+        
+        # If event_id is provided, filter by event
+        if event_id:
+            query = query.filter(EventInvitee.event_id == event_id)
+        else:
+            # If no event specified, get the most recent upcoming/ongoing event
+            query = query.join(Event).filter(
+                Event.status.in_(['upcoming', 'ongoing'])
+            ).order_by(Event.start_date.asc())
+        
+        invitee = query.first()
+        
+        if not invitee:
+            return {'valid': False, 'error': 'No invitation found for this phone number'}
+        
+        # Record portal access
+        invitee.record_portal_access()
+        db.session.commit()
+        
+        # Return public-safe data for portal display
+        return {
+            'valid': True,
+            'attendee': {
+                'id': invitee.id,
+                'name': invitee.invitee.name if invitee.invitee else None,
+                'title': invitee.invitee.title if invitee.invitee else None,
+                'company': invitee.invitee.company if invitee.invitee else None,
+                'position': invitee.invitee.position if invitee.invitee else None,
+                'category': invitee.category_rel.name if invitee.category_rel else None,
+                'plus_one': invitee.plus_one,
+                'inviter_name': invitee.inviter.name if invitee.inviter else None,
+                'event_name': invitee.event.name if invitee.event else None,
+                'event_date': invitee.event.start_date.isoformat() + 'Z' if invitee.event and invitee.event.start_date else None,
+                'event_end_date': invitee.event.end_date.isoformat() + 'Z' if invitee.event and invitee.event.end_date else None,
+                'event_venue': invitee.event.venue if invitee.event else None,
+                'attendance_code': invitee.attendance_code,
+                'attendance_confirmed': invitee.attendance_confirmed,
+                'confirmed_guests': invitee.confirmed_guests,
+                'checked_in': invitee.checked_in,
+            }
+        }
+    
+    @staticmethod
     def confirm_attendance_from_portal(code, is_coming, guest_count=None):
         """Confirm attendance from the public portal"""
         invitee = EventInvitee.get_by_attendance_code(code)

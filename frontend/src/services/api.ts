@@ -86,7 +86,31 @@ export const usersAPI = {
 
   resetPassword: (id: number, new_password: string) =>
     api.post(`/users/${id}/reset-password`, { new_password }),
+
+  // Check-in attendant event assignment management
+  getCheckInAttendants: () =>
+    api.get<{ success: boolean; attendants: (User & { event_assignments: EventAssignment[] })[] }>('/users/check-in-attendants'),
+
+  getEventAssignments: (userId: number) =>
+    api.get<{ success: boolean; assignments: EventAssignment[] }>(`/users/${userId}/event-assignments`),
+
+  assignToEvent: (userId: number, eventId: number) =>
+    api.post<{ success: boolean; assignment: EventAssignment }>(`/users/${userId}/event-assignments`, { event_id: eventId }),
+
+  removeFromEvent: (userId: number, eventId: number) =>
+    api.delete(`/users/${userId}/event-assignments/${eventId}`),
 };
+
+// Event Assignment Type
+export interface EventAssignment {
+  id: number;
+  user_id: number;
+  event_id: number;
+  is_active: boolean;
+  created_at: string;
+  user_name: string;
+  event_name: string;
+}
 
 // =========================
 // Inviter Groups API
@@ -378,9 +402,91 @@ export const portalAPI = {
   verifyCode: (code: string) =>
     api.post<PortalVerifyResponse>('/portal/verify', { code }),
 
+  verifyPhone: (phone: string, eventId?: number) =>
+    api.post<PortalVerifyResponse>('/portal/verify', { phone, event_id: eventId }),
+
+  verify: (code?: string, phone?: string, eventId?: number) =>
+    api.post<PortalVerifyResponse>('/portal/verify', { code, phone, event_id: eventId }),
+
   confirmAttendance: (code: string, isComing: boolean, guestCount?: number) =>
     api.post<{ success: boolean; confirmed: boolean; guests?: number }>('/portal/confirm', { code, is_coming: isComing, guest_count: guestCount }),
 };
+
+// =========================
+// Check-in Console API (Admin + Check-in Attendant)
+// =========================
+export const checkinAPI = {
+  getMyEvents: () =>
+    api.get<{ success: boolean; events: Event[] }>('/checkin/my-events'),
+
+  getEventStats: (eventId: number) =>
+    api.get<{ success: boolean; event: Event; stats: AttendanceStats }>(`/checkin/event/${eventId}/stats`),
+
+  searchAttendees: (eventId: number, query: string) =>
+    api.get<{ success: boolean; results: EventInvitee[]; total: number }>(`/checkin/event/${eventId}/search`, { params: { q: query } }),
+
+  checkIn: (eventId: number, inviteeId: number, actualGuests?: number, notes?: string) =>
+    api.post<{ success: boolean; attendee?: EventInvitee; error?: string }>(`/checkin/event/${eventId}/check-in`, { invitee_id: inviteeId, actual_guests: actualGuests, notes }),
+
+  undoCheckIn: (eventId: number, inviteeId: number) =>
+    api.post<{ success: boolean }>(`/checkin/event/${eventId}/undo-check-in/${inviteeId}`),
+
+  getRecentCheckins: (eventId: number) =>
+    api.get<{ success: boolean; recent_checkins: EventInvitee[] }>(`/checkin/event/${eventId}/recent-checkins`),
+};
+
+// =========================
+// Live Dashboard API (Public - No Auth)
+// =========================
+export const liveDashboardAPI = {
+  getActiveEvents: () =>
+    api.get<{ success: boolean; events: LiveEvent[] }>('/live/events'),
+
+  getEventStats: (eventId: number) =>
+    api.get<LiveDashboardStats>(`/live/event/${eventId}/stats`),
+
+  getRecentActivity: (eventId: number) =>
+    api.get<{ success: boolean; recent_checkins: RecentCheckin[] }>(`/live/event/${eventId}/recent`),
+};
+
+// Live Dashboard Types
+export interface LiveEvent {
+  id: number;
+  name: string;
+  start_date: string;
+  end_date: string;
+  venue: string;
+  status: string;
+}
+
+export interface LiveDashboardStats {
+  success: boolean;
+  event: LiveEvent;
+  stats: {
+    total_approved: number;
+    total_capacity: number;
+    confirmed_coming: number;
+    confirmed_not_coming: number;
+    not_responded: number;
+    confirmation_rate: number;
+    expected_attendees: number;
+    expected_guests: number;
+    expected_total: number;
+    checked_in: number;
+    not_yet_arrived: number;
+    actual_guests: number;
+    total_arrived: number;
+    attendance_rate: number;
+  };
+  timestamp: string;
+}
+
+export interface RecentCheckin {
+  name: string;
+  company: string | null;
+  guests: number;
+  checked_in_at: string;
+}
 
 // Type definitions for attendance
 export interface AttendanceStats {

@@ -19,6 +19,8 @@ import Users from './pages/Users';
 import Profile from './pages/Profile';
 import Attendance from './pages/Attendance';
 import Portal from './pages/Portal';
+import CheckInConsole from './pages/CheckInConsole';
+import LiveDashboard from './pages/LiveDashboard';
 
 function App() {
   return (
@@ -51,8 +53,18 @@ function App() {
         
         <Routes>
           <Route path="/login" element={<Login />} />
-          {/* Public Portal Route - No Auth Required */}
+          {/* Public Routes - No Auth Required */}
           <Route path="/portal" element={<Portal />} />
+          <Route path="/live" element={<LiveDashboard />} />
+          {/* Check-in Console - Requires Auth (admin or check_in_attendant) */}
+          <Route 
+            path="/checkin" 
+            element={
+              <ProtectedRoute roles={['admin', 'check_in_attendant']}>
+                <CheckInConsole />
+              </ProtectedRoute>
+            } 
+          />
           
           <Route
             path="/"

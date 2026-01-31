@@ -60,6 +60,8 @@ def create_app(config_class=Config):
     from app.routes.categories import categories_bp
     from app.routes.attendance import attendance_bp
     from app.routes.portal import portal_bp
+    from app.routes.checkin import checkin_bp
+    from app.routes.live_dashboard import live_dashboard_bp
     
     # Exempt API routes from CSRF protection
     csrf.exempt(auth_bp)
@@ -75,6 +77,8 @@ def create_app(config_class=Config):
     csrf.exempt(categories_bp)
     csrf.exempt(attendance_bp)
     csrf.exempt(portal_bp)
+    csrf.exempt(checkin_bp)
+    csrf.exempt(live_dashboard_bp)
     
     app.register_blueprint(auth_bp)
     app.register_blueprint(users_bp)
@@ -89,6 +93,8 @@ def create_app(config_class=Config):
     app.register_blueprint(categories_bp)
     app.register_blueprint(attendance_bp, url_prefix='/api/attendance')
     app.register_blueprint(portal_bp, url_prefix='/api/portal')
+    app.register_blueprint(checkin_bp, url_prefix='/api/checkin')
+    app.register_blueprint(live_dashboard_bp, url_prefix='/api/live')
     
     # Health check route
     @app.route('/health')

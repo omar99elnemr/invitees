@@ -4,29 +4,45 @@ Public API endpoints for attendee portal (no authentication required)
 """
 from flask import Blueprint, request, jsonify
 from app.services.attendance_service import AttendanceService
+from app.models.event_invitee import EventInvitee
+from app.models.invitee import Invitee
+from app import db
 
 portal_bp = Blueprint('portal', __name__)
 
 
 @portal_bp.route('/verify', methods=['POST'])
 def verify_code():
-    """Verify an attendance code and return attendee details"""
+    """Verify an attendance code or phone number and return attendee details"""
     data = request.get_json()
     
     if not data:
         return jsonify({'valid': False, 'error': 'No data provided'}), 400
     
     code = data.get('code', '').strip()
+    phone = data.get('phone', '').strip()
+    event_id = data.get('event_id')  # Optional - for phone lookup
     
-    if not code:
-        return jsonify({'valid': False, 'error': 'Code is required'}), 400
+    if not code and not phone:
+        return jsonify({'valid': False, 'error': 'Code or phone number is required'}), 400
     
-    result = AttendanceService.verify_attendance_code(code)
+    # Try code first if provided
+    if code:
+        result = AttendanceService.verify_attendance_code(code)
+        if result['valid']:
+            return jsonify(result)
     
-    if not result['valid']:
-        return jsonify(result), 404
+    # Try phone lookup if code wasn't provided or didn't work
+    if phone:
+        result = AttendanceService.verify_by_phone(phone, event_id)
+        if result['valid']:
+            return jsonify(result)
+        if not code:
+            # Only return phone error if no code was provided
+            return jsonify(result), 404
     
-    return jsonify(result)
+    # Return code error if code was provided but invalid
+    return jsonify({'valid': False, 'error': 'Invalid code'}), 404
 
 
 @portal_bp.route('/confirm', methods=['POST'])

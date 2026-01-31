@@ -10,38 +10,53 @@ import {
   Building,
   PartyPopper,
   ArrowLeft,
+  Phone,
 } from 'lucide-react';
 import { portalAPI, PortalVerifyResponse } from '../services/api';
 
 export default function Portal() {
+  const [verifyMode, setVerifyMode] = useState<'code' | 'phone'>('code');
   const [code, setCode] = useState('');
+  const [phone, setPhone] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [attendeeData, setAttendeeData] = useState<PortalVerifyResponse['attendee'] | null>(null);
   const [confirmed, setConfirmed] = useState(false);
   const [guestCount, setGuestCount] = useState(0);
   const [confirmLoading, setConfirmLoading] = useState(false);
+  const [attendeeCode, setAttendeeCode] = useState(''); // Store the code for confirmation
 
   const handleVerify = async () => {
-    if (!code.trim()) {
+    if (verifyMode === 'code' && !code.trim()) {
       setError('Please enter your invitation code');
+      return;
+    }
+    if (verifyMode === 'phone' && !phone.trim()) {
+      setError('Please enter your phone number');
       return;
     }
 
     try {
       setLoading(true);
       setError('');
-      const response = await portalAPI.verifyCode(code.trim());
+      
+      const response = await portalAPI.verify(
+        verifyMode === 'code' ? code.trim() : undefined,
+        verifyMode === 'phone' ? phone.trim() : undefined
+      );
 
       if (response.data.valid && response.data.attendee) {
         setAttendeeData(response.data.attendee);
         setGuestCount(response.data.attendee.confirmed_guests ?? 0);
+        // Store the attendance code for confirmation
+        const attendee = response.data.attendee as any;
+        setAttendeeCode(attendee.attendance_code || code.trim());
       } else {
-        setError(response.data.error || 'Invalid code');
+        setError(response.data.error || 'Invalid code or phone number');
       }
     } catch (err: unknown) {
       const error = err as { response?: { data?: { error?: string } } };
-      setError(error.response?.data?.error || 'Failed to verify code. Please try again.');
+      setError(error.response?.data?.error || 'Failed to verify. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -50,7 +65,9 @@ export default function Portal() {
   const handleConfirm = async (isComing: boolean) => {
     try {
       setConfirmLoading(true);
-      const response = await portalAPI.confirmAttendance(code, isComing, isComing ? guestCount : 0);
+      // Use attendeeCode which may have been retrieved from phone lookup
+      const confirmCode = attendeeCode || code;
+      const response = await portalAPI.confirmAttendance(confirmCode, isComing, isComing ? guestCount : 0);
 
       if (response.data.success) {
         setConfirmed(true);
@@ -71,10 +88,13 @@ export default function Portal() {
 
   const handleReset = () => {
     setCode('');
+    setPhone('');
     setAttendeeData(null);
     setError('');
     setConfirmed(false);
     setGuestCount(0);
+    setAttendeeCode('');
+    setVerifyMode('code');
   };
 
   const formatDate = (dateStr: string) => {
@@ -103,23 +123,66 @@ export default function Portal() {
         </div>
 
         {!attendeeData ? (
-          /* Code Entry Form */
+          /* Code/Phone Entry Form */
           <div className="bg-white rounded-2xl shadow-xl p-8">
             <div className="space-y-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Invitation Code
-                </label>
-                <input
-                  type="text"
-                  value={code}
-                  onChange={(e) => setCode(e.target.value.toUpperCase())}
-                  placeholder="Enter your code (e.g., GALA24-7X9K)"
-                  className="w-full px-6 py-4 text-xl font-mono text-center border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary transition"
-                  onKeyDown={(e) => e.key === 'Enter' && handleVerify()}
-                  autoFocus
-                />
+              {/* Mode Toggle */}
+              <div className="flex rounded-xl border-2 border-gray-200 p-1">
+                <button
+                  onClick={() => setVerifyMode('code')}
+                  className={`flex-1 py-3 px-4 rounded-lg font-medium transition flex items-center justify-center gap-2 ${
+                    verifyMode === 'code' 
+                      ? 'bg-primary text-white' 
+                      : 'text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  <Ticket className="w-5 h-5" />
+                  Use Code
+                </button>
+                <button
+                  onClick={() => setVerifyMode('phone')}
+                  className={`flex-1 py-3 px-4 rounded-lg font-medium transition flex items-center justify-center gap-2 ${
+                    verifyMode === 'phone' 
+                      ? 'bg-primary text-white' 
+                      : 'text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  <Phone className="w-5 h-5" />
+                  Use Phone
+                </button>
               </div>
+
+              {verifyMode === 'code' ? (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Invitation Code
+                  </label>
+                  <input
+                    type="text"
+                    value={code}
+                    onChange={(e) => setCode(e.target.value.toUpperCase())}
+                    placeholder="Enter your code (e.g., GALA24-7X9K)"
+                    className="w-full px-6 py-4 text-xl font-mono text-center border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary transition"
+                    onKeyDown={(e) => e.key === 'Enter' && handleVerify()}
+                    autoFocus
+                  />
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Phone Number
+                  </label>
+                  <input
+                    type="tel"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="Enter your phone number"
+                    className="w-full px-6 py-4 text-xl text-center border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary transition"
+                    onKeyDown={(e) => e.key === 'Enter' && handleVerify()}
+                    autoFocus
+                  />
+                </div>
+              )}
 
               {error && (
                 <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 flex items-center gap-3">
@@ -130,7 +193,7 @@ export default function Portal() {
 
               <button
                 onClick={handleVerify}
-                disabled={loading || !code.trim()}
+                disabled={loading || (verifyMode === 'code' ? !code.trim() : !phone.trim())}
                 className="w-full py-4 bg-primary text-white text-lg font-medium rounded-xl hover:bg-primary-dark disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center justify-center gap-2"
               >
                 {loading ? (
@@ -138,13 +201,16 @@ export default function Portal() {
                 ) : (
                   <>
                     <CheckCircle className="w-5 h-5" />
-                    Verify Code
+                    Verify {verifyMode === 'code' ? 'Code' : 'Phone'}
                   </>
                 )}
               </button>
 
               <p className="text-center text-sm text-gray-500">
-                Your code can be found on your invitation card or in your invitation email/message
+                {verifyMode === 'code' 
+                  ? 'Your code can be found on your invitation card or in your invitation email/message'
+                  : 'Enter the phone number you registered with for your invitation'
+                }
               </p>
             </div>
           </div>
