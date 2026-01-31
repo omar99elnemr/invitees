@@ -407,33 +407,48 @@ export const portalAPI = {
 
   verify: (code?: string, phone?: string, eventId?: number) =>
     api.post<PortalVerifyResponse>('/portal/verify', { code, phone, event_id: eventId }),
-
-  confirmAttendance: (code: string, isComing: boolean, guestCount?: number) =>
-    api.post<{ success: boolean; confirmed: boolean; guests?: number }>('/portal/confirm', { code, is_coming: isComing, guest_count: guestCount }),
 };
 
 // =========================
-// Check-in Console API (Admin + Check-in Attendant)
+// Check-in Console API (Event-specific with PIN auth)
 // =========================
 export const checkinAPI = {
-  getMyEvents: () =>
-    api.get<{ success: boolean; events: Event[] }>('/checkin/my-events'),
 
-  getEventStats: (eventId: number) =>
-    api.get<{ success: boolean; event: Event; stats: AttendanceStats }>(`/checkin/event/${eventId}/stats`),
+  getEventInfo: (eventCode: string) =>
+    api.get<{ success: boolean; event: CheckinEventInfo; is_verified: boolean }>(`/checkin/${eventCode}/info`),
 
-  searchAttendees: (eventId: number, query: string) =>
-    api.get<{ success: boolean; results: EventInvitee[]; total: number }>(`/checkin/event/${eventId}/search`, { params: { q: query } }),
+  verifyPin: (eventCode: string, pin: string) =>
+    api.post<{ success: boolean; message: string }>(`/checkin/${eventCode}/verify-pin`, { pin }),
 
-  checkIn: (eventId: number, inviteeId: number, actualGuests?: number, notes?: string) =>
-    api.post<{ success: boolean; attendee?: EventInvitee; error?: string }>(`/checkin/event/${eventId}/check-in`, { invitee_id: inviteeId, actual_guests: actualGuests, notes }),
+  logout: (eventCode: string) =>
+    api.post<{ success: boolean }>(`/checkin/${eventCode}/logout`),
 
-  undoCheckIn: (eventId: number, inviteeId: number) =>
-    api.post<{ success: boolean }>(`/checkin/event/${eventId}/undo-check-in/${inviteeId}`),
+  getEventStats: (eventCode: string) =>
+    api.get<{ success: boolean; event: Event; stats: AttendanceStats }>(`/checkin/${eventCode}/stats`),
 
-  getRecentCheckins: (eventId: number) =>
-    api.get<{ success: boolean; recent_checkins: EventInvitee[] }>(`/checkin/event/${eventId}/recent-checkins`),
+  searchAttendees: (eventCode: string, query: string) =>
+    api.get<{ success: boolean; results: EventInvitee[]; total: number }>(`/checkin/${eventCode}/search`, { params: { q: query } }),
+
+  checkIn: (eventCode: string, inviteeId: number, actualGuests?: number, notes?: string) =>
+    api.post<{ success: boolean; attendee?: EventInvitee; error?: string }>(`/checkin/${eventCode}/check-in`, { invitee_id: inviteeId, actual_guests: actualGuests, notes }),
+
+  undoCheckIn: (eventCode: string, inviteeId: number) =>
+    api.post<{ success: boolean }>(`/checkin/${eventCode}/undo-check-in/${inviteeId}`),
+
+  getRecentCheckins: (eventCode: string) =>
+    api.get<{ success: boolean; recent_checkins: EventInvitee[] }>(`/checkin/${eventCode}/recent-checkins`),
 };
+
+export interface CheckinEventInfo {
+  id: number;
+  name: string;
+  code: string;
+  venue: string;
+  status: string;
+  start_date: string;
+  end_date: string;
+  checkin_available: boolean;
+}
 
 // =========================
 // Live Dashboard API (Public - No Auth)
@@ -442,11 +457,14 @@ export const liveDashboardAPI = {
   getActiveEvents: () =>
     api.get<{ success: boolean; events: LiveEvent[] }>('/live/events'),
 
-  getEventStats: (eventId: number) =>
-    api.get<LiveDashboardStats>(`/live/event/${eventId}/stats`),
+  getEventInfo: (eventCode: string) =>
+    api.get<{ success: boolean; event: LiveEvent }>(`/live/${eventCode}`),
 
-  getRecentActivity: (eventId: number) =>
-    api.get<{ success: boolean; recent_checkins: RecentCheckin[] }>(`/live/event/${eventId}/recent`),
+  getEventStats: (eventCode: string) =>
+    api.get<LiveDashboardStats>(`/live/${eventCode}/stats`),
+
+  getRecentActivity: (eventCode: string) =>
+    api.get<{ success: boolean; recent_checkins: RecentCheckin[] }>(`/live/${eventCode}/recent`),
 };
 
 // Live Dashboard Types

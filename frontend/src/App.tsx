@@ -55,16 +55,9 @@ function App() {
           <Route path="/login" element={<Login />} />
           {/* Public Routes - No Auth Required */}
           <Route path="/portal" element={<Portal />} />
-          <Route path="/live" element={<LiveDashboard />} />
-          {/* Check-in Console - Requires Auth (admin or check_in_attendant) */}
-          <Route 
-            path="/checkin" 
-            element={
-              <ProtectedRoute roles={['admin', 'check_in_attendant']}>
-                <CheckInConsole />
-              </ProtectedRoute>
-            } 
-          />
+          {/* Event-specific public routes */}
+          <Route path="/live/:eventCode" element={<LiveDashboard />} />
+          <Route path="/checkin/:eventCode" element={<CheckInConsole />} />
           
           <Route
             path="/"

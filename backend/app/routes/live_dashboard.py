@@ -17,34 +17,35 @@ def to_utc_isoformat(dt):
     return dt.isoformat() + 'Z' if dt else None
 
 
-@live_dashboard_bp.route('/events', methods=['GET'])
-def get_active_events():
-    """Get all active events (upcoming or ongoing) for the public dashboard"""
-    Event.update_all_statuses()
-    
-    events = Event.query.filter(
-        Event.status.in_(['upcoming', 'ongoing'])
-    ).order_by(Event.start_date.asc()).all()
+@live_dashboard_bp.route('/<event_code>', methods=['GET'])
+def get_event_info(event_code):
+    """Get event info for the public live dashboard"""
+    event = Event.get_by_code(event_code)
+    if not event:
+        return jsonify({'error': 'Event not found'}), 404
     
     return jsonify({
         'success': True,
-        'events': [{
-            'id': e.id,
-            'name': e.name,
-            'start_date': to_utc_isoformat(e.start_date),
-            'end_date': to_utc_isoformat(e.end_date),
-            'venue': e.venue,
-            'status': e.status
-        } for e in events]
+        'event': {
+            'id': event.id,
+            'name': event.name,
+            'code': event.code,
+            'start_date': to_utc_isoformat(event.start_date),
+            'end_date': to_utc_isoformat(event.end_date),
+            'venue': event.venue,
+            'status': event.status
+        }
     })
 
 
-@live_dashboard_bp.route('/event/<int:event_id>/stats', methods=['GET'])
-def get_event_live_stats(event_id):
+@live_dashboard_bp.route('/<event_code>/stats', methods=['GET'])
+def get_event_live_stats(event_code):
     """Get real-time statistics for an event - public access"""
-    event = Event.query.get(event_id)
+    event = Event.get_by_code(event_code)
     if not event:
         return jsonify({'error': 'Event not found'}), 404
+    
+    event_id = event.id
     
     # Get base query for approved invitees
     base_query = EventInvitee.query.filter_by(event_id=event_id, status='approved')
@@ -125,16 +126,16 @@ def get_event_live_stats(event_id):
     })
 
 
-@live_dashboard_bp.route('/event/<int:event_id>/recent', methods=['GET'])
-def get_recent_activity(event_id):
+@live_dashboard_bp.route('/<event_code>/recent', methods=['GET'])
+def get_recent_activity(event_code):
     """Get recent check-in activity for live display"""
-    event = Event.query.get(event_id)
+    event = Event.get_by_code(event_code)
     if not event:
         return jsonify({'error': 'Event not found'}), 404
     
     # Get last 5 check-ins (public-safe info only)
     recent = EventInvitee.query.filter_by(
-        event_id=event_id,
+        event_id=event.id,
         checked_in=True
     ).order_by(EventInvitee.checked_in_at.desc()).limit(5).all()
     

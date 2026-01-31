@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
+import { useParams } from 'react-router-dom';
 import {
   Search,
   CheckCircle,
-  Phone,
+  Lock,
   User,
   Building,
   Calendar,
@@ -11,18 +12,25 @@ import {
   UserCheck,
   Undo2,
   RefreshCw,
-  ChevronDown,
+  LogOut,
+  Phone,
+  AlertCircle,
 } from 'lucide-react';
-import { checkinAPI } from '../services/api';
-import { useAuth } from '../context/AuthContext';
-import type { Event, EventInvitee } from '../types';
+import { checkinAPI, CheckinEventInfo } from '../services/api';
+import type { EventInvitee } from '../types';
 import toast from 'react-hot-toast';
 import { formatDateTimeEgypt, formatTimeEgypt } from '../utils/formatters';
 
 export default function CheckInConsole() {
-  const { user } = useAuth();
-  const [events, setEvents] = useState<Event[]>([]);
-  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
+  const { eventCode } = useParams<{ eventCode: string }>();
+  
+  // Event & Auth state
+  const [eventInfo, setEventInfo] = useState<CheckinEventInfo | null>(null);
+  const [isVerified, setIsVerified] = useState(false);
+  const [pin, setPin] = useState('');
+  const [verifyingPin, setVerifyingPin] = useState(false);
+  
+  // Check-in state
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -32,70 +40,103 @@ export default function CheckInConsole() {
   const [checkingIn, setCheckingIn] = useState<number | null>(null);
   const [guestCounts, setGuestCounts] = useState<{ [key: number]: number }>({});
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const pinInputRef = useRef<HTMLInputElement>(null);
 
-  // Load events on mount
+  // Load event info on mount
   useEffect(() => {
-    loadEvents();
-  }, []);
+    if (eventCode) {
+      loadEventInfo();
+    }
+  }, [eventCode]);
 
-  // Focus search input when event is selected
+  // Focus PIN input
   useEffect(() => {
-    if (selectedEvent && searchInputRef.current) {
+    if (!isVerified && pinInputRef.current) {
+      pinInputRef.current.focus();
+    }
+  }, [isVerified, eventInfo]);
+
+  // Focus search input when verified
+  useEffect(() => {
+    if (isVerified && searchInputRef.current) {
       searchInputRef.current.focus();
     }
-  }, [selectedEvent]);
+  }, [isVerified]);
 
-  // Auto-refresh stats every 30 seconds
+  // Auto-refresh stats every 30 seconds when verified
   useEffect(() => {
-    if (!selectedEvent) return;
+    if (!isVerified || !eventCode) return;
     
     const interval = setInterval(() => {
-      loadStats(selectedEvent.id);
-      loadRecentCheckins(selectedEvent.id);
+      loadStats();
+      loadRecentCheckins();
     }, 30000);
 
     return () => clearInterval(interval);
-  }, [selectedEvent]);
+  }, [isVerified, eventCode]);
 
-  const loadEvents = async () => {
+  const loadEventInfo = async () => {
+    if (!eventCode) return;
     try {
       setLoading(true);
-      const response = await checkinAPI.getMyEvents();
-      setEvents(response.data.events);
+      const response = await checkinAPI.getEventInfo(eventCode);
+      setEventInfo(response.data.event);
+      setIsVerified(response.data.is_verified);
       
-      // Auto-select first event if only one
-      if (response.data.events.length === 1) {
-        handleEventSelect(response.data.events[0]);
+      if (response.data.is_verified) {
+        await Promise.all([loadStats(), loadRecentCheckins()]);
       }
     } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Failed to load events');
+      toast.error(error.response?.data?.error || 'Event not found');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleEventSelect = async (event: Event) => {
-    setSelectedEvent(event);
-    setSearchQuery('');
-    setSearchResults([]);
-    await Promise.all([
-      loadStats(event.id),
-      loadRecentCheckins(event.id)
-    ]);
+  const handleVerifyPin = async () => {
+    if (!eventCode || !pin) return;
+    try {
+      setVerifyingPin(true);
+      await checkinAPI.verifyPin(eventCode, pin);
+      setIsVerified(true);
+      setPin('');
+      toast.success('PIN verified!');
+      await Promise.all([loadStats(), loadRecentCheckins()]);
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Invalid PIN');
+    } finally {
+      setVerifyingPin(false);
+    }
   };
 
-  const loadStats = async (eventId: number) => {
+  const handleLogout = async () => {
+    if (!eventCode) return;
     try {
-      const response = await checkinAPI.getEventStats(eventId);
+      await checkinAPI.logout(eventCode);
+      setIsVerified(false);
+      setStats(null);
+      setSearchResults([]);
+      setRecentCheckins([]);
+      toast.success('Logged out');
+    } catch (error) {
+      console.error('Logout error', error);
+    }
+  };
+
+  const loadStats = async () => {
+    if (!eventCode) return;
+    try {
+      const response = await checkinAPI.getEventStats(eventCode);
       setStats(response.data.stats);
     } catch (error) {
       console.error('Failed to load stats', error);
     }
   };
 
-  const loadRecentCheckins = async (eventId: number) => {
+  const loadRecentCheckins = async () => {
+    if (!eventCode) return;
     try {
-      const response = await checkinAPI.getRecentCheckins(eventId);
+      const response = await checkinAPI.getRecentCheckins(eventCode);
       setRecentCheckins(response.data.recent_checkins);
     } catch (error) {
       console.error('Failed to load recent check-ins', error);
@@ -103,11 +144,11 @@ export default function CheckInConsole() {
   };
 
   const handleSearch = async () => {
-    if (!selectedEvent || searchQuery.length < 2) return;
+    if (!eventCode || searchQuery.length < 2) return;
 
     try {
       setSearching(true);
-      const response = await checkinAPI.searchAttendees(selectedEvent.id, searchQuery);
+      const response = await checkinAPI.searchAttendees(eventCode, searchQuery);
       setSearchResults(response.data.results);
       
       // Initialize guest counts for results
@@ -124,12 +165,12 @@ export default function CheckInConsole() {
   };
 
   const handleCheckIn = async (invitee: EventInvitee) => {
-    if (!selectedEvent) return;
+    if (!eventCode) return;
 
     try {
       setCheckingIn(invitee.id);
       const guests = guestCounts[invitee.id] || 0;
-      const response = await checkinAPI.checkIn(selectedEvent.id, invitee.id, guests);
+      const response = await checkinAPI.checkIn(eventCode, invitee.id, guests);
 
       if (response.data.success) {
         toast.success(`${invitee.invitee_name} checked in successfully!`);
@@ -140,8 +181,8 @@ export default function CheckInConsole() {
         );
         
         // Refresh stats and recent
-        loadStats(selectedEvent.id);
-        loadRecentCheckins(selectedEvent.id);
+        loadStats();
+        loadRecentCheckins();
         
         // Clear search and refocus
         setSearchQuery('');
@@ -162,15 +203,15 @@ export default function CheckInConsole() {
   };
 
   const handleUndoCheckIn = async (invitee: EventInvitee) => {
-    if (!selectedEvent) return;
+    if (!eventCode) return;
 
     try {
-      await checkinAPI.undoCheckIn(selectedEvent.id, invitee.id);
+      await checkinAPI.undoCheckIn(eventCode, invitee.id);
       toast.success('Check-in undone');
       
       // Refresh
-      loadStats(selectedEvent.id);
-      loadRecentCheckins(selectedEvent.id);
+      loadStats();
+      loadRecentCheckins();
       
       // Update search results if applicable
       setSearchResults(prev => 
@@ -189,18 +230,80 @@ export default function CheckInConsole() {
     );
   }
 
-  if (events.length === 0) {
+  if (!eventInfo) {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">
         <div className="text-center">
-          <Calendar className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-gray-700">No Events Assigned</h2>
-          <p className="text-gray-500 mt-2">You don't have access to any events for check-in.</p>
+          <AlertCircle className="w-16 h-16 text-red-400 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-gray-700">Event Not Found</h2>
+          <p className="text-gray-500 mt-2">The event code "{eventCode}" is not valid.</p>
         </div>
       </div>
     );
   }
 
+  // PIN Entry Screen
+  if (!isVerified) {
+    return (
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+        <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full mx-4">
+          <div className="text-center mb-6">
+            <div className="bg-primary/10 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Lock className="w-8 h-8 text-primary" />
+            </div>
+            <h1 className="text-2xl font-bold text-gray-900">Check-in Console</h1>
+            <p className="text-gray-600 mt-2">{eventInfo.name}</p>
+            {eventInfo.venue && (
+              <p className="text-sm text-gray-500 flex items-center justify-center gap-1 mt-1">
+                <MapPin className="w-4 h-4" /> {eventInfo.venue}
+              </p>
+            )}
+          </div>
+          
+          {!eventInfo.checkin_available ? (
+            <div className="text-center text-red-600 bg-red-50 p-4 rounded-lg">
+              <AlertCircle className="w-6 h-6 mx-auto mb-2" />
+              <p>Check-in is not available for this event</p>
+            </div>
+          ) : (
+            <>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Enter PIN</label>
+                <input
+                  ref={pinInputRef}
+                  type="password"
+                  value={pin}
+                  onChange={(e) => setPin(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleVerifyPin()}
+                  placeholder="6-digit PIN"
+                  maxLength={6}
+                  className="w-full px-4 py-3 text-2xl text-center font-mono border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent tracking-widest"
+                  autoFocus
+                />
+              </div>
+              <button
+                onClick={handleVerifyPin}
+                disabled={verifyingPin || pin.length < 6}
+                className="w-full py-3 bg-primary text-white rounded-lg font-medium hover:bg-primary/90 disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {verifyingPin ? (
+                  <RefreshCw className="w-5 h-5 animate-spin" />
+                ) : (
+                  <Lock className="w-5 h-5" />
+                )}
+                Verify PIN
+              </button>
+              <p className="text-center text-sm text-gray-500 mt-4">
+                Contact the event administrator for the PIN
+              </p>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Main Check-in Console (verified)
   return (
     <div className="min-h-screen bg-gray-100">
       {/* Header */}
@@ -212,54 +315,38 @@ export default function CheckInConsole() {
                 <UserCheck className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-gray-900">Check-in Console</h1>
-                <p className="text-sm text-gray-500">Welcome, {user?.full_name || user?.username}</p>
+                <h1 className="text-xl font-bold text-gray-900">{eventInfo.name}</h1>
+                <p className="text-sm text-gray-500 flex items-center gap-2">
+                  {eventInfo.venue && <><MapPin className="w-3 h-3" /> {eventInfo.venue}</>}
+                </p>
               </div>
             </div>
             
-            {/* Event Selector */}
-            <div className="relative">
-              <select
-                value={selectedEvent?.id || ''}
-                onChange={(e) => {
-                  const event = events.find(ev => ev.id === Number(e.target.value));
-                  if (event) handleEventSelect(event);
-                }}
-                className="appearance-none bg-gray-50 border border-gray-300 rounded-lg px-4 py-2 pr-10 font-medium focus:ring-2 focus:ring-primary focus:border-transparent"
-              >
-                <option value="">Select Event</option>
-                {events.map(event => (
-                  <option key={event.id} value={event.id}>{event.name}</option>
-                ))}
-              </select>
-              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none" />
-            </div>
+            {/* Logout Button */}
+            <button
+              onClick={handleLogout}
+              className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2"
+            >
+              <LogOut className="w-4 h-4" />
+              Logout
+            </button>
           </div>
         </div>
       </div>
 
-      {selectedEvent ? (
+      {
         <div className="max-w-7xl mx-auto px-4 py-6">
-          {/* Event Info & Stats */}
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-6">
-            {/* Event Card */}
+          {/* Stats Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
             <div className="bg-white rounded-xl shadow p-4">
-              <h3 className="font-semibold text-gray-900 mb-2">{selectedEvent.name}</h3>
-              <div className="space-y-1 text-sm text-gray-600">
-                <div className="flex items-center gap-2">
-                  <Calendar className="w-4 h-4" />
-                  {formatDateTimeEgypt(selectedEvent.start_date)}
-                </div>
-                {selectedEvent.venue && (
-                  <div className="flex items-center gap-2">
-                    <MapPin className="w-4 h-4" />
-                    {selectedEvent.venue}
-                  </div>
-                )}
+              <div className="text-sm text-gray-500 flex items-center gap-2">
+                <Calendar className="w-4 h-4" />
+                Event Time
+              </div>
+              <div className="text-lg font-semibold text-gray-900 mt-1">
+                {formatDateTimeEgypt(eventInfo.start_date)}
               </div>
             </div>
-
-            {/* Stats Cards */}
             {stats && (
               <>
                 <div className="bg-white rounded-xl shadow p-4">
@@ -416,7 +503,7 @@ export default function CheckInConsole() {
               <div className="p-4 border-b flex items-center justify-between">
                 <h3 className="font-semibold">Recent Check-ins</h3>
                 <button
-                  onClick={() => loadRecentCheckins(selectedEvent.id)}
+                  onClick={() => loadRecentCheckins()}
                   className="text-sm text-primary hover:underline flex items-center gap-1"
                 >
                   <RefreshCw className="w-4 h-4" />
@@ -445,13 +532,7 @@ export default function CheckInConsole() {
             </div>
           )}
         </div>
-      ) : (
-        <div className="max-w-7xl mx-auto px-4 py-12 text-center">
-          <Calendar className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-gray-700">Select an Event</h2>
-          <p className="text-gray-500 mt-2">Choose an event from the dropdown to start checking in attendees.</p>
-        </div>
-      )}
+      }
     </div>
   );
 }

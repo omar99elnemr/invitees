@@ -36,6 +36,7 @@ class Event(db.Model):
     
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(200), nullable=False)
+    code = db.Column(db.String(50), unique=True, nullable=True, index=True)  # Unique event code for URLs
     start_date = db.Column(db.DateTime, nullable=False, index=True)
     end_date = db.Column(db.DateTime, nullable=False, index=True)
     venue = db.Column(db.String(200), nullable=True)
@@ -44,6 +45,11 @@ class Event(db.Model):
     created_by_user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    
+    # Check-in attendant fields
+    checkin_pin = db.Column(db.String(6), nullable=True)  # 6-digit PIN for attendant
+    checkin_pin_active = db.Column(db.Boolean, default=False, nullable=False)
+    checkin_pin_auto_deactivate_hours = db.Column(db.Integer, nullable=True)  # Hours after event end to auto-deactivate (null = manual)
     
     # Relationships
     event_invitees = db.relationship('EventInvitee', backref='event', lazy='dynamic', cascade='all, delete-orphan')
@@ -95,6 +101,7 @@ class Event(db.Model):
         return {
             'id': self.id,
             'name': self.name,
+            'code': self.code,
             'start_date': to_utc_isoformat(self.start_date),
             'end_date': to_utc_isoformat(self.end_date),
             'venue': self.venue,
@@ -107,6 +114,9 @@ class Event(db.Model):
             'invitee_count': self.event_invitees.count() if hasattr(self, 'event_invitees') else 0,
             'inviter_group_ids': [g.id for g in self.inviter_groups] if self.inviter_groups else [],
             'inviter_group_names': [g.name for g in self.inviter_groups] if self.inviter_groups else [],
+            'checkin_pin_active': self.checkin_pin_active,
+            'checkin_pin_auto_deactivate_hours': self.checkin_pin_auto_deactivate_hours,
+            'has_checkin_pin': self.checkin_pin is not None,
         }
     
     def update_status(self):
@@ -146,6 +156,66 @@ class Event(db.Model):
             else:
                 # User has no group - return empty
                 return []
+    
+    def generate_checkin_pin(self):
+        """Generate a random 6-digit PIN for check-in attendant"""
+        import random
+        self.checkin_pin = ''.join([str(random.randint(0, 9)) for _ in range(6)])
+        self.checkin_pin_active = True
+        return self.checkin_pin
+    
+    def verify_checkin_pin(self, pin):
+        """Verify the check-in PIN and check if it's active"""
+        if not self.checkin_pin or not self.checkin_pin_active:
+            return False
+        
+        # Check auto-deactivation
+        if self.checkin_pin_auto_deactivate_hours and self.status == 'ended':
+            hours_since_end = (get_egypt_time() - self.end_date).total_seconds() / 3600
+            if hours_since_end > self.checkin_pin_auto_deactivate_hours:
+                self.checkin_pin_active = False
+                db.session.commit()
+                return False
+        
+        return self.checkin_pin == pin
+    
+    def deactivate_checkin_pin(self):
+        """Manually deactivate the check-in PIN"""
+        self.checkin_pin_active = False
+    
+    def is_checkin_allowed(self):
+        """Check if check-in is allowed for this event"""
+        return self.status in ('upcoming', 'ongoing') or (
+            self.status == 'ended' and 
+            self.checkin_pin_auto_deactivate_hours and
+            (get_egypt_time() - self.end_date).total_seconds() / 3600 <= self.checkin_pin_auto_deactivate_hours
+        )
+    
+    @staticmethod
+    def get_by_code(code):
+        """Get event by its unique code"""
+        return Event.query.filter_by(code=code).first()
+    
+    @staticmethod
+    def generate_unique_code(name):
+        """Generate a unique event code from name"""
+        import re
+        import random
+        # Create base code from name (first 3-4 letters + random suffix)
+        base = re.sub(r'[^A-Za-z0-9]', '', name)[:4].upper()
+        if len(base) < 2:
+            base = 'EVT'
+        
+        # Add random suffix until unique
+        for _ in range(100):
+            suffix = ''.join([str(random.randint(0, 9)) for _ in range(4)])
+            code = f"{base}{suffix}"
+            if not Event.query.filter_by(code=code).first():
+                return code
+        
+        # Fallback with timestamp
+        import time
+        return f"{base}{int(time.time())}"[-12:]
     
     @staticmethod
     def update_all_statuses():

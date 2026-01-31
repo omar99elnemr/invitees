@@ -1,58 +1,110 @@
+"""Check-in Console Routes
+Event-specific check-in console with PIN authentication
+No user login required - uses event-specific PIN
 """
-Check-in Console routes
-API endpoints for the standalone check-in console
-Accessible by admin and check_in_attendant roles
-"""
-from flask import Blueprint, request, jsonify
-from flask_login import current_user
-from app.utils.decorators import login_required, check_in_access_required, check_in_event_access_required
-from app.services.attendance_service import AttendanceService
+from flask import Blueprint, request, jsonify, session
 from app.models.event import Event
 from app.models.event_invitee import EventInvitee
 from app.models.invitee import Invitee
 from app.models.inviter import Inviter
-from app.models.user_event_assignment import UserEventAssignment
+from app.services.attendance_service import AttendanceService
 from app import db
+from functools import wraps
 
-checkin_bp = Blueprint('checkin', __name__)
-
-
-@checkin_bp.route('/my-events', methods=['GET'])
-@login_required
-@check_in_access_required
-def get_my_events():
-    """Get events the current user can access for check-in"""
-    Event.update_all_statuses()
-    
-    if current_user.role == 'admin':
-        # Admins can access all events
-        events = Event.query.filter(
-            Event.status.in_(['upcoming', 'ongoing'])
-        ).order_by(Event.start_date.desc()).all()
-    else:
-        # Check-in attendants only see assigned events
-        assigned_event_ids = UserEventAssignment.get_user_events(current_user.id)
-        events = Event.query.filter(
-            Event.id.in_(assigned_event_ids),
-            Event.status.in_(['upcoming', 'ongoing'])
-        ).order_by(Event.start_date.desc()).all()
-    
-    return jsonify({
-        'success': True,
-        'events': [e.to_dict() for e in events]
-    })
+checkin_bp = Blueprint('checkin', __name__, url_prefix='/api/checkin')
 
 
-@checkin_bp.route('/event/<int:event_id>/stats', methods=['GET'])
-@login_required
-@check_in_event_access_required
-def get_event_stats(event_id):
-    """Get check-in statistics for an event"""
-    event = Event.query.get(event_id)
+def checkin_pin_required(f):
+    """Decorator to verify check-in PIN from session"""
+    @wraps(f)
+    def decorated_function(event_code, *args, **kwargs):
+        event = Event.get_by_code(event_code)
+        if not event:
+            return jsonify({'error': 'Event not found'}), 404
+        
+        # Check if PIN is verified in session
+        session_key = f'checkin_verified_{event_code}'
+        if not session.get(session_key):
+            return jsonify({'error': 'PIN verification required', 'requires_pin': True}), 401
+        
+        # Check if event allows check-in
+        if not event.is_checkin_allowed():
+            return jsonify({'error': 'Check-in is not available for this event'}), 403
+        
+        return f(event_code, event=event, *args, **kwargs)
+    return decorated_function
+
+
+# =========================
+# Event Info (Public - just needs event code)
+# =========================
+
+@checkin_bp.route('/<event_code>/info', methods=['GET'])
+def get_event_info(event_code):
+    """Get basic event info for check-in page (public)"""
+    event = Event.get_by_code(event_code)
     if not event:
         return jsonify({'error': 'Event not found'}), 404
     
-    stats = AttendanceService.get_event_attendance_stats(event_id)
+    # Check if PIN is already verified in session
+    session_key = f'checkin_verified_{event_code}'
+    is_verified = session.get(session_key, False)
+    
+    return jsonify({
+        'success': True,
+        'event': {
+            'id': event.id,
+            'name': event.name,
+            'code': event.code,
+            'venue': event.venue,
+            'status': event.status,
+            'start_date': event.start_date.isoformat() + 'Z' if event.start_date else None,
+            'end_date': event.end_date.isoformat() + 'Z' if event.end_date else None,
+            'checkin_available': event.checkin_pin_active and event.is_checkin_allowed(),
+        },
+        'is_verified': is_verified
+    })
+
+
+@checkin_bp.route('/<event_code>/verify-pin', methods=['POST'])
+def verify_pin(event_code):
+    """Verify the check-in PIN for an event"""
+    event = Event.get_by_code(event_code)
+    if not event:
+        return jsonify({'error': 'Event not found'}), 404
+    
+    data = request.get_json()
+    if not data or not data.get('pin'):
+        return jsonify({'error': 'PIN is required'}), 400
+    
+    pin = data.get('pin')
+    
+    if event.verify_checkin_pin(pin):
+        # Store verification in session
+        session_key = f'checkin_verified_{event_code}'
+        session[session_key] = True
+        return jsonify({'success': True, 'message': 'PIN verified'})
+    else:
+        return jsonify({'error': 'Invalid or inactive PIN'}), 401
+
+
+@checkin_bp.route('/<event_code>/logout', methods=['POST'])
+def logout_checkin(event_code):
+    """Clear the check-in session for an event"""
+    session_key = f'checkin_verified_{event_code}'
+    session.pop(session_key, None)
+    return jsonify({'success': True})
+
+
+# =========================
+# PIN-Protected Routes
+# =========================
+
+@checkin_bp.route('/<event_code>/stats', methods=['GET'])
+@checkin_pin_required
+def get_event_stats(event_code, event=None):
+    """Get check-in statistics for the event"""
+    stats = AttendanceService.get_event_attendance_stats(event.id)
     return jsonify({
         'success': True,
         'event': event.to_dict(),
@@ -60,10 +112,9 @@ def get_event_stats(event_id):
     })
 
 
-@checkin_bp.route('/event/<int:event_id>/search', methods=['GET'])
-@login_required
-@check_in_event_access_required
-def search_attendees(event_id):
+@checkin_bp.route('/<event_code>/search', methods=['GET'])
+@checkin_pin_required
+def search_attendees(event_code, event=None):
     """
     Search attendees by phone (priority), code, name, or inviter
     Returns approved invitees matching the search query
@@ -73,15 +124,11 @@ def search_attendees(event_id):
     if not query or len(query) < 2:
         return jsonify({'error': 'Search query must be at least 2 characters'}), 400
     
-    event = Event.query.get(event_id)
-    if not event:
-        return jsonify({'error': 'Event not found'}), 404
-    
     search_term = f"%{query}%"
     
     # Build search query - prioritize phone matches
     base_query = EventInvitee.query.filter_by(
-        event_id=event_id,
+        event_id=event.id,
         status='approved'
     ).join(Invitee)
     
@@ -111,10 +158,9 @@ def search_attendees(event_id):
     })
 
 
-@checkin_bp.route('/event/<int:event_id>/check-in', methods=['POST'])
-@login_required
-@check_in_event_access_required
-def check_in_attendee(event_id):
+@checkin_bp.route('/<event_code>/check-in', methods=['POST'])
+@checkin_pin_required
+def check_in_attendee(event_code, event=None):
     """Check in an attendee"""
     data = request.get_json()
     
@@ -131,7 +177,7 @@ def check_in_attendee(event_id):
     # Get the event invitee
     event_invitee = EventInvitee.query.filter_by(
         id=invitee_id,
-        event_id=event_id
+        event_id=event.id
     ).first()
     
     if not event_invitee:
@@ -152,17 +198,18 @@ def check_in_attendee(event_id):
     if actual_guests > event_invitee.plus_one:
         actual_guests = event_invitee.plus_one
     
-    event_invitee.check_in(current_user.id, actual_guests, notes)
+    # Check-in without user_id (PIN-based auth doesn't have a user)
+    event_invitee.check_in(None, actual_guests, notes)
     db.session.commit()
     
-    # Log the action
+    # Log the action (without user_id for PIN-based check-in)
     from app.models.audit_log import AuditLog
     AuditLog.log(
-        user_id=current_user.id,
+        user_id=None,
         action='check_in_attendee',
         table_name='event_invitees',
         record_id=event_invitee.id,
-        new_value=f'Checked in with {actual_guests} guests'
+        new_value=f'Checked in via PIN with {actual_guests} guests'
     )
     
     return jsonify({
@@ -171,14 +218,13 @@ def check_in_attendee(event_id):
     })
 
 
-@checkin_bp.route('/event/<int:event_id>/undo-check-in/<int:invitee_id>', methods=['POST'])
-@login_required
-@check_in_event_access_required
-def undo_check_in(event_id, invitee_id):
+@checkin_bp.route('/<event_code>/undo-check-in/<int:invitee_id>', methods=['POST'])
+@checkin_pin_required
+def undo_check_in(event_code, invitee_id, event=None):
     """Undo a check-in"""
     event_invitee = EventInvitee.query.filter_by(
         id=invitee_id,
-        event_id=event_id
+        event_id=event.id
     ).first()
     
     if not event_invitee:
@@ -193,7 +239,7 @@ def undo_check_in(event_id, invitee_id):
     # Log the action
     from app.models.audit_log import AuditLog
     AuditLog.log(
-        user_id=current_user.id,
+        user_id=None,
         action='undo_check_in',
         table_name='event_invitees',
         record_id=event_invitee.id
@@ -202,17 +248,12 @@ def undo_check_in(event_id, invitee_id):
     return jsonify({'success': True})
 
 
-@checkin_bp.route('/event/<int:event_id>/recent-checkins', methods=['GET'])
-@login_required
-@check_in_event_access_required
-def get_recent_checkins(event_id):
+@checkin_bp.route('/<event_code>/recent-checkins', methods=['GET'])
+@checkin_pin_required
+def get_recent_checkins(event_code, event=None):
     """Get recent check-ins for an event (last 10)"""
-    event = Event.query.get(event_id)
-    if not event:
-        return jsonify({'error': 'Event not found'}), 404
-    
     recent = EventInvitee.query.filter_by(
-        event_id=event_id,
+        event_id=event.id,
         checked_in=True
     ).order_by(EventInvitee.checked_in_at.desc()).limit(10).all()
     

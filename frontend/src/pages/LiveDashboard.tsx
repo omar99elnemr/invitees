@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
 import {
   Users,
   UserCheck,
@@ -8,78 +9,72 @@ import {
   TrendingUp,
   RefreshCw,
   CheckCircle,
+  AlertCircle,
+  Activity,
   XCircle,
   HelpCircle,
-  Activity,
 } from 'lucide-react';
 import { liveDashboardAPI, LiveEvent, LiveDashboardStats, RecentCheckin } from '../services/api';
 import { formatDateTimeEgypt, formatTimeEgypt } from '../utils/formatters';
 
 export default function LiveDashboard() {
-  const [events, setEvents] = useState<LiveEvent[]>([]);
-  const [selectedEvent, setSelectedEvent] = useState<LiveEvent | null>(null);
+  const { eventCode } = useParams<{ eventCode: string }>();
+  
+  const [eventInfo, setEventInfo] = useState<LiveEvent | null>(null);
   const [stats, setStats] = useState<LiveDashboardStats | null>(null);
   const [recentCheckins, setRecentCheckins] = useState<RecentCheckin[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
   const [autoRefresh, setAutoRefresh] = useState(true);
 
-  // Load events on mount
+  // Load event info on mount
   useEffect(() => {
-    loadEvents();
-  }, []);
+    if (eventCode) {
+      loadEventInfo();
+    }
+  }, [eventCode]);
 
   // Auto-refresh every 10 seconds
   useEffect(() => {
-    if (!selectedEvent || !autoRefresh) return;
+    if (!eventCode || !autoRefresh || error) return;
 
     const interval = setInterval(() => {
       refreshData();
     }, 10000);
 
     return () => clearInterval(interval);
-  }, [selectedEvent, autoRefresh]);
+  }, [eventCode, autoRefresh, error]);
 
-  const loadEvents = async () => {
+  const loadEventInfo = async () => {
+    if (!eventCode) return;
     try {
       setLoading(true);
-      const response = await liveDashboardAPI.getActiveEvents();
-      setEvents(response.data.events);
-
-      // Auto-select first ongoing event, or first event
-      const ongoingEvent = response.data.events.find(e => e.status === 'ongoing');
-      if (ongoingEvent) {
-        handleEventSelect(ongoingEvent);
-      } else if (response.data.events.length > 0) {
-        handleEventSelect(response.data.events[0]);
-      }
-    } catch (error) {
-      console.error('Failed to load events', error);
+      setError(null);
+      const response = await liveDashboardAPI.getEventInfo(eventCode);
+      setEventInfo(response.data.event);
+      await refreshData();
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Event not found');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleEventSelect = async (event: LiveEvent) => {
-    setSelectedEvent(event);
-    await refreshData(event.id);
-  };
-
-  const refreshData = async (eventId?: number) => {
-    const id = eventId || selectedEvent?.id;
-    if (!id) return;
+  const refreshData = async () => {
+    if (!eventCode) return;
 
     try {
       const [statsRes, recentRes] = await Promise.all([
-        liveDashboardAPI.getEventStats(id),
-        liveDashboardAPI.getRecentActivity(id)
+        liveDashboardAPI.getEventStats(eventCode),
+        liveDashboardAPI.getRecentActivity(eventCode)
       ]);
 
       setStats(statsRes.data);
       setRecentCheckins(recentRes.data.recent_checkins);
       setLastUpdated(new Date());
-    } catch (error) {
-      console.error('Failed to refresh data', error);
+    } catch (err) {
+      console.error('Failed to refresh data', err);
     }
   };
 
@@ -91,13 +86,13 @@ export default function LiveDashboard() {
     );
   }
 
-  if (events.length === 0) {
+  if (error) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center">
         <div className="text-center text-white">
-          <Calendar className="w-20 h-20 text-gray-500 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold">No Active Events</h2>
-          <p className="text-gray-400 mt-2">There are no upcoming or ongoing events at the moment.</p>
+          <AlertCircle className="w-20 h-20 text-red-500 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold">Event Not Found</h2>
+          <p className="text-gray-400 mt-2">The event code "{eventCode}" is not valid.</p>
         </div>
       </div>
     );
@@ -120,24 +115,6 @@ export default function LiveDashboard() {
             </div>
 
             <div className="flex items-center gap-4">
-              {/* Event Selector */}
-              {events.length > 1 && (
-                <select
-                  value={selectedEvent?.id || ''}
-                  onChange={(e) => {
-                    const event = events.find(ev => ev.id === Number(e.target.value));
-                    if (event) handleEventSelect(event);
-                  }}
-                  className="bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-primary"
-                >
-                  {events.map(event => (
-                    <option key={event.id} value={event.id} className="bg-gray-800">
-                      {event.name}
-                    </option>
-                  ))}
-                </select>
-              )}
-
               {/* Auto-refresh Toggle */}
               <button
                 onClick={() => setAutoRefresh(!autoRefresh)}
@@ -153,29 +130,29 @@ export default function LiveDashboard() {
         </div>
       </div>
 
-      {selectedEvent && stats && (
+      {eventInfo && stats && (
         <div className="max-w-7xl mx-auto px-4 py-8">
           {/* Event Info */}
           <div className="bg-white/5 backdrop-blur-sm rounded-2xl p-6 mb-8 border border-white/10">
             <div className="flex items-start justify-between">
               <div>
                 <div className="flex items-center gap-3 mb-2">
-                  <h2 className="text-3xl font-bold">{selectedEvent.name}</h2>
+                  <h2 className="text-3xl font-bold">{eventInfo.name}</h2>
                   <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                    selectedEvent.status === 'ongoing' ? 'bg-green-500/20 text-green-400' : 'bg-blue-500/20 text-blue-400'
+                    eventInfo.status === 'ongoing' ? 'bg-green-500/20 text-green-400' : 'bg-blue-500/20 text-blue-400'
                   }`}>
-                    {selectedEvent.status === 'ongoing' ? 'In Progress' : 'Upcoming'}
+                    {eventInfo.status === 'ongoing' ? 'In Progress' : 'Upcoming'}
                   </span>
                 </div>
                 <div className="flex items-center gap-6 text-gray-400">
                   <span className="flex items-center gap-2">
                     <Calendar className="w-4 h-4" />
-                    {formatDateTimeEgypt(selectedEvent.start_date)}
+                    {formatDateTimeEgypt(eventInfo.start_date)}
                   </span>
-                  {selectedEvent.venue && (
+                  {eventInfo.venue && (
                     <span className="flex items-center gap-2">
                       <MapPin className="w-4 h-4" />
-                      {selectedEvent.venue}
+                      {eventInfo.venue}
                     </span>
                   )}
                 </div>

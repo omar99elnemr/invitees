@@ -139,3 +139,120 @@ def delete_event(event_id):
         return jsonify({'error': error}), status_code
     
     return jsonify({'message': 'Event deleted successfully'}), 200
+
+
+# =========================
+# Check-in PIN Management
+# =========================
+
+@events_bp.route('/<int:event_id>/checkin-pin', methods=['POST'])
+@login_required
+@admin_required
+def generate_checkin_pin(event_id):
+    """Generate or regenerate check-in PIN for an event"""
+    from app import db
+    
+    event = Event.query.get(event_id)
+    if not event:
+        return jsonify({'error': 'Event not found'}), 404
+    
+    data = request.get_json() or {}
+    auto_deactivate_hours = data.get('auto_deactivate_hours')
+    
+    # Generate unique event code if not exists
+    if not event.code:
+        event.code = Event.generate_unique_code(event.name)
+    
+    # Generate new PIN
+    pin = event.generate_checkin_pin()
+    
+    # Set auto-deactivate hours if provided
+    if auto_deactivate_hours is not None:
+        event.checkin_pin_auto_deactivate_hours = auto_deactivate_hours
+    
+    db.session.commit()
+    
+    return jsonify({
+        'success': True,
+        'pin': pin,
+        'event_code': event.code,
+        'checkin_url': f'/checkin/{event.code}',
+        'live_url': f'/live/{event.code}',
+        'auto_deactivate_hours': event.checkin_pin_auto_deactivate_hours
+    })
+
+
+@events_bp.route('/<int:event_id>/checkin-pin', methods=['GET'])
+@login_required
+@admin_required
+def get_checkin_pin(event_id):
+    """Get check-in PIN info for an event (admin only)"""
+    event = Event.query.get(event_id)
+    if not event:
+        return jsonify({'error': 'Event not found'}), 404
+    
+    return jsonify({
+        'success': True,
+        'has_pin': event.checkin_pin is not None,
+        'pin': event.checkin_pin,  # Only admins can see this
+        'pin_active': event.checkin_pin_active,
+        'event_code': event.code,
+        'checkin_url': f'/checkin/{event.code}' if event.code else None,
+        'live_url': f'/live/{event.code}' if event.code else None,
+        'auto_deactivate_hours': event.checkin_pin_auto_deactivate_hours
+    })
+
+
+@events_bp.route('/<int:event_id>/checkin-pin/toggle', methods=['PATCH'])
+@login_required
+@admin_required
+def toggle_checkin_pin(event_id):
+    """Activate or deactivate check-in PIN"""
+    from app import db
+    
+    event = Event.query.get(event_id)
+    if not event:
+        return jsonify({'error': 'Event not found'}), 404
+    
+    if not event.checkin_pin:
+        return jsonify({'error': 'No PIN generated for this event'}), 400
+    
+    data = request.get_json() or {}
+    active = data.get('active')
+    
+    if active is not None:
+        event.checkin_pin_active = active
+    else:
+        # Toggle
+        event.checkin_pin_active = not event.checkin_pin_active
+    
+    db.session.commit()
+    
+    return jsonify({
+        'success': True,
+        'pin_active': event.checkin_pin_active
+    })
+
+
+@events_bp.route('/<int:event_id>/checkin-pin/settings', methods=['PATCH'])
+@login_required
+@admin_required
+def update_checkin_settings(event_id):
+    """Update check-in settings (auto-deactivate hours)"""
+    from app import db
+    
+    event = Event.query.get(event_id)
+    if not event:
+        return jsonify({'error': 'Event not found'}), 404
+    
+    data = request.get_json() or {}
+    
+    if 'auto_deactivate_hours' in data:
+        event.checkin_pin_auto_deactivate_hours = data['auto_deactivate_hours']
+    
+    db.session.commit()
+    
+    return jsonify({
+        'success': True,
+        'auto_deactivate_hours': event.checkin_pin_auto_deactivate_hours
+    })
