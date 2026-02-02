@@ -30,15 +30,15 @@
 
 ### Technology Stack
 
-| Component | Technology | Version |
-|-----------|------------|---------|
-| **Backend** | Flask (Python) | 3.0.0+ |
-| **Database** | PostgreSQL | 14+ |
-| **Frontend** | React + TypeScript | 18.2.0 |
-| **Build Tool** | Vite | 5.0.8 |
-| **CSS Framework** | TailwindCSS | 3.4.0 |
-| **Web Server** | IIS (Internet Information Services) | 10.0 |
-| **Process Manager** | NSSM (Non-Sucking Service Manager) | Latest |
+| Component           | Technology                          | Version |
+| ---------------------| -------------------------------------| ---------|
+| **Backend**         | Flask (Python)                      | 3.0.0+  |
+| **Database**        | PostgreSQL                          | 14+     |
+| **Frontend**        | React + TypeScript                  | 18.2.0  |
+| **Build Tool**      | Vite                                | 5.0.8   |
+| **CSS Framework**   | TailwindCSS                         | 3.4.0   |
+| **Web Server**      | IIS (Internet Information Services) | 10.0    |
+| **Process Manager** | NSSM (Non-Sucking Service Manager)  | Latest  |
 
 ### Target Domain
 ```
