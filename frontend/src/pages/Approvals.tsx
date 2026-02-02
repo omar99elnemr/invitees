@@ -1,0 +1,1031 @@
+import { useState, useEffect } from 'react';
+import {
+  CheckCircle,
+  XCircle,
+  Clock,
+  Users,
+  Search,
+  Check,
+  X,
+  ChevronLeft,
+  ChevronRight,
+  Calendar,
+  Building,
+  User,
+} from 'lucide-react'; // keep all other imports except Filter
+import { approvalsAPI, eventsAPI, inviterGroupsAPI } from '../services/api';
+import { useAuth } from '../context/AuthContext';
+import type { Event, EventInvitee, InviterGroup } from '../types';
+import toast from 'react-hot-toast';
+import { formatDateEgypt, formatDateTimeEgypt } from '../utils/formatters';
+
+export default function Approvals() {
+  const { user } = useAuth();
+  
+  // Read tab from URL query params
+  const getInitialTab = (): 'pending' | 'approved' => {
+    const params = new URLSearchParams(window.location.search);
+    const tab = params.get('tab');
+    return tab === 'approved' ? 'approved' : 'pending';
+  };
+  
+  const [activeTab, setActiveTab] = useState<'pending' | 'approved'>(getInitialTab());
+  const [pendingApprovals, setPendingApprovals] = useState<EventInvitee[]>([]);
+  const [approvedInvitees, setApprovedInvitees] = useState<EventInvitee[]>([]);
+  const [events, setEvents] = useState<Event[]>([]);
+  const [inviterGroups, setInviterGroups] = useState<InviterGroup[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [eventFilter, setEventFilter] = useState<string>('all');
+  const [groupFilter, setGroupFilter] = useState<string>('all');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [showApproveModal, setShowApproveModal] = useState(false);
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [showQuickRejectModal, setShowQuickRejectModal] = useState(false);
+  const [showCancelApprovalModal, setShowCancelApprovalModal] = useState(false);
+  const [quickRejectInvitee, setQuickRejectInvitee] = useState<EventInvitee | null>(null);
+  const [cancelApprovalInvitee, setCancelApprovalInvitee] = useState<EventInvitee | null>(null);
+  const [approvalNotes, setApprovalNotes] = useState('');
+  const [quickRejectNotes, setQuickRejectNotes] = useState('');
+  const [cancelApprovalNotes, setCancelApprovalNotes] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(20);
+
+  // Sorting state
+  const [sortField, setSortField] = useState<string | null>(null);
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+
+  // Handle sort
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  // Sortable header component
+  const SortableHeader = ({ field, children, className = '' }: { field: string; children: React.ReactNode; className?: string }) => (
+    <th
+      className={`px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 select-none ${className}`}
+      onClick={() => handleSort(field)}
+    >
+      <div className="flex items-center gap-1">
+        {children}
+        {sortField === field && (
+          <span className="text-primary">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+        )}
+      </div>
+    </th>
+  );
+
+  // Check permissions
+  const canApprove = user?.role === 'admin' || user?.role === 'director';
+  const isAdmin = user?.role === 'admin';
+
+  useEffect(() => {
+    if (canApprove) {
+      fetchData();
+    }
+  }, [canApprove]);
+
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const [approvalsRes, approvedRes, eventsRes] = await Promise.all([
+        approvalsAPI.getPending(),
+        approvalsAPI.getApproved(),
+        eventsAPI.getAll(),
+      ]);
+      setPendingApprovals(approvalsRes.data);
+      setApprovedInvitees(approvedRes.data);
+      setEvents(eventsRes.data);
+
+      // Only fetch inviter groups for admins
+      if (user?.role === 'admin') {
+        const groupsRes = await inviterGroupsAPI.getAll();
+        setInviterGroups(groupsRes.data);
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Failed to load approvals');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Sort helper function
+  const applySorting = <T extends Record<string, any>>(items: T[]): T[] => {
+    if (!sortField) return items;
+    return [...items].sort((a, b) => {
+      let aVal = a[sortField] || '';
+      let bVal = b[sortField] || '';
+      
+      if (typeof aVal === 'string') aVal = aVal.toLowerCase();
+      if (typeof bVal === 'string') bVal = bVal.toLowerCase();
+      
+      if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
+      if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+  };
+
+  // Get unique categories from approvals
+  const uniqueCategories = [...new Set([
+    ...pendingApprovals.map(a => a.category).filter(Boolean),
+    ...approvedInvitees.map(a => a.category).filter(Boolean)
+  ])];
+
+  // Filter approvals
+  const filteredApprovals = applySorting(pendingApprovals.filter(approval => {
+    const matchesSearch =
+      approval.invitee_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      approval.invitee_email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      approval.inviter_name?.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesEvent = eventFilter === 'all' || approval.event_id.toString() === eventFilter;
+    const matchesGroup = groupFilter === 'all' || approval.inviter_group_name === groupFilter;
+    const matchesCategory = categoryFilter === 'all' || approval.category === categoryFilter;
+    return matchesSearch && matchesEvent && matchesGroup && matchesCategory;
+  }));
+
+  // Filter approved invitees
+  const filteredApproved = applySorting(approvedInvitees.filter(invitee => {
+    const matchesSearch =
+      invitee.invitee_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      invitee.invitee_email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      invitee.inviter_name?.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesEvent = eventFilter === 'all' || invitee.event_id.toString() === eventFilter;
+    const matchesGroup = groupFilter === 'all' || invitee.inviter_group_name === groupFilter;
+    const matchesCategory = categoryFilter === 'all' || invitee.category === categoryFilter;
+    return matchesSearch && matchesEvent && matchesGroup && matchesCategory;
+  }));
+
+  // Pagination
+  const totalPages = Math.ceil(filteredApprovals.length / itemsPerPage);
+  const paginatedApprovals = filteredApprovals.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  // Selection handlers
+  const toggleSelect = (id: number) => {
+    const newSelected = new Set(selectedIds);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
+    } else {
+      newSelected.add(id);
+    }
+    setSelectedIds(newSelected);
+  };
+
+  const selectAll = () => {
+    const currentList = activeTab === 'pending' ? filteredApprovals : filteredApproved;
+
+    if (selectedIds.size === currentList.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(currentList.map(a => a.id)));
+    }
+  };
+
+  // Approve handlers
+  const handleApprove = async () => {
+    if (selectedIds.size === 0) return;
+
+    setSubmitting(true);
+    try {
+      const result = await approvalsAPI.approve(
+        Array.from(selectedIds),
+        approvalNotes || undefined
+      );
+      toast.success(`Approved ${result.data.success_count} invitation(s)`);
+      if (result.data.failed_count > 0) {
+        toast.error(`${result.data.failed_count} failed`);
+      }
+      setShowApproveModal(false);
+      setSelectedIds(new Set());
+      setApprovalNotes('');
+      fetchData();
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Failed to approve');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Reject handlers
+  const handleReject = async () => {
+    if (selectedIds.size === 0) return;
+
+    setSubmitting(true);
+    try {
+      const result = await approvalsAPI.reject(
+        Array.from(selectedIds),
+        approvalNotes || undefined
+      );
+      toast.success(`Rejected ${result.data.success_count} invitation(s)`);
+      if (result.data.failed_count > 0) {
+        toast.error(`${result.data.failed_count} failed`);
+      }
+      setShowRejectModal(false);
+      setSelectedIds(new Set());
+      setApprovalNotes('');
+      fetchData();
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Failed to reject');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Quick approve single
+  const quickApprove = async (id: number) => {
+    setSubmitting(true);
+    try {
+      await approvalsAPI.approve([id]);
+      toast.success('Approved');
+      fetchData();
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Failed to approve');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Open quick reject modal
+  const openQuickRejectModal = (invitee: EventInvitee) => {
+    setQuickRejectInvitee(invitee);
+    setQuickRejectNotes('');
+    setShowQuickRejectModal(true);
+  };
+
+  // Quick reject single with notes
+  const handleQuickReject = async () => {
+    if (!quickRejectInvitee) return;
+
+    setSubmitting(true);
+    try {
+      await approvalsAPI.reject([quickRejectInvitee.id], quickRejectNotes || undefined);
+      toast.success('Rejected');
+      setShowQuickRejectModal(false);
+      setQuickRejectInvitee(null);
+      setQuickRejectNotes('');
+      fetchData();
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Failed to reject');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Open cancel approval modal
+  const openCancelApprovalModal = (invitee: EventInvitee | null = null) => {
+    setCancelApprovalInvitee(invitee); // null means bulk cancel
+    setCancelApprovalNotes('');
+    setShowCancelApprovalModal(true);
+  };
+
+  // Handle cancel approval (Single or Bulk)
+  const handleCancelApproval = async () => {
+    if (!cancelApprovalNotes.trim()) {
+      toast.error('Reason for cancellation is required');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const idsToCancel = cancelApprovalInvitee
+        ? [cancelApprovalInvitee.id]
+        : Array.from(selectedIds);
+
+      await approvalsAPI.cancelApproval(idsToCancel, cancelApprovalNotes);
+
+      const count = idsToCancel.length;
+      toast.success(count > 1 ? `Cancelled ${count} approvals` : 'Approval cancelled');
+
+      setShowCancelApprovalModal(false);
+      setCancelApprovalInvitee(null);
+      setCancelApprovalNotes('');
+      setSelectedIds(new Set());
+      fetchData();
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Failed to cancel approval');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (!canApprove) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center p-8 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 max-w-md">
+          <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+            <XCircle className="h-8 w-8 text-red-500 dark:text-red-400" />
+          </div>
+          <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Access Denied</h3>
+          <p className="mt-2 text-gray-500">
+            Only Directors and Admins can access the approvals page.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Approvals</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+            Review and manage invitations
+          </p>
+        </div>
+
+        {/* Stats Pills */}
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => { setActiveTab('pending'); setSelectedIds(new Set()); }}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all cursor-pointer ${
+              activeTab === 'pending' 
+                ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md' 
+                : 'bg-amber-50 hover:bg-amber-100 border border-amber-200 dark:bg-amber-900/20 dark:hover:bg-amber-900/30 dark:border-amber-700'
+            }`}
+          >
+            <Clock className={`w-5 h-5 ${activeTab === 'pending' ? 'text-white' : 'text-amber-600 dark:text-amber-400'}`} />
+            <span className={`text-lg font-bold ${activeTab === 'pending' ? 'text-white' : 'text-amber-700 dark:text-amber-400'}`}>
+              {pendingApprovals.length}
+            </span>
+            <span className={`text-sm ${activeTab === 'pending' ? 'text-amber-100' : 'text-amber-600 dark:text-amber-400'}`}>Pending</span>
+          </button>
+          <button
+            onClick={() => { setActiveTab('approved'); setSelectedIds(new Set()); }}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all cursor-pointer ${
+              activeTab === 'approved' 
+                ? 'bg-gradient-to-r from-emerald-500 to-green-500 text-white shadow-md' 
+                : 'bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 dark:bg-emerald-900/20 dark:hover:bg-emerald-900/30 dark:border-emerald-700'
+            }`}
+          >
+            <CheckCircle className={`w-5 h-5 ${activeTab === 'approved' ? 'text-white' : 'text-emerald-600 dark:text-emerald-400'}`} />
+            <span className={`text-lg font-bold ${activeTab === 'approved' ? 'text-white' : 'text-emerald-700 dark:text-emerald-400'}`}>
+              {approvedInvitees.length}
+            </span>
+            <span className={`text-sm ${activeTab === 'approved' ? 'text-emerald-100' : 'text-emerald-600 dark:text-emerald-400'}`}>Approved</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+        <div className="border-b border-gray-100 dark:border-gray-700">
+          <nav className="-mb-px flex">
+            <button
+              onClick={() => { setActiveTab('pending'); setSelectedIds(new Set()); }}
+              className={`flex-1 sm:flex-none px-6 py-4 text-sm font-medium border-b-2 transition-all ${
+                activeTab === 'pending'
+                  ? 'border-indigo-600 text-indigo-600 bg-indigo-50/50'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              <Clock className="w-4 h-4 inline-block mr-2" />
+              Pending
+              <span className={`ml-2 px-2 py-0.5 rounded-full text-xs ${activeTab === 'pending' ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'}`}>
+                {pendingApprovals.length}
+              </span>
+            </button>
+            <button
+              onClick={() => { setActiveTab('approved'); setSelectedIds(new Set()); }}
+              className={`flex-1 sm:flex-none px-6 py-4 text-sm font-medium border-b-2 transition-all ${
+                activeTab === 'approved'
+                  ? 'border-indigo-600 text-indigo-600 bg-indigo-50/50'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              <CheckCircle className="w-4 h-4 inline-block mr-2" />
+              Approved
+              <span className={`ml-2 px-2 py-0.5 rounded-full text-xs ${activeTab === 'approved' ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'}`}>
+                {approvedInvitees.length}
+              </span>
+            </button>
+          </nav>
+        </div>
+      </div>
+
+      {/* Bulk Actions Bar - Hidden for admin users */}
+      {activeTab === 'pending' && !isAdmin && (
+        <div className={`rounded-lg p-4 flex flex-col sm:flex-row items-center justify-between gap-4 transition-all ${
+          selectedIds.size > 0 
+            ? 'bg-primary/5 border border-primary/20' 
+            : 'bg-gray-50 border border-gray-200'
+        }`}>
+          <div className="flex items-center gap-2">
+            <Users className={`w-5 h-5 ${selectedIds.size > 0 ? 'text-primary' : 'text-gray-400'}`} />
+            <span className={`font-medium ${selectedIds.size > 0 ? 'text-gray-900 dark:text-white' : 'text-gray-400'}`}>
+              {selectedIds.size > 0 ? `${selectedIds.size} selected` : 'Select items to perform bulk actions'}
+            </span>
+          </div>
+          {selectedIds.size > 0 && (
+            <div className="flex gap-2">
+              <button
+                onClick={() => setSelectedIds(new Set())}
+                className="px-4 py-2 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600"
+              >
+                Clear Selection
+              </button>
+              <button
+                onClick={() => setShowRejectModal(true)}
+                className="px-4 py-2 text-white bg-red-600 rounded-lg hover:bg-red-700"
+              >
+                <XCircle className="w-4 h-4 inline mr-2" />
+                Reject Selected
+              </button>
+              <button
+                onClick={() => setShowApproveModal(true)}
+                className="px-4 py-2 text-white bg-green-600 rounded-lg hover:bg-green-700"
+              >
+                <CheckCircle className="w-4 h-4 inline mr-2" />
+                Approve Selected
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeTab === 'approved' && !isAdmin && (
+        <div className={`rounded-lg p-4 flex flex-col sm:flex-row items-center justify-between gap-4 transition-all ${
+          selectedIds.size > 0 
+            ? 'bg-primary/5 border border-primary/20' 
+            : 'bg-gray-50 border border-gray-200'
+        }`}>
+          <div className="flex items-center gap-2">
+            <Users className={`w-5 h-5 ${selectedIds.size > 0 ? 'text-primary' : 'text-gray-400'}`} />
+            <span className={`font-medium ${selectedIds.size > 0 ? 'text-gray-900 dark:text-white' : 'text-gray-400'}`}>
+              {selectedIds.size > 0 ? `${selectedIds.size} selected` : 'Select items to perform bulk actions'}
+            </span>
+          </div>
+          {selectedIds.size > 0 && (
+            <div className="flex gap-2">
+              <button
+                onClick={() => setSelectedIds(new Set())}
+                className="px-4 py-2 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600"
+              >
+                Clear Selection
+              </button>
+              <button
+                onClick={() => openCancelApprovalModal(null)}
+                className="px-4 py-2 text-white bg-red-600 rounded-lg hover:bg-red-700"
+              >
+                <XCircle className="w-4 h-4 inline mr-2" />
+                Cancel Approval ({selectedIds.size})
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Filters */}
+      <div className="flex flex-col sm:flex-row gap-4">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+          <input
+            type="text"
+            placeholder="Search by name, email, or inviter..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-800 dark:text-white"
+          />
+        </div>
+
+        <select
+          value={eventFilter}
+          onChange={(e) => setEventFilter(e.target.value)}
+          className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-800 dark:text-white"
+        >
+          <option value="all">All Events</option>
+          {events.map((event) => (
+            <option key={event.id} value={event.id}>
+              {event.name}
+            </option>
+          ))}
+        </select>
+
+        {isAdmin && (
+          <select
+            value={groupFilter}
+            onChange={(e) => setGroupFilter(e.target.value)}
+            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-800 dark:text-white"
+          >
+            <option value="all">All Groups</option>
+            {inviterGroups.map((group) => (
+              <option key={group.id} value={group.name}>
+                {group.name}
+              </option>
+            ))}
+          </select>
+        )}
+
+        <select
+          value={categoryFilter}
+          onChange={(e) => setCategoryFilter(e.target.value)}
+          className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-800 dark:text-white"
+        >
+          <option value="all">All Categories</option>
+          {uniqueCategories.map((cat) => (
+            <option key={cat} value={cat}>
+              {cat}
+            </option>
+          ))}
+        </select>
+
+        <select
+          value={itemsPerPage}
+          onChange={(e) => {
+            setItemsPerPage(Number(e.target.value));
+            setCurrentPage(1);
+          }}
+          className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-800 dark:text-white"
+        >
+          <option value={20}>20 / page</option>
+          <option value={50}>50 / page</option>
+          <option value={100}>100 / page</option>
+        </select>
+      </div>
+
+      {/* Pending Tab Content */}
+      {activeTab === 'pending' && (
+        <>
+          {/* Approvals Table */}
+          {filteredApprovals.length === 0 ? (
+            <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-lg shadow">
+              <CheckCircle className="mx-auto h-12 w-12 text-green-400" />
+              <h3 className="mt-2 text-lg font-medium text-gray-900 dark:text-white">All caught up!</h3>
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                No pending approvals at the moment.
+              </p>
+            </div>
+          ) : (
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                  <thead className="bg-gray-50 dark:bg-gray-700">
+                    <tr>
+                      <th className="px-6 py-3 text-left">
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.size === filteredApprovals.length && filteredApprovals.length > 0}
+                          onChange={selectAll}
+                          className="rounded border-gray-300 text-primary focus:ring-primary"
+                        />
+                      </th>
+                      <SortableHeader field="invitee_name">Invitee</SortableHeader>
+                      <SortableHeader field="event_name">Event</SortableHeader>
+                      <SortableHeader field="inviter_name">Invited By</SortableHeader>
+                      <SortableHeader field="created_at">Date</SortableHeader>
+                      {!isAdmin && (
+                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Actions
+                        </th>
+                      )}
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                    {paginatedApprovals.map((approval) => (
+                      <tr
+                        key={approval.id}
+                        className={`hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer ${selectedIds.has(approval.id) ? 'bg-primary/5' : ''}`}
+                        onClick={() => toggleSelect(approval.id)}
+                      >
+                        <td className="px-6 py-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.has(approval.id)}
+                            onChange={() => toggleSelect(approval.id)}
+                            className="rounded border-gray-300 text-primary focus:ring-primary"
+                          />
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <div className="flex-shrink-0 h-10 w-10 bg-primary/10 rounded-full flex items-center justify-center">
+                              <span className="text-primary font-medium">
+                                {approval.invitee_name?.charAt(0).toUpperCase()}
+                              </span>
+                            </div>
+                            <div className="ml-4">
+                              <div className="text-sm font-medium text-gray-900 dark:text-white">
+                                {approval.invitee_name}
+                              </div>
+                              {/* Email and Phone hidden for privacy */}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900 dark:text-white">{approval.event_name}</div>
+                          {approval.category && (
+                            <div className="text-sm text-gray-500 dark:text-gray-400">{approval.category}</div>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900 dark:text-white flex items-center gap-1">
+                            <User className="w-3 h-3" />
+                            {approval.inviter_name}
+                          </div>
+                          {approval.inviter_group_name && (
+                            <div className="text-sm text-gray-500 flex items-center gap-1">
+                              <Building className="w-3 h-3" />
+                              {approval.inviter_group_name}
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-500 flex items-center gap-1">
+                            <Calendar className="w-3 h-3" />
+                            {formatDateEgypt(approval.created_at)}
+                          </div>
+                        </td>
+                        {!isAdmin && (
+                          <td className="px-6 py-4 whitespace-nowrap text-right">
+                            <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
+                              <button
+                                onClick={() => openQuickRejectModal(approval)}
+                                disabled={submitting}
+                                className="p-2 text-red-600 hover:bg-red-50 rounded-full transition-colors"
+                                title="Reject"
+                              >
+                                <X className="w-5 h-5" />
+                              </button>
+                              <button
+                                onClick={() => quickApprove(approval.id)}
+                                disabled={submitting}
+                                className="p-2 text-green-600 hover:bg-green-50 rounded-full transition-colors"
+                                title="Approve"
+                              >
+                                <Check className="w-5 h-5" />
+                              </button>
+                            </div>
+                          </td>
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="bg-white dark:bg-gray-800 px-4 py-3 flex items-center justify-between border-t border-gray-200 dark:border-gray-700 sm:px-6">
+                  <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-sm text-gray-700 dark:text-gray-300">
+                        Showing <span className="font-medium">{(currentPage - 1) * itemsPerPage + 1}</span> to{' '}
+                        <span className="font-medium">
+                          {Math.min(currentPage * itemsPerPage, filteredApprovals.length)}
+                        </span>{' '}
+                        of <span className="font-medium">{filteredApprovals.length}</span> results
+                      </p>
+                    </div>
+                    <div>
+                      <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
+                        <button
+                          onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                          disabled={currentPage === 1}
+                          className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
+                        >
+                          <ChevronLeft className="h-5 w-5" />
+                        </button>
+                        <button
+                          onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                          disabled={currentPage === totalPages}
+                          className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
+                        >
+                          <ChevronRight className="h-5 w-5" />
+                        </button>
+                      </nav>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Approved Tab Content */}
+      {activeTab === 'approved' && (
+        <>
+          {filteredApproved.length === 0 ? (
+            <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-lg shadow">
+              <Users className="mx-auto h-12 w-12 text-gray-400" />
+              <h3 className="mt-2 text-lg font-medium text-gray-900 dark:text-white">No approved invitees</h3>
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                Approved invitees will appear here.
+              </p>
+            </div>
+          ) : (
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                  <thead className="bg-gray-50 dark:bg-gray-700">
+                    <tr>
+                      <th className="px-6 py-3 text-left">
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.size === filteredApproved.length && filteredApproved.length > 0}
+                          onChange={selectAll}
+                          className="rounded border-gray-300 text-primary focus:ring-primary"
+                        />
+                      </th>
+                      <SortableHeader field="invitee_name">Invitee</SortableHeader>
+                      <SortableHeader field="event_name">Event</SortableHeader>
+                      <SortableHeader field="inviter_name">Inviter</SortableHeader>
+                      <SortableHeader field="category">Category</SortableHeader>
+                      <SortableHeader field="approved_by_name">Approved By</SortableHeader>
+                      {!isAdmin && (
+                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Actions
+                        </th>
+                      )}
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                    {filteredApproved.map((invitee) => (
+                      <tr
+                        key={invitee.id}
+                        className={`hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer ${selectedIds.has(invitee.id) ? 'bg-primary/5' : ''}`}
+                        onClick={() => toggleSelect(invitee.id)}
+                      >
+                        <td className="px-6 py-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.has(invitee.id)}
+                            onChange={() => toggleSelect(invitee.id)}
+                            className="rounded border-gray-300 text-primary focus:ring-primary"
+                          />
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <div className="flex-shrink-0 h-10 w-10 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
+                              <User className="h-5 w-5 text-green-600 dark:text-green-400" />
+                            </div>
+                            <div className="ml-4">
+                              <div className="text-sm font-medium text-gray-900 dark:text-white">{invitee.invitee_name}</div>
+                              {/* <div className="text-sm text-gray-500 dark:text-gray-400">{invitee.invitee_email}</div> */}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <Calendar className="w-4 h-4 text-gray-400 mr-2" />
+                            <span className="text-sm text-gray-900 dark:text-white">{invitee.event_name}</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="text-sm text-gray-900 dark:text-white">{invitee.inviter_name || invitee.submitter_name || '-'}</span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {invitee.category && (
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${invitee.category === 'Gold' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                              }`}>
+                              {invitee.category}
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div>
+                            <span className="text-sm text-gray-900 dark:text-white">{invitee.approved_by_name || '-'}</span>
+                            {invitee.status_date && (
+                              <div className="text-xs text-gray-500">
+                                {formatDateTimeEgypt(invitee.status_date)}
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                        {!isAdmin && (
+                          <td className="px-6 py-4 whitespace-nowrap text-right">
+                            <button
+                              onClick={(e) => { e.stopPropagation(); openCancelApprovalModal(invitee); }}
+                              disabled={submitting}
+                              className="text-red-600 hover:text-red-800 text-sm font-medium disabled:opacity-50"
+                            >
+                              Cancel Approval
+                            </button>
+                          </td>
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Approve Modal */}
+      {showApproveModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full">
+            <div className="p-6">
+              <div className="flex items-center justify-center w-12 h-12 mx-auto bg-green-100 dark:bg-green-900/30 rounded-full mb-4">
+                <CheckCircle className="w-6 h-6 text-green-600 dark:text-green-400" />
+              </div>
+              <h3 className="text-lg font-semibold text-center mb-2 text-gray-900 dark:text-white">Approve Invitations</h3>
+              <p className="text-gray-600 dark:text-gray-400 text-center mb-4">
+                You are about to approve {selectedIds.size} invitation(s).
+              </p>
+
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Notes (optional)
+                </label>
+                <textarea
+                  value={approvalNotes}
+                  onChange={(e) => setApprovalNotes(e.target.value)}
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent resize-none bg-white dark:bg-gray-700 dark:text-white"
+                  placeholder="Add any notes..."
+                />
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => { setShowApproveModal(false); setApprovalNotes(''); }}
+                  className="flex-1 px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600"
+                  disabled={submitting}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleApprove}
+                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+                  disabled={submitting}
+                >
+                  {submitting ? 'Approving...' : 'Approve'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reject Modal */}
+      {showRejectModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full">
+            <div className="p-6">
+              <div className="flex items-center justify-center w-12 h-12 mx-auto bg-red-100 dark:bg-red-900/30 rounded-full mb-4">
+                <XCircle className="w-6 h-6 text-red-600 dark:text-red-400" />
+              </div>
+              <h3 className="text-lg font-semibold text-center mb-2 text-gray-900 dark:text-white">Reject Invitations</h3>
+              <p className="text-gray-600 dark:text-gray-400 text-center mb-4">
+                You are about to reject {selectedIds.size} invitation(s).
+              </p>
+
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Reason (optional)
+                </label>
+                <textarea
+                  value={approvalNotes}
+                  onChange={(e) => setApprovalNotes(e.target.value)}
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent resize-none bg-white dark:bg-gray-700 dark:text-white"
+                  placeholder="Add rejection reason..."
+                />
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => { setShowRejectModal(false); setApprovalNotes(''); }}
+                  className="flex-1 px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600"
+                  disabled={submitting}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleReject}
+                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+                  disabled={submitting}
+                >
+                  {submitting ? 'Rejecting...' : 'Reject'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Quick Reject Modal - Single Invitee */}
+      {showQuickRejectModal && quickRejectInvitee && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full">
+            <div className="p-6">
+              <div className="flex items-center justify-center w-12 h-12 mx-auto bg-red-100 dark:bg-red-900/30 rounded-full mb-4">
+                <XCircle className="w-6 h-6 text-red-600 dark:text-red-400" />
+              </div>
+              <h3 className="text-lg font-semibold text-center mb-2 text-gray-900 dark:text-white">Reject Invitation</h3>
+              <p className="text-gray-600 dark:text-gray-400 text-center mb-4">
+                Reject <span className="font-medium">{quickRejectInvitee.invitee_name}</span> from{' '}
+                <span className="font-medium">{quickRejectInvitee.event_name}</span>?
+              </p>
+
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Rejection Note (optional)
+                </label>
+                <textarea
+                  value={quickRejectNotes}
+                  onChange={(e) => setQuickRejectNotes(e.target.value)}
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent resize-none bg-white dark:bg-gray-700 dark:text-white"
+                  placeholder="Add a reason for rejection..."
+                />
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => { setShowQuickRejectModal(false); setQuickRejectInvitee(null); setQuickRejectNotes(''); }}
+                  className="flex-1 px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600"
+                  disabled={submitting}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleQuickReject}
+                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+                  disabled={submitting}
+                >
+                  {submitting ? 'Rejecting...' : 'Reject'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Cancel Approval Modal */}
+      {showCancelApprovalModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full">
+            <div className="p-6">
+              <div className="flex items-center justify-center w-12 h-12 mx-auto bg-orange-100 dark:bg-orange-900/30 rounded-full mb-4">
+                <XCircle className="w-6 h-6 text-orange-600 dark:text-orange-400" />
+              </div>
+              <h3 className="text-lg font-semibold text-center mb-2 text-gray-900 dark:text-white">Cancel Approval</h3>
+              <p className="text-gray-600 dark:text-gray-400 text-center mb-4">
+                {cancelApprovalInvitee ? (
+                  <>You are about to cancel the approval for <strong>{cancelApprovalInvitee.invitee_name}</strong>.</>
+                ) : (
+                  <>You are about to cancel the approval for <strong>{selectedIds.size} selected invitees</strong>.</>
+                )}
+                {' '}This will change their status back to Rejected.
+              </p>
+
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Rejection Reason <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  value={cancelApprovalNotes}
+                  onChange={(e) => setCancelApprovalNotes(e.target.value)}
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent resize-none bg-white dark:bg-gray-700 dark:text-white"
+                  placeholder="Please provide a reason for cancelling the approval..."
+                  required
+                />
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => { setShowCancelApprovalModal(false); setCancelApprovalInvitee(null); setCancelApprovalNotes(''); }}
+                  className="flex-1 px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600"
+                  disabled={submitting}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleCancelApproval}
+                  className="flex-1 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50"
+                  disabled={submitting || !cancelApprovalNotes.trim()}
+                >
+                  {submitting ? 'Processing...' : 'Cancel Approval'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

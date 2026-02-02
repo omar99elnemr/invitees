@@ -1,0 +1,148 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply border-gray-300 dark:border-gray-700;
+  }
+  
+  body {
+    @apply bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-gray-100 transition-colors duration-200;
+  }
+
+  /* Dark mode text colors */
+  .dark h1, .dark h2, .dark h3, .dark h4, .dark h5, .dark h6 {
+    @apply text-white;
+  }
+
+  .dark p {
+    @apply text-gray-300;
+  }
+}
+
+@layer components {
+  .btn {
+    @apply px-4 py-2 rounded-md font-medium transition-colors duration-200;
+  }
+  
+  .btn-primary {
+    @apply bg-primary text-white hover:bg-primary-dark;
+  }
+  
+  .btn-secondary {
+    @apply bg-gray-200 text-gray-800 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600;
+  }
+  
+  .btn-danger {
+    @apply bg-danger text-white hover:bg-red-600;
+  }
+  
+  .btn-success {
+    @apply bg-success text-white hover:bg-green-600;
+  }
+  
+  .input {
+    @apply w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-800 dark:border-gray-600 dark:text-white dark:placeholder-gray-400;
+  }
+  
+  .input-error {
+    @apply border-danger focus:ring-danger;
+  }
+  
+  .card {
+    @apply bg-white rounded-lg shadow p-6 dark:bg-gray-800 dark:border-gray-700;
+  }
+  
+  .stat-card {
+    @apply bg-white rounded-lg shadow p-6 hover:shadow-md transition-shadow duration-200 dark:bg-gray-800 dark:border-gray-700;
+  }
+
+  /* Dark mode utility classes for common patterns */
+  .dark-card {
+    @apply bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700;
+  }
+
+  .dark-text {
+    @apply text-gray-900 dark:text-white;
+  }
+
+  .dark-text-secondary {
+    @apply text-gray-500 dark:text-gray-400;
+  }
+
+  .dark-text-muted {
+    @apply text-gray-400 dark:text-gray-500;
+  }
+
+  .dark-hover {
+    @apply hover:bg-gray-50 dark:hover:bg-gray-700;
+  }
+
+  .dark-border {
+    @apply border-gray-200 dark:border-gray-700;
+  }
+
+  /* React-Select dark mode styles */
+  .dark .react-select__control {
+    @apply bg-gray-800 border-gray-600;
+  }
+  .dark .react-select__control:hover {
+    @apply border-gray-500;
+  }
+  .dark .react-select__menu {
+    @apply bg-gray-800 border-gray-600;
+  }
+  .dark .react-select__option {
+    @apply bg-gray-800 text-gray-200;
+  }
+  .dark .react-select__option--is-focused {
+    @apply bg-gray-700;
+  }
+  .dark .react-select__option--is-selected {
+    @apply bg-primary text-white;
+  }
+  .dark .react-select__single-value {
+    @apply text-white;
+  }
+  .dark .react-select__input-container {
+    @apply text-white;
+  }
+  .dark .react-select__placeholder {
+    @apply text-gray-400;
+  }
+  .dark .react-select__indicator {
+    @apply text-gray-400;
+  }
+  .dark .react-select__indicator-separator {
+    @apply bg-gray-600;
+  }
+  .dark .react-select__clear-indicator:hover,
+  .dark .react-select__dropdown-indicator:hover {
+    @apply text-gray-300;
+  }
+  .dark .react-select__multi-value {
+    @apply bg-gray-700;
+  }
+  .dark .react-select__multi-value__label {
+    @apply text-gray-200;
+  }
+  .dark .react-select__multi-value__remove:hover {
+    @apply bg-gray-600 text-white;
+  }
+}
+
+/* Print styles */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  
+  body {
+    @apply bg-white;
+  }
+  
+  .card {
+    @apply shadow-none border;
+  }
+}

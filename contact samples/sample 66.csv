@@ -1,0 +1,66 @@
+Name,Email,Phone,Inviter,Category,Allowed_Guests,Position,Company
+Ahmed Hassan,ahmed.hassan@example.com,201012345678,Abanoub Wahee,White,2,CEO,Tech Solutions
+Peter Emad,peter@example.com,201234567890,Omar Said,White,0,Sales Manager,Sales Corp
+sara ali,sara.ali@gmail,01099887766,Omar Said,Whiet,1,HR,
+Moustafa,,201555019,Abanoub Wahee,White,1,Engineer,BuildCo
+J. Doe,john.doeexample.com,201-555-0123,Sherif Magdy,Blue,Two,Manager,
+Rana E.,rana@yahoo.com,201123456789999,Mona Zaki,White,3,,Marketing
+Kareem,,,Abanoub Wahee,White,1,Dev,SoftHouse
+Laila Mourad,laila@corp.net,202123456789,Omar Said,Red,1,Singer,Media Art
+Tamer Hosny,tamer@star,12345,Abanoub Wahee,Blue,5,Artist,
+Samir & Aly,samir@shop.com,201 123 4567,Omar Said,White,2,Owners,Retail Bros
+UNKNOWN,,N/A,System,Black,0,,
+Hady.B,hady@b.com,201999999999,Sherif Magdy,White,-1,Director,
+Mai Ezz,,201888777666,Mona Zaki,White,1,Actress,Cinema
+khaled,khaled@gmail.com,00201234567890,Abanoub Wahee,White,1,,Freelance
+Fatma,fatma@hotmail.com,+201555123456,Omar Said,Blue,1,Accountant,Bank of Cairo
+Bad Phone User,user@test.com,999,Sherif Magdy,White,1,Tester,QA Ltd
+No Name,,201000000000,Abanoub Wahee,White,1,,
+Double Entry,d@d.com,201234567890,Omar Said,White,2,VP,Corp
+Double Entry,d@d.com,201234567890,Omar Said,White,2,VP,Corp
+Hassan,hassan@domain,01112223334,Mona Zaki,White,1,Driver,Uber
+Yara,,201-999-8888,Sherif Magdy,White,1,Secretary,Office Inc
+ziad,ziad@outlook.com,2017776665555,Omar Said,Green,10,Intern,Techy
+Wael Gomaa,wael@ahly.com,201111222333,Abanoub Wahee,White,1,Player,Sports Club
+Empty Phone,empty@p.com,,Sherif Magdy,White,1,,
+Guest User,guest@.com,20123456789a,Mona Zaki,White,1,Visitor,
+Ali Baba,ali@cave.com,201404040,Abanoub Wahee,Gold,40,Thief,Legend
+Noha,noha@live.com,201555666777,Omar Said,White,1.5,Designer,Artistry
+mohamed,m@m,201010101010,Sherif Magdy,White,1,,
+Sarah Connor,sarah@sky.net,201TERMINATR,Mona Zaki,Red,0,Target,Resistance
+Amr Diab,amr@music.com,01223456789,Abanoub Wahee,White,2,Singer,Nay
+Salma,,201123,Omar Said,White,1,Student,AUC
+Dalia,dalia@work.com,201987654321,Sherif Magdy,Wht,1,Manager,
+Mahmoud,mahmoud@te.eg,20155555,Mona Zaki,White,1,Tech,Telecom
+Ramy,ramy@usa.net,1 (201) 555-0199,Abanoub Wahee,Blue,1,Expat,
+Heba,heba@edu.eg,201201201201,Omar Said,White,1,Teacher,School
+Missing Inviter,miss@ing.com,201333444555,,White,1,,
+Frank,frank@abroad.com,201999888777,Sherif Magdy,White,One,Consultant,Global
+Alice,alice@wonderland,201000111222,Mona Zaki,White,1,Dreamer,
+Bob,bob@builder.com,201222333444,Abanoub Wahee,Yellow,1,Builder,Construction
+Charlie,,201999,Omar Said,White,1,,
+Dave,dave@null,201888777666,Sherif Magdy,White,1,Admin,SysOps
+Eve,eve@hacker.com,201666555444,Mona Zaki,Black,0,Spy,DarkWeb
+Fady,fady@f.com,201123456789,Abanoub Wahee,White,1,Analyst,FinTech
+Gamal,gamal@g.com,201987,Omar Said,White,1,,
+Hana,hana@h.com,201-111-2222,Sherif Magdy,White,1,HR,People Ops
+Ibrahim,ibrahim@i.com,201 555 6666,Mona Zaki,White,1,CEO,StartUp
+Judy,judy@j.com,201000999888,Abanoub Wahee,White,1,Judge,Court
+Kamal,kamal@k.com,201777888999,Omar Said,White,1,Doctor,Hospital
+Lina,lina@l.com,201333222111,Sherif Magdy,White,1,Nurse,Clinic
+Mina,mina@m.com,201444555666,Mona Zaki,White,1,Pharmacist,Pharma
+Nader,nader@n.com,201555444333,Abanoub Wahee,White,1,Pilot,Airline
+Ola,ola@o.com,201666777888,Omar Said,White,1,Stewardess,Airline
+Paul,paul@p.com,201999000111,Sherif Magdy,White,1,Captain,Navy
+Queen,queen@q.com,201222111000,Mona Zaki,White,1,Monarch,Kingdom
+Ramy,ramy@r.com,201333444555,Abanoub Wahee,White,1,Soldier,Army
+Sam,sam@s.com,201888999000,Omar Said,White,1,Police,PD
+Tina,tina@t.com,201555666777,Sherif Magdy,White,1,Firefighter,FD
+Ursula,ursula@u.com,201000111222,Mona Zaki,White,1,Diver,SeaWorld
+Victor,victor@v.com,201777666555,Abanoub Wahee,White,1,Winner,Olympics
+Wendy,wendy@w.com,201222333444,Omar Said,White,1,Cook,Restaurant
+Xander,xander@x.com,201999888777,Sherif Magdy,White,1,Guard,Security
+Youssef,youssef@y.com,201444555666,Mona Zaki,White,1,Guide,Tourism
+Ziad,ziad@z.com,201111222333,Abanoub Wahee,White,1,Driver,Taxi
+Clean Looking But Wrong,clean@fake.com,202123123123,Omar Said,White,1,Tester,
+Almost Valid,almost@valid.com,20112345678,Sherif Magdy,White,1,Dev,
