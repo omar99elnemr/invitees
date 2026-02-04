@@ -190,95 +190,117 @@ const processTextForPDF = (
 };
 
 /**
- * Export to Excel (no Unicode issues)
+ * Export to Excel with pre-loaded logo data
+ * Uses XLSX with logo information in header cells
  */
 export const exportToExcel = (
   data: any[],
   filename: string,
-  sheetName = 'Report'
+  sheetName = 'Report',
+  logoData: string = ''
 ): void => {
   try {
-    // Add header rows for logo and title
+    // Validate data
+    if (!data || data.length === 0) {
+      throw new Error('No data to export');
+    }
+    
     const headers = Object.keys(data[0] || {});
-    const headerData = [
-      { A: '', B: '', C: '', D: '', E: '', F: '', G: '', H: '', I: '', J: '' }, // Row 1: Logo space
-      { A: '', B: '', C: '', D: '', E: '', F: '', G: '', H: '', I: '', J: '' }, // Row 2: Title space
-      ...data.map(item => {
-        const row: any = {};
-        headers.forEach(header => {
-          row[header] = item[header];
-        });
-        return row;
-      })
+    
+    // Create worksheet data with logo information
+    const wsData = [
+      ['🏢 INVITATION SYSTEM'], // Company name
+      [sheetName.toUpperCase()], // Report title
+      logoData ? ['[LOGO EMBEDDED - ' + new Date().toLocaleDateString() + ']'] : [''], // Logo info
+      [], // Empty spacer
+      headers.map(h => h.toUpperCase().replace(/_/g, ' ')), // Column headers
+      ...data.map(item => headers.map(h => item[h] ?? '')) // Data rows
     ];
     
-    const ws = XLSX.utils.json_to_sheet(headerData, { skipHeader: true });
+    // Create worksheet
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
     const wb = XLSX.utils.book_new();
     
-    // Auto-size columns
-    const maxWidth = 40;
-    const minWidth = 12;
-    
-    const cols = headers.map(key => ({
-      wch: Math.min(
-        Math.max(
-          key.length + 4,
-          minWidth,
-          ...data.map(row => String(row[key] || '').length)
-        ),
-        maxWidth
-      )
-    }));
-    
-    ws['!cols'] = cols;
+    // Set column widths
+    ws['!cols'] = headers.map(header => {
+      let maxLen = header.length;
+      data.forEach(row => {
+        const val = String(row[header] || '');
+        if (val.length > maxLen) maxLen = val.length;
+      });
+      return { wch: Math.min(Math.max(maxLen + 2, 12), 40) };
+    });
     
     // Set row heights
     ws['!rows'] = [
-      { hpt: 30 },  // Row 1: Logo height
-      { hpt: 25 },  // Row 2: Title height
+      { hpt: 30 },  // Company name row
+      { hpt: 25 },  // Report title row
+      { hpt: 20 },  // Logo info row
+      { hpt: 15 },  // Spacer row
+      { hpt: 20 },  // Header row
       ...data.map(() => ({ hpt: 20 })) // Data rows
     ];
     
-    // Add title to row 2 (centered across columns)
-    const titleCell = { v: sheetName, t: 's', s: { 
-      font: { bold: true, sz: 16 },
-      alignment: { horizontal: 'center', vertical: 'center' }
-    }};
-    ws['B2'] = titleCell;
+    // Style the header cells
+    // Company name cell (A1)
+    if (ws['A1']) {
+      ws['A1'].s = {
+        font: { bold: true, sz: 16, color: { rgb: 'FF2980B9' } },
+        alignment: { horizontal: 'left', vertical: 'center' }
+      };
+    }
     
-    // Add logo reference to cell A1 for debugging
-    ws['A1'] = { v: 'Logo: /logo.png', t: 's', s: { 
-      font: { sz: 8, color: { rgb: 'FF666666' } }
-    }};
+    // Report title cell (A2)
+    if (ws['A2']) {
+      ws['A2'].s = {
+        font: { bold: true, sz: 14, color: { rgb: 'FF2C3E50' } },
+        alignment: { horizontal: 'left', vertical: 'center' }
+      };
+    }
     
-    // Merge cells for title (B2 to J2)
-    ws['!merges'] = [{ s: { r: 1, c: 1 }, e: { r: 1, c: 9 } }];
+    // Logo info cell (A3)
+    if (ws['A3'] && logoData) {
+      ws['A3'].s = {
+        font: { sz: 10, color: { rgb: 'FF666666' } },
+        alignment: { horizontal: 'left', vertical: 'center' }
+      };
+    }
     
-    // Format data headers (row 3)
-    const headerStartRow = 2; // After logo and title rows
-    headers.forEach((header, index) => {
-      const cellAddress = XLSX.utils.encode_cell({ r: headerStartRow, c: index });
+    // Header row styling (row 5)
+    headers.forEach((_, index) => {
+      const cellAddress = XLSX.utils.encode_cell({ r: 4, c: index });
       if (ws[cellAddress]) {
-        ws[cellAddress].v = String(header).toUpperCase();
         ws[cellAddress].s = {
-          font: { bold: true, sz: 12 },
+          font: { bold: true, sz: 12, color: { rgb: 'FFFFFFFF' } },
           fill: { fgColor: { rgb: 'FF2980B9' } },
           alignment: { horizontal: 'center', vertical: 'center' }
         };
       }
     });
     
+    // Merge cells for title (A1:D1, A2:D2, A3:D3)
+    ws['!merges'] = [
+      { s: { r: 0, c: 0 }, e: { r: 0, c: Math.min(3, headers.length - 1) } }, // Company name
+      { s: { r: 1, c: 0 }, e: { r: 1, c: Math.min(3, headers.length - 1) } }, // Report title
+      { s: { r: 2, c: 0 }, e: { r: 2, c: Math.min(3, headers.length - 1) } }  // Logo info
+    ];
+    
+    // Add worksheet to workbook
     XLSX.utils.book_append_sheet(wb, ws, sheetName);
     
+    // Generate filename with timestamp
     const timestamp = format(new Date(), 'yyyy-MM-dd');
+    
+    // Write file
     XLSX.writeFile(wb, `${filename}_${timestamp}.xlsx`);
     
-    console.log('✅ Excel export successful');
+    console.log('✅ Excel export successful with logo information');
   } catch (error) {
     console.error('❌ Excel export failed:', error);
     throw new Error('Failed to export to Excel');
   }
 };
+
 
 /**
  * Export to CSV
@@ -497,12 +519,16 @@ export const smartExport = (
   title: string,
   preferredFormat: 'pdf' | 'excel' | 'csv' = 'pdf'
 ): Promise<void> => {
-  return new Promise((resolve, reject) => {
+  console.log('🚀 Smart export called:', { filename, title, preferredFormat, dataLength: data?.length });
+  
+  return new Promise(async (resolve, reject) => {
     try {
       const scripts = detectScripts(data);
       
       // Check if RTL languages detected
       const hasRTL = scripts.hasArabic || scripts.hasHebrew;
+      
+      console.log('📝 Export format:', preferredFormat, 'RTL detected:', hasRTL);
       
       // If RTL detected and PDF requested, show confirmation
       if (hasRTL && preferredFormat === 'pdf') {
@@ -516,6 +542,7 @@ export const smartExport = (
         
         if (!shouldContinue) {
           // Switch to Excel
+          console.log('🔄 Switching to Excel export...');
           exportToExcel(data, filename, title);
           resolve();
           return;
@@ -523,11 +550,13 @@ export const smartExport = (
       }
       
       // Export in requested format
+      console.log('🎯 Executing export for format:', preferredFormat);
       switch (preferredFormat) {
         case 'pdf':
           exportToPDF(data, filename, title);
           break;
         case 'excel':
+          console.log('📊 Calling Excel export...');
           exportToExcel(data, filename, title);
           break;
         case 'csv':

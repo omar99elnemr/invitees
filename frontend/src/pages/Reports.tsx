@@ -103,6 +103,8 @@ export default function Reports() {
   // Historical data filters
   const [inviterFilter, setInviterFilter] = useState<string>('');
   const [historicalInviters, setHistoricalInviters] = useState<string[]>([]);
+  const [historicalEvents, setHistoricalEvents] = useState<string[]>([]);
+  const [historicalGroups, setHistoricalGroups] = useState<string[]>([]);
   
   // Pagination and sorting for historical data
   const [historicalPage, setHistoricalPage] = useState(1);
@@ -124,6 +126,9 @@ export default function Reports() {
 
   // Grouped data for summary reports
   const [expandedEvents, setExpandedEvents] = useState<Set<number>>(new Set());
+  
+  // Logo data for Excel exports
+  const [logoImageData, setLogoImageData] = useState<string>('');
 
   const canViewReports = user?.role === 'admin';
 
@@ -160,11 +165,25 @@ export default function Reports() {
       try {
         const historicalFiltersRes = await reportsAPI.historicalFilters();
         setHistoricalInviters(historicalFiltersRes.data.inviters || []);
+        setHistoricalEvents(historicalFiltersRes.data.events || []);
+        setHistoricalGroups(historicalFiltersRes.data.groups || []);
       } catch {
         console.log('Historical filters not loaded');
       }
     } catch (error: any) {
       toast.error('Failed to load filter options');
+    }
+  };
+
+  const loadLogoData = async () => {
+    try {
+      // Import logo data dynamically
+      const { logoBase64 } = await import('../utils/logoData');
+      setLogoImageData(logoBase64);
+      console.log('✅ Logo data loaded for Excel export');
+    } catch (error) {
+      console.warn('⚠️ Could not load logo data:', error);
+      setLogoImageData('');
     }
   };
 
@@ -176,6 +195,9 @@ export default function Reports() {
     setDetailPage(1);
     setActivityPage(1);
     setHistoricalPage(1);
+    
+    // Load logo data for Excel exports
+    await loadLogoData();
 
     const filters: any = {};
     if (eventFilter) filters.event_id = eventFilter;
@@ -382,7 +404,7 @@ export default function Reports() {
       if (format === 'csv') {
         exportToCSV(exportData, filename);
       } else if (format === 'excel') {
-        exportToExcel(exportData, filename, reportName);
+        exportToExcel(exportData, filename, reportName, logoImageData);
       } else if (format === 'pdf') {
         exportToPDF(exportData, filename, reportName, 'landscape');
       }
@@ -583,11 +605,19 @@ export default function Reports() {
               className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-800 dark:text-white"
             >
               <option value="">All Events</option>
-              {events.map((event) => (
-                <option key={event.id} value={event.id}>
-                  {event.name}
-                </option>
-              ))}
+              {activeReport === 'historical-data' ? (
+                historicalEvents.map((eventName) => (
+                  <option key={eventName} value={eventName}>
+                    {eventName}
+                  </option>
+                ))
+              ) : (
+                events.map((event) => (
+                  <option key={event.id} value={event.id}>
+                    {event.name}
+                  </option>
+                ))
+              )}
             </select>
 
             <select
@@ -596,11 +626,19 @@ export default function Reports() {
               className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-800 dark:text-white"
             >
               <option value="">All Groups</option>
-              {inviterGroups.map((group) => (
-                <option key={group.id} value={group.id}>
-                  {group.name}
-                </option>
-              ))}
+              {activeReport === 'historical-data' ? (
+                historicalGroups.map((groupName) => (
+                  <option key={groupName} value={groupName}>
+                    {groupName}
+                  </option>
+                ))
+              ) : (
+                inviterGroups.map((group) => (
+                  <option key={group.id} value={group.id}>
+                    {group.name}
+                  </option>
+                ))
+              )}
             </select>
 
             {activeReport === 'historical-data' && (
@@ -912,13 +950,13 @@ export default function Reports() {
               </div>
 
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <table className="w-full table-fixed divide-y divide-gray-200 dark:divide-gray-700">
                   <thead className="bg-gray-50 dark:bg-gray-700">
                     <tr>
                       {[
                         { key: 'invitee_name', label: 'Invitee' },
                         { key: 'event_name', label: 'Event' },
-                        { key: 'inviter_name', label: 'Invited By' },
+                        { key: 'inviter_name', label: 'Inviter' },
                         { key: 'category', label: 'Category' },
                         { key: 'status', label: 'Status' },
                       ].map(col => (
@@ -932,7 +970,7 @@ export default function Reports() {
                               setDetailSortDirection('asc');
                             }
                           }}
-                          className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
+                          className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
                         >
                           <div className="flex items-center gap-1">
                             {col.label}
@@ -944,11 +982,11 @@ export default function Reports() {
                       ))}
                       {activeReport === 'detail-approved' && (
                         <>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Code</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Invite Sent</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Confirmed</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Checked In</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Guests</th>
+                          <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Code</th>
+                          <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Sent</th>
+                          <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Confirmed</th>
+                          <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">In</th>
+                          <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Guests</th>
                         </>
                       )}
                       <th
@@ -960,7 +998,7 @@ export default function Reports() {
                             setDetailSortDirection('asc');
                           }
                         }}
-                        className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
+                        className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
                       >
                         <div className="flex items-center gap-1">
                           Date
@@ -991,27 +1029,25 @@ export default function Reports() {
                       const paginated = dataToDisplay.slice(startIndex, startIndex + detailPageSize);
                       return paginated.map((item) => (
                         <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                          <td className="px-4 py-3 whitespace-nowrap">
-                            <div>
-                              <div className="text-sm font-medium text-gray-900 dark:text-white">{item.invitee_name}</div>
-                              <div className="text-xs text-gray-500">{item.invitee_email}</div>
-                            </div>
+                          <td className="px-2 py-2 max-w-[140px]">
+                            <div className="truncate text-sm font-medium text-gray-900 dark:text-white" title={item.invitee_name}>{item.invitee_name}</div>
+                            <div className="truncate text-xs text-gray-500" title={item.invitee_email}>{item.invitee_email}</div>
                           </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                          <td className="px-2 py-2 text-sm text-gray-900 dark:text-white max-w-[100px] truncate" title={item.event_name}>
                             {item.event_name}
                           </td>
-                          <td className="px-4 py-3 whitespace-nowrap">
-                            <div className="text-sm text-gray-900 dark:text-white">{item.inviter_name}</div>
+                          <td className="px-2 py-2 max-w-[120px]">
+                            <div className="truncate text-sm text-gray-900 dark:text-white" title={item.inviter_name}>{item.inviter_name}</div>
                             {item.inviter_group_name && (
-                              <div className="text-xs text-gray-500">{item.inviter_group_name}</div>
+                              <div className="truncate text-xs text-gray-500" title={item.inviter_group_name}>{item.inviter_group_name}</div>
                             )}
                           </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                          <td className="px-2 py-2 text-sm text-gray-500 dark:text-gray-400 max-w-[80px] truncate" title={item.category || ''}>
                             {item.category || '—'}
                           </td>
-                          <td className="px-4 py-3 whitespace-nowrap">
+                          <td className="px-2 py-2">
                             <span
-                              className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium ${
+                              className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
                                 item.status === 'approved'
                                   ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
                                   : item.status === 'rejected'
@@ -1024,46 +1060,46 @@ export default function Reports() {
                           </td>
                           {activeReport === 'detail-approved' && (
                             <>
-                              <td className="px-4 py-3 whitespace-nowrap text-sm">
+                              <td className="px-2 py-2 text-sm">
                                 {item.attendance_code ? (
-                                  <code className="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-xs font-mono dark:text-gray-300">
+                                  <code className="px-1 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-xs font-mono dark:text-gray-300">
                                     {item.attendance_code}
                                   </code>
                                 ) : (
                                   <span className="text-gray-400 dark:text-gray-500">—</span>
                                 )}
                               </td>
-                              <td className="px-4 py-3 whitespace-nowrap text-sm">
+                              <td className="px-2 py-2 text-sm">
                                 {item.invitation_sent ? (
-                                  <span className="text-green-600">{item.invitation_method || 'Yes'}</span>
+                                  <span className="text-green-600">✓</span>
                                 ) : (
-                                  <span className="text-gray-400">No</span>
+                                  <span className="text-gray-400">—</span>
                                 )}
                               </td>
-                              <td className="px-4 py-3 whitespace-nowrap text-sm">
+                              <td className="px-2 py-2 text-sm">
                                 {item.attendance_confirmed === true ? (
-                                  <span className="text-green-600">Yes ({item.confirmed_guests || 0} guests)</span>
+                                  <span className="text-green-600">✓ ({item.confirmed_guests || 0})</span>
                                 ) : item.attendance_confirmed === false ? (
-                                  <span className="text-red-600">Not Coming</span>
+                                  <span className="text-red-600">✗</span>
                                 ) : (
                                   <span className="text-gray-400">Pending</span>
                                 )}
                               </td>
-                              <td className="px-4 py-3 whitespace-nowrap text-sm">
+                              <td className="px-2 py-2 text-sm">
                                 {item.checked_in ? (
                                   <span className="text-green-600">✓</span>
                                 ) : (
                                   <span className="text-gray-400 dark:text-gray-500">—</span>
                                 )}
                               </td>
-                              <td className="px-4 py-3 whitespace-nowrap text-sm">
+                              <td className="px-2 py-2 text-sm">
                                 <span className="text-gray-700 dark:text-gray-300">
                                   {item.checked_in ? item.actual_guests : item.plus_one || 0}
                                 </span>
                               </td>
                             </>
                           )}
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                          <td className="px-2 py-2 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
                             {item.created_at ? formatDateEgypt(item.created_at) : '—'}
                           </td>
                         </tr>
@@ -1151,17 +1187,17 @@ export default function Reports() {
               </div>
 
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <table className="w-full table-fixed divide-y divide-gray-200 dark:divide-gray-700">
                   <thead className="bg-gray-50 dark:bg-gray-700">
                     <tr>
                       {[
-                        { key: 'timestamp', label: 'Timestamp' },
+                        { key: 'timestamp', label: 'Time' },
                         { key: 'action', label: 'Action' },
-                        { key: 'username', label: 'Performed By' },
+                        { key: 'username', label: 'User' },
                         { key: 'user_role', label: 'Role' },
                         { key: 'inviter_group_name', label: 'Group' },
                         { key: 'table_name', label: 'Table' },
-                        { key: 'record_id', label: 'Record ID' },
+                        { key: 'record_id', label: 'ID' },
                         { key: 'new_value', label: 'Details' },
                       ].map(col => (
                         <th
@@ -1174,7 +1210,7 @@ export default function Reports() {
                               setActivitySortDirection('asc');
                             }
                           }}
-                          className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
+                          className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
                         >
                           <div className="flex items-center gap-1">
                             {col.label}
@@ -1206,11 +1242,11 @@ export default function Reports() {
                       const paginated = dataToDisplay.slice(startIndex, startIndex + activityPageSize);
                       return paginated.map((item) => (
                         <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                          <td className="px-2 py-2 text-sm text-gray-500 dark:text-gray-400 truncate" title={item.timestamp ? formatDateTimeEgypt(item.timestamp) : ''}>
                             {item.timestamp ? formatDateTimeEgypt(item.timestamp) : '—'}
                           </td>
-                          <td className="px-4 py-3 whitespace-nowrap">
-                            <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
+                          <td className="px-2 py-2">
+                            <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium truncate max-w-full ${
                               item.action.includes('approve') ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
                               item.action.includes('reject') ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' :
                               item.action.includes('delete') ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' :
@@ -1218,37 +1254,37 @@ export default function Reports() {
                               item.action.includes('update') ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' :
                               item.action.includes('login') || item.action.includes('logout') ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400' :
                               'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
-                            }`}>
+                            }`} title={formatActionName(item.action)}>
                               {formatActionName(item.action)}
                             </span>
                           </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                          <td className="px-2 py-2 text-sm text-gray-900 dark:text-white truncate" title={item.username || 'System'}>
                             {item.username || 'System'}
                           </td>
-                          <td className="px-4 py-3 whitespace-nowrap">
+                          <td className="px-2 py-2">
                             {item.user_role ? (
-                              <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                              <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${
                                 item.user_role === 'admin' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400' :
                                 item.user_role === 'director' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400' :
                                 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
                               }`}>
-                                {item.user_role.charAt(0).toUpperCase() + item.user_role.slice(1)}
+                                {item.user_role.charAt(0).toUpperCase()}
                               </span>
                             ) : (
                               <span className="text-gray-400 dark:text-gray-500">—</span>
                             )}
                           </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                          <td className="px-2 py-2 text-sm text-gray-500 dark:text-gray-400 truncate" title={item.inviter_group_name || ''}>
                             {item.inviter_group_name || '—'}
                           </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                          <td className="px-2 py-2 text-sm text-gray-500 dark:text-gray-400 truncate" title={item.table_name}>
                             {item.table_name}
                           </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                          <td className="px-2 py-2 text-sm text-gray-500 dark:text-gray-400">
                             {item.record_id || '—'}
                           </td>
-                          <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 max-w-xs truncate" title={item.new_value || ''}>
-                            {item.new_value ? (item.new_value.length > 50 ? item.new_value.substring(0, 50) + '...' : item.new_value) : '—'}
+                          <td className="px-2 py-2 text-sm text-gray-500 dark:text-gray-400 truncate" title={item.new_value || ''}>
+                            {item.new_value ? (item.new_value.length > 30 ? item.new_value.substring(0, 30) + '...' : item.new_value) : '—'}
                           </td>
                         </tr>
                       ));
@@ -1335,12 +1371,12 @@ export default function Reports() {
               </div>
 
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <table className="w-full table-fixed divide-y divide-gray-200 dark:divide-gray-700">
                   <thead className="bg-gray-50 dark:bg-gray-700">
                     <tr>
                       {[
                         { key: 'event_name', label: 'Event' },
-                        { key: 'invitee_name', label: 'Invitee Name' },
+                        { key: 'invitee_name', label: 'Invitee' },
                         { key: 'position', label: 'Position' },
                         { key: 'inviter_name', label: 'Inviter' },
                         { key: 'inviter_group_name', label: 'Group' },
@@ -1357,7 +1393,7 @@ export default function Reports() {
                               setHistoricalSortDirection('asc');
                             }
                           }}
-                          className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
+                          className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
                         >
                           <div className="flex items-center gap-1">
                             {col.label}
@@ -1389,23 +1425,23 @@ export default function Reports() {
                       const paginated = dataToDisplay.slice(startIndex, startIndex + historicalPageSize);
                       return paginated.map((item) => (
                         <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                          <td className="px-2 py-2 text-sm text-gray-900 dark:text-white max-w-[120px] truncate" title={item.event_name}>
                             {item.event_name}
                           </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                          <td className="px-2 py-2 text-sm text-gray-900 dark:text-white max-w-[150px] truncate" title={item.invitee_name}>
                             {item.invitee_name}
                           </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                          <td className="px-2 py-2 text-sm text-gray-500 dark:text-gray-400 max-w-[120px] truncate" title={item.position || ''}>
                             {item.position || '—'}
                           </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                          <td className="px-2 py-2 text-sm text-gray-900 dark:text-white max-w-[120px] truncate" title={item.inviter_name}>
                             {item.inviter_name}
                           </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                          <td className="px-2 py-2 text-sm text-gray-500 dark:text-gray-400 max-w-[100px] truncate" title={item.inviter_group_name || ''}>
                             {item.inviter_group_name || '—'}
                           </td>
-                          <td className="px-4 py-3 whitespace-nowrap">
-                            <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
+                          <td className="px-2 py-2">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
                               item.status === 'approved' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
                               item.status === 'rejected' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' :
                               'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
@@ -1413,7 +1449,7 @@ export default function Reports() {
                               {item.status}
                             </span>
                           </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                          <td className="px-2 py-2 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
                             {item.status_date || '—'}
                           </td>
                         </tr>
