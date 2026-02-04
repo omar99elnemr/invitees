@@ -8,6 +8,7 @@ import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import Papa from 'papaparse';
 import { format } from 'date-fns';
+import ArabicReshaper from 'arabic-reshaper';
 
 // Import fonts (will be empty until fonts are converted)
 import { AmiriRegularBase64, NotoSansRegularBase64 } from '../fonts';
@@ -143,50 +144,33 @@ const loadCustomFonts = (doc: jsPDF): void => {
 const selectFont = (scripts: ScriptDetection): string => {
   // Priority order for font selection
   if (scripts.hasArabic || scripts.hasHebrew) {
-    return customFontsLoaded && AmiriRegularBase64 ? 'Amiri' : 'helvetica';
+    return AmiriRegularBase64 && typeof AmiriRegularBase64 === 'string' && AmiriRegularBase64.length > 100 ? 'Amiri' : 'helvetica';
   }
   if (scripts.hasUnicode) {
-    return customFontsLoaded && NotoSansRegularBase64 ? 'NotoSans' : 'helvetica';
+    return NotoSansRegularBase64 && typeof NotoSansRegularBase64 === 'string' && NotoSansRegularBase64.length > 100 ? 'NotoSans' : 'helvetica';
   }
   return 'helvetica'; // Default for Latin text
 };
 
 /**
- * RTL (Right-to-Left) text handling for Arabic and Hebrew
+ * Process text for PDF export.
+ * For Arabic: shape characters using arabic-reshaper.
  */
-const reverseRTLText = (text: string, isRTL: boolean): string => {
-  if (!isRTL || !text) return text;
-  
-  // Check if text contains RTL characters
-  const hasRTLChars = /[\u0600-\u06FF\u0590-\u05FF]/.test(text);
-  if (!hasRTLChars) return text;
-  
-  // Split into words and reverse
-  // Note: This is a simplified approach
-  // For production, consider using libraries like:
-  // - 'bidi-js' for proper BiDi algorithm
-  // - 'rtl-detect' for better RTL detection
-  const words = text.split(' ');
-  return words.reverse().join(' ');
-};
+const processTextForPDF = (text: any): string => {
+  if (text === null || text === undefined) return '';
 
-/**
- * Process text for PDF export
- */
-const processTextForPDF = (
-  text: string,
-  scripts: ScriptDetection
-): string => {
-  if (!text) return '';
-  
-  let processed = String(text);
-  
-  // Apply RTL reversal if needed
-  if (scripts.hasArabic || scripts.hasHebrew) {
-    processed = reverseRTLText(processed, true);
+  const str = String(text);
+  if (!str) return '';
+
+  const hasArabic = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(str);
+  if (!hasArabic) return str;
+
+  try {
+    return ArabicReshaper.convertArabic(str);
+  } catch (error) {
+    console.error('❌ ArabicReshaper failed:', error);
+    return str;
   }
-  
-  return processed;
 };
 
 /**
@@ -359,10 +343,8 @@ export const exportToPDF = (
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
     
-    // Load fonts if Unicode is detected
-    if (scripts.hasUnicode) {
-      loadCustomFonts(doc);
-    }
+    // Load fonts if Unicode is detected (always load to be safe)
+    loadCustomFonts(doc);
     
     // Select appropriate font
     const fontFamily = selectFont(scripts);
@@ -370,7 +352,7 @@ export const exportToPDF = (
     
     // Add title - centered (original working position)
     doc.setFontSize(18);
-    doc.setFont(fontFamily, 'bold');
+    doc.setFont(fontFamily, fontFamily === 'Amiri' || fontFamily === 'NotoSans' ? 'normal' : 'bold');
     doc.text(title, pageWidth / 2, 18, { align: 'center' });
     
     // Add generation date - right aligned
@@ -382,6 +364,7 @@ export const exportToPDF = (
     
     // Prepare table data
     const columns = Object.keys(data[0]);
+    const processedColumns = columns.map(col => processTextForPDF(col));
     const tableData = data.map(item =>
       columns.map(col => {
         const val = item[col];
@@ -396,7 +379,7 @@ export const exportToPDF = (
         if (typeof val === 'number') return String(val);
         
         // Process text
-        return processTextForPDF(String(val), scripts);
+        return processTextForPDF(val);
       })
     );
     
@@ -436,9 +419,13 @@ export const exportToPDF = (
     const cellPadding = (scripts.hasArabic || scripts.hasCyrillic || scripts.hasChinese) ? 3 : 2; // Reduced padding
     const minCellHeight = (scripts.hasArabic || scripts.hasCyrillic || scripts.hasChinese) ? 8 : 7; // Reduced height
     
+    // Select appropriate font for the content
+    const selectedFont = selectFont(scripts);
+    console.log(`📝 Using font: ${selectedFont} for scripts:`, scripts);
+    
     // Generate table with professional styling
     autoTable(doc, {
-      head: [columns],
+      head: [processedColumns],
       body: tableData,
       startY: 28,
       theme: 'striped',
@@ -446,7 +433,7 @@ export const exportToPDF = (
         overflow: 'linebreak',
         cellWidth: 'wrap',
         minCellHeight: minCellHeight,
-        font: 'helvetica',
+        font: selectedFont,
         // For better Unicode rendering
         textColor: [0, 0, 0],
       },
@@ -463,6 +450,17 @@ export const exportToPDF = (
         cellPadding: cellPadding,
         lineColor: [220, 220, 220],
         overflow: 'linebreak',
+      },
+      didParseCell: (hookData) => {
+        const raw = (hookData.cell && (hookData.cell.raw as any)) ?? '';
+        const textArr = (hookData.cell && (hookData.cell.text as any)) ?? [];
+        const text = Array.isArray(textArr) ? textArr.join(' ') : String(textArr ?? '');
+        const candidate = String(raw || text || '');
+        const hasArabic = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(candidate);
+
+        if (hasArabic) {
+          hookData.cell.styles.halign = 'right';
+        }
       },
       alternateRowStyles: {
         fillColor: [248, 250, 252],

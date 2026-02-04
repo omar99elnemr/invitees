@@ -1,13 +1,9 @@
 // Font exports for Unicode PDF support
-// These need to be populated with actual base64 font data
+// Auto-generated base64 font data
 
-// Placeholder for Arabic font (Amiri)
-// To generate: node scripts/convertFont.js fonts/Amiri-Regular.ttf
-export const AmiriRegularBase64: string = '';
-
-// Placeholder for Universal Unicode font (Noto Sans)
-// To generate: node scripts/convertFont.js fonts/NotoSans-Regular.ttf
-export const NotoSansRegularBase64: string = '';
+// Import actual font files
+export { AmiriRegularBase64 } from './AmiriRegular';
+export { NotoSansRegularBase64 } from './NotoSansRegular';
 
 // Add more fonts as needed
 // export const HebrewFontBase64 = '';
