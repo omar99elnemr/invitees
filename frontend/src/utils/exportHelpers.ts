@@ -2,8 +2,6 @@
  * Export helper functions for generating reports in various formats
  */
 import * as XLSX from 'xlsx';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import Papa from 'papaparse';
 import { format } from 'date-fns';
 
@@ -81,7 +79,8 @@ export const exportToCSV = (data: any[], filename: string) => {
 };
 
 /**
- * Export data to PDF format with professional formatting
+ * Export data to PDF format with Unicode support
+ * This now uses the comprehensive Unicode-aware export utility
  * @param data - Array of objects with clean, display-ready keys
  * @param filename - Output filename (without extension)
  * @param title - Report title displayed at the top
@@ -93,100 +92,10 @@ export const exportToPDF = (
   title: string,
   orientation: 'portrait' | 'landscape' = 'landscape'
 ) => {
-  try {
-    if (!data || data.length === 0) {
-      throw new Error('No data to export');
-    }
-
-    const doc = new jsPDF(orientation);
-    const pageWidth = doc.internal.pageSize.getWidth();
-    
-    // Add title - centered
-    doc.setFontSize(18);
-    doc.setFont('helvetica', 'bold');
-    doc.text(title, pageWidth / 2, 18, { align: 'center' });
-    
-    // Add generation date - right aligned
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(100, 100, 100);
-    doc.text(`Generated: ${format(new Date(), 'MMM dd, yyyy h:mm a')}`, pageWidth - 14, 18, { align: 'right' });
-    
-    // Reset text color
-    doc.setTextColor(0, 0, 0);
-    
-    // Get column headers from data keys (already formatted)
-    const columns = Object.keys(data[0]);
-    
-    // Prepare table data
-    const tableData = data.map(item =>
-      columns.map(col => {
-        const val = item[col];
-        if (val === null || val === undefined) return '—';
-        if (typeof val === 'boolean') return val ? 'Yes' : 'No';
-        return String(val);
-      })
-    );
-    
-    // Generate table with professional styling
-    autoTable(doc, {
-      head: [columns],
-      body: tableData,
-      startY: 28,
-      theme: 'striped',
-      headStyles: {
-        fillColor: [41, 128, 185],
-        textColor: [255, 255, 255],
-        fontStyle: 'bold',
-        fontSize: 9,
-        halign: 'left',
-        cellPadding: 4,
-      },
-      bodyStyles: {
-        fontSize: 8,
-        cellPadding: 3,
-        lineColor: [220, 220, 220],
-      },
-      alternateRowStyles: {
-        fillColor: [248, 250, 252],
-      },
-      styles: {
-        overflow: 'linebreak',
-        cellWidth: 'wrap',
-        minCellHeight: 8,
-      },
-      columnStyles: columns.reduce((acc, col, index) => {
-        // Give more width to certain columns
-        if (col.toLowerCase().includes('name') || col.toLowerCase().includes('email')) {
-          acc[index] = { cellWidth: 'auto', minCellWidth: 30 };
-        } else if (col.toLowerCase().includes('phone')) {
-          acc[index] = { cellWidth: 28 };
-        } else if (col.toLowerCase().includes('status') || col.toLowerCase().includes('attending')) {
-          acc[index] = { cellWidth: 22, halign: 'center' };
-        }
-        return acc;
-      }, {} as any),
-      margin: { top: 28, right: 14, bottom: 20, left: 14 },
-      didDrawPage: (data) => {
-        // Add page numbers
-        const pageCount = doc.getNumberOfPages();
-        doc.setFontSize(8);
-        doc.setTextColor(150, 150, 150);
-        doc.text(
-          `Page ${data.pageNumber} of ${pageCount}`,
-          pageWidth / 2,
-          doc.internal.pageSize.getHeight() - 10,
-          { align: 'center' }
-        );
-      },
-    });
-    
-    // Save PDF
-    doc.save(`${filename}_${format(new Date(), 'yyyy-MM-dd')}.pdf`);
-  } catch (error) {
-    console.error('Export to PDF failed:', error);
-    throw new Error('Failed to export to PDF');
-  }
+  // Import and use the Unicode-aware export function
+  import('./exportUtils').then(({ exportToPDF: unicodeExportToPDF }) => {
+    unicodeExportToPDF(data, filename, title, orientation);
+  });
 };
 
 /**

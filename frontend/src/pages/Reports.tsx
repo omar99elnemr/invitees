@@ -26,7 +26,18 @@ import { exportToCSV, exportToExcel, exportToPDF } from '../utils/exportHelpers'
 import { formatDateTimeEgypt, formatDateEgypt } from '../utils/formatters';
 import toast from 'react-hot-toast';
 
-type ReportType = 'summary-group' | 'summary-inviter' | 'detail-event' | 'detail-approved' | 'activity-log';
+type ReportType = 'summary-group' | 'summary-inviter' | 'detail-event' | 'detail-approved' | 'activity-log' | 'historical-data';
+
+interface HistoricalInvitee {
+  id: number;
+  event_name: string;
+  invitee_name: string;
+  position: string;
+  inviter_name: string;
+  inviter_group_name: string;
+  status: string;
+  status_date: string;
+}
 
 interface ActivityLogEntry {
   id: number;
@@ -78,6 +89,8 @@ export default function Reports() {
   const [activityData, setActivityData] = useState<ActivityLogEntry[]>([]);
   const [activityActions, setActivityActions] = useState<string[]>([]);
   const [activityUsers, setActivityUsers] = useState<ActivityUser[]>([]);
+  // Historical data
+  const [historicalData, setHistoricalData] = useState<HistoricalInvitee[]>([]);
 
   // Filters
   const [eventFilter, setEventFilter] = useState<string>('');
@@ -87,6 +100,27 @@ export default function Reports() {
   // Activity log filters
   const [actionFilter, setActionFilter] = useState<string>('');
   const [userFilter, setUserFilter] = useState<string>('');
+  // Historical data filters
+  const [inviterFilter, setInviterFilter] = useState<string>('');
+  const [historicalInviters, setHistoricalInviters] = useState<string[]>([]);
+  
+  // Pagination and sorting for historical data
+  const [historicalPage, setHistoricalPage] = useState(1);
+  const [historicalPageSize, setHistoricalPageSize] = useState(50);
+  const [historicalSortColumn, setHistoricalSortColumn] = useState<string>('');
+  const [historicalSortDirection, setHistoricalSortDirection] = useState<'asc' | 'desc'>('asc');
+  
+  // Pagination and sorting for detail reports
+  const [detailPage, setDetailPage] = useState(1);
+  const [detailPageSize, setDetailPageSize] = useState(50);
+  const [detailSortColumn, setDetailSortColumn] = useState<string>('');
+  const [detailSortDirection, setDetailSortDirection] = useState<'asc' | 'desc'>('asc');
+  
+  // Pagination and sorting for activity log
+  const [activityPage, setActivityPage] = useState(1);
+  const [activityPageSize, setActivityPageSize] = useState(50);
+  const [activitySortColumn, setActivitySortColumn] = useState<string>('');
+  const [activitySortDirection, setActivitySortDirection] = useState<'asc' | 'desc'>('asc');
 
   // Grouped data for summary reports
   const [expandedEvents, setExpandedEvents] = useState<Set<number>>(new Set());
@@ -121,6 +155,14 @@ export default function Reports() {
         // Activity log filters are optional, don't show error
         console.log('Activity log filters not loaded');
       }
+      
+      // Load historical data filters
+      try {
+        const historicalFiltersRes = await reportsAPI.historicalFilters();
+        setHistoricalInviters(historicalFiltersRes.data.inviters || []);
+      } catch {
+        console.log('Historical filters not loaded');
+      }
     } catch (error: any) {
       toast.error('Failed to load filter options');
     }
@@ -129,6 +171,11 @@ export default function Reports() {
   const generateReport = async () => {
     setLoading(true);
     setDataLoaded(false);
+    
+    // Reset pagination to page 1 when generating new report
+    setDetailPage(1);
+    setActivityPage(1);
+    setHistoricalPage(1);
 
     const filters: any = {};
     if (eventFilter) filters.event_id = eventFilter;
@@ -161,6 +208,17 @@ export default function Reports() {
           if (userFilter) activityFilters.user_id = userFilter;
           response = await reportsAPI.activityLog(activityFilters);
           setActivityData(response.data);
+          break;
+        case 'historical-data':
+          // Historical data uses different filter param names
+          const historicalFilters: any = {};
+          if (eventFilter) historicalFilters.event = eventFilter;
+          if (inviterFilter) historicalFilters.inviter = inviterFilter;
+          if (groupFilter) historicalFilters.group = groupFilter;
+          if (statusFilter) historicalFilters.status = statusFilter;
+          if (searchQuery) historicalFilters.search = searchQuery;
+          response = await reportsAPI.historicalData(historicalFilters);
+          setHistoricalData(response.data);
           break;
       }
       setDataLoaded(true);
@@ -228,6 +286,18 @@ export default function Reports() {
         'Table': item.table_name,
         'Record ID': item.record_id || '—',
         'Details': item.new_value || '—',
+      }));
+    }
+
+    if (activeReport === 'historical-data') {
+      return historicalData.map(item => ({
+        'Event': item.event_name || '—',
+        'Invitee Name': item.invitee_name || '—',
+        'Position': item.position || '—',
+        'Inviter': item.inviter_name || '—',
+        'Group': item.inviter_group_name || '—',
+        'Status': item.status || '—',
+        'Date': item.status_date || '—',
       }));
     }
 
@@ -384,6 +454,12 @@ export default function Reports() {
       description: 'System activity log showing all actions performed',
       icon: Activity,
     },
+    {
+      id: 'historical-data' as ReportType,
+      name: 'Historical Data',
+      description: 'Historical invitee data from previous records',
+      icon: FileText,
+    },
   ];
 
   if (!canViewReports) {
@@ -527,6 +603,21 @@ export default function Reports() {
               ))}
             </select>
 
+            {activeReport === 'historical-data' && (
+              <select
+                value={inviterFilter}
+                onChange={(e) => setInviterFilter(e.target.value)}
+                className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-800 dark:text-white"
+              >
+                <option value="">All Inviters</option>
+                {historicalInviters.map((inviter) => (
+                  <option key={inviter} value={inviter}>
+                    {inviter}
+                  </option>
+                ))}
+              </select>
+            )}
+
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
@@ -573,7 +664,7 @@ export default function Reports() {
       </div>
 
       {/* Export Buttons */}
-      {dataLoaded && (summaryData.length > 0 || detailData.length > 0 || activityData.length > 0) && (
+      {dataLoaded && (summaryData.length > 0 || detailData.length > 0 || activityData.length > 0 || historicalData.length > 0) && (
         <div className="flex justify-end gap-2 flex-wrap">
           <button
             onClick={() => handleExport('csv')}
@@ -671,8 +762,8 @@ export default function Reports() {
             Select filters and click "Generate Report" to view data.
           </p>
         </div>
-      ) : activeReport === 'activity-log' ? (
-        // Activity Log Report - handled separately below
+      ) : activeReport === 'activity-log' || activeReport === 'historical-data' ? (
+        // Activity Log and Historical Data Reports - handled separately below
         null
       ) : activeReport.startsWith('summary') ? (
         // Summary Reports
@@ -799,140 +890,229 @@ export default function Reports() {
               </p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                <thead className="bg-gray-50 dark:bg-gray-700">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                      Invitee
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                      Event
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                      Invited By
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                      Category
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                      Status
-                    </th>
-                    {activeReport === 'detail-approved' && (
-                      <>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                          Code
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                          Invite Sent
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                          Confirmed
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                          Checked In
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                          Guests
-                        </th>
-                      </>
-                    )}
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                      Date
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                  {detailData.map((item) => (
-                    <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <div>
-                          <div className="text-sm font-medium text-gray-900 dark:text-white">{item.invitee_name}</div>
-                          <div className="text-xs text-gray-500">{item.invitee_email}</div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                        {item.event_name}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <div className="text-sm text-gray-900 dark:text-white">{item.inviter_name}</div>
-                        {item.inviter_group_name && (
-                          <div className="text-xs text-gray-500">{item.inviter_group_name}</div>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                        {item.category || '—'}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <span
-                          className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium ${
-                            item.status === 'approved'
-                              ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-                              : item.status === 'rejected'
-                              ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
-                              : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
-                          }`}
+            <>
+              {/* Pagination Controls - Top */}
+              <div className="px-4 py-3 bg-gray-50 dark:bg-gray-700 border-b dark:border-gray-600 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-gray-600 dark:text-gray-400">Show</span>
+                  <select
+                    value={detailPageSize}
+                    onChange={(e) => { setDetailPageSize(Number(e.target.value)); setDetailPage(1); }}
+                    className="px-2 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm bg-white dark:bg-gray-800 dark:text-white"
+                  >
+                    <option value={20}>20</option>
+                    <option value={50}>50</option>
+                    <option value={100}>100</option>
+                  </select>
+                  <span className="text-sm text-gray-600 dark:text-gray-400">entries</span>
+                </div>
+                <div className="text-sm text-gray-600 dark:text-gray-400">
+                  Total: {detailData.length} record(s)
+                </div>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                  <thead className="bg-gray-50 dark:bg-gray-700">
+                    <tr>
+                      {[
+                        { key: 'invitee_name', label: 'Invitee' },
+                        { key: 'event_name', label: 'Event' },
+                        { key: 'inviter_name', label: 'Invited By' },
+                        { key: 'category', label: 'Category' },
+                        { key: 'status', label: 'Status' },
+                      ].map(col => (
+                        <th
+                          key={col.key}
+                          onClick={() => {
+                            if (detailSortColumn === col.key) {
+                              setDetailSortDirection(detailSortDirection === 'asc' ? 'desc' : 'asc');
+                            } else {
+                              setDetailSortColumn(col.key);
+                              setDetailSortDirection('asc');
+                            }
+                          }}
+                          className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
                         >
-                          {item.status}
-                        </span>
-                      </td>
+                          <div className="flex items-center gap-1">
+                            {col.label}
+                            {detailSortColumn === col.key && (
+                              detailSortDirection === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />
+                            )}
+                          </div>
+                        </th>
+                      ))}
                       {activeReport === 'detail-approved' && (
                         <>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm">
-                            {item.attendance_code ? (
-                              <code className="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-xs font-mono dark:text-gray-300">
-                                {item.attendance_code}
-                              </code>
-                            ) : (
-                              <span className="text-gray-400 dark:text-gray-500">—</span>
-                            )}
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm">
-                            {item.invitation_sent ? (
-                              <span className="text-green-600">{item.invitation_method || 'Yes'}</span>
-                            ) : (
-                              <span className="text-gray-400">No</span>
-                            )}
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm">
-                            {item.attendance_confirmed === true ? (
-                              <span className="text-green-600">Yes ({item.confirmed_guests || 0} guests)</span>
-                            ) : item.attendance_confirmed === false ? (
-                              <span className="text-red-600">Not Coming</span>
-                            ) : (
-                              <span className="text-gray-400">Pending</span>
-                            )}
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm">
-                            {item.checked_in ? (
-                              <span className="text-green-600">✓</span>
-                            ) : (
-                              <span className="text-gray-400 dark:text-gray-500">—</span>
-                            )}
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm">
-                            <span className="text-gray-700 dark:text-gray-300">
-                              {item.checked_in ? item.actual_guests : item.plus_one || 0}
-                            </span>
-                          </td>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Code</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Invite Sent</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Confirmed</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Checked In</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Guests</th>
                         </>
                       )}
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                        {item.created_at
-                          ? formatDateEgypt(item.created_at)
-                          : '—'}
-                      </td>
+                      <th
+                        onClick={() => {
+                          if (detailSortColumn === 'created_at') {
+                            setDetailSortDirection(detailSortDirection === 'asc' ? 'desc' : 'asc');
+                          } else {
+                            setDetailSortColumn('created_at');
+                            setDetailSortDirection('asc');
+                          }
+                        }}
+                        className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
+                      >
+                        <div className="flex items-center gap-1">
+                          Date
+                          {detailSortColumn === 'created_at' && (
+                            detailSortDirection === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />
+                          )}
+                        </div>
+                      </th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-          
-          {detailData.length > 0 && (
-            <div className="px-4 py-3 bg-gray-50 dark:bg-gray-700 border-t dark:border-gray-600 text-sm text-gray-600 dark:text-gray-400">
-              Total: {detailData.length} record(s)
-            </div>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                    {(() => {
+                      // Sort data only if a column is selected
+                      let dataToDisplay = [...detailData];
+                      if (detailSortColumn) {
+                        dataToDisplay.sort((a, b) => {
+                          const aVal = (a[detailSortColumn as keyof typeof a] || '').toString().toLowerCase();
+                          const bVal = (b[detailSortColumn as keyof typeof b] || '').toString().toLowerCase();
+                          if (detailSortDirection === 'asc') {
+                            return aVal.localeCompare(bVal);
+                          } else {
+                            return bVal.localeCompare(aVal);
+                          }
+                        });
+                      }
+                      // Paginate
+                      const startIndex = (detailPage - 1) * detailPageSize;
+                      const paginated = dataToDisplay.slice(startIndex, startIndex + detailPageSize);
+                      return paginated.map((item) => (
+                        <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <div>
+                              <div className="text-sm font-medium text-gray-900 dark:text-white">{item.invitee_name}</div>
+                              <div className="text-xs text-gray-500">{item.invitee_email}</div>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                            {item.event_name}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <div className="text-sm text-gray-900 dark:text-white">{item.inviter_name}</div>
+                            {item.inviter_group_name && (
+                              <div className="text-xs text-gray-500">{item.inviter_group_name}</div>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                            {item.category || '—'}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <span
+                              className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium ${
+                                item.status === 'approved'
+                                  ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                                  : item.status === 'rejected'
+                                  ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+                                  : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
+                              }`}
+                            >
+                              {item.status}
+                            </span>
+                          </td>
+                          {activeReport === 'detail-approved' && (
+                            <>
+                              <td className="px-4 py-3 whitespace-nowrap text-sm">
+                                {item.attendance_code ? (
+                                  <code className="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-xs font-mono dark:text-gray-300">
+                                    {item.attendance_code}
+                                  </code>
+                                ) : (
+                                  <span className="text-gray-400 dark:text-gray-500">—</span>
+                                )}
+                              </td>
+                              <td className="px-4 py-3 whitespace-nowrap text-sm">
+                                {item.invitation_sent ? (
+                                  <span className="text-green-600">{item.invitation_method || 'Yes'}</span>
+                                ) : (
+                                  <span className="text-gray-400">No</span>
+                                )}
+                              </td>
+                              <td className="px-4 py-3 whitespace-nowrap text-sm">
+                                {item.attendance_confirmed === true ? (
+                                  <span className="text-green-600">Yes ({item.confirmed_guests || 0} guests)</span>
+                                ) : item.attendance_confirmed === false ? (
+                                  <span className="text-red-600">Not Coming</span>
+                                ) : (
+                                  <span className="text-gray-400">Pending</span>
+                                )}
+                              </td>
+                              <td className="px-4 py-3 whitespace-nowrap text-sm">
+                                {item.checked_in ? (
+                                  <span className="text-green-600">✓</span>
+                                ) : (
+                                  <span className="text-gray-400 dark:text-gray-500">—</span>
+                                )}
+                              </td>
+                              <td className="px-4 py-3 whitespace-nowrap text-sm">
+                                <span className="text-gray-700 dark:text-gray-300">
+                                  {item.checked_in ? item.actual_guests : item.plus_one || 0}
+                                </span>
+                              </td>
+                            </>
+                          )}
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                            {item.created_at ? formatDateEgypt(item.created_at) : '—'}
+                          </td>
+                        </tr>
+                      ));
+                    })()}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Pagination Controls - Bottom */}
+              <div className="px-4 py-3 bg-gray-50 dark:bg-gray-700 border-t dark:border-gray-600 flex items-center justify-between">
+                <div className="text-sm text-gray-600 dark:text-gray-400">
+                  Showing {Math.min((detailPage - 1) * detailPageSize + 1, detailData.length)} to {Math.min(detailPage * detailPageSize, detailData.length)} of {detailData.length}
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setDetailPage(1)}
+                    disabled={detailPage === 1}
+                    className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm disabled:opacity-50 hover:bg-gray-100 dark:hover:bg-gray-600 dark:text-white"
+                  >
+                    First
+                  </button>
+                  <button
+                    onClick={() => setDetailPage(p => Math.max(1, p - 1))}
+                    disabled={detailPage === 1}
+                    className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm disabled:opacity-50 hover:bg-gray-100 dark:hover:bg-gray-600 dark:text-white"
+                  >
+                    Previous
+                  </button>
+                  <span className="px-3 py-1 text-sm text-gray-600 dark:text-gray-400">
+                    Page {detailPage} of {Math.ceil(detailData.length / detailPageSize)}
+                  </span>
+                  <button
+                    onClick={() => setDetailPage(p => Math.min(Math.ceil(detailData.length / detailPageSize), p + 1))}
+                    disabled={detailPage >= Math.ceil(detailData.length / detailPageSize)}
+                    className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm disabled:opacity-50 hover:bg-gray-100 dark:hover:bg-gray-600 dark:text-white"
+                  >
+                    Next
+                  </button>
+                  <button
+                    onClick={() => setDetailPage(Math.ceil(detailData.length / detailPageSize))}
+                    disabled={detailPage >= Math.ceil(detailData.length / detailPageSize)}
+                    className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm disabled:opacity-50 hover:bg-gray-100 dark:hover:bg-gray-600 dark:text-white"
+                  >
+                    Last
+                  </button>
+                </div>
+              </div>
+            </>
           )}
         </div>
       )}
@@ -949,98 +1129,340 @@ export default function Reports() {
               </p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                <thead className="bg-gray-50 dark:bg-gray-700">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                      Timestamp
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                      Action
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                      Performed By
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                      Role
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                      Group
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                      Table
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                      Record ID
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                      Details
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                  {activityData.map((item) => (
-                    <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                        {item.timestamp
-                          ? formatDateTimeEgypt(item.timestamp)
-                          : '—'}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
-                          item.action.includes('approve') ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
-                          item.action.includes('reject') ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' :
-                          item.action.includes('delete') ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' :
-                          item.action.includes('create') || item.action.includes('add') ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400' :
-                          item.action.includes('update') ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' :
-                          item.action.includes('login') || item.action.includes('logout') ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400' :
-                          'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
-                        }`}>
-                          {formatActionName(item.action)}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                        {item.username || 'System'}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        {item.user_role ? (
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                            item.user_role === 'admin' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400' :
-                            item.user_role === 'director' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400' :
-                            'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
-                          }`}>
-                            {item.user_role.charAt(0).toUpperCase() + item.user_role.slice(1)}
-                          </span>
-                        ) : (
-                          <span className="text-gray-400 dark:text-gray-500">—</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                        {item.inviter_group_name || '—'}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                        {item.table_name}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                        {item.record_id || '—'}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 max-w-xs truncate" title={item.new_value || ''}>
-                        {item.new_value ? (
-                          item.new_value.length > 50 ? item.new_value.substring(0, 50) + '...' : item.new_value
-                        ) : '—'}
-                      </td>
+            <>
+              {/* Pagination Controls - Top */}
+              <div className="px-4 py-3 bg-gray-50 dark:bg-gray-700 border-b dark:border-gray-600 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-gray-600 dark:text-gray-400">Show</span>
+                  <select
+                    value={activityPageSize}
+                    onChange={(e) => { setActivityPageSize(Number(e.target.value)); setActivityPage(1); }}
+                    className="px-2 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm bg-white dark:bg-gray-800 dark:text-white"
+                  >
+                    <option value={20}>20</option>
+                    <option value={50}>50</option>
+                    <option value={100}>100</option>
+                  </select>
+                  <span className="text-sm text-gray-600 dark:text-gray-400">entries</span>
+                </div>
+                <div className="text-sm text-gray-600 dark:text-gray-400">
+                  Total: {activityData.length} record(s)
+                </div>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                  <thead className="bg-gray-50 dark:bg-gray-700">
+                    <tr>
+                      {[
+                        { key: 'timestamp', label: 'Timestamp' },
+                        { key: 'action', label: 'Action' },
+                        { key: 'username', label: 'Performed By' },
+                        { key: 'user_role', label: 'Role' },
+                        { key: 'inviter_group_name', label: 'Group' },
+                        { key: 'table_name', label: 'Table' },
+                        { key: 'record_id', label: 'Record ID' },
+                        { key: 'new_value', label: 'Details' },
+                      ].map(col => (
+                        <th
+                          key={col.key}
+                          onClick={() => {
+                            if (activitySortColumn === col.key) {
+                              setActivitySortDirection(activitySortDirection === 'asc' ? 'desc' : 'asc');
+                            } else {
+                              setActivitySortColumn(col.key);
+                              setActivitySortDirection('asc');
+                            }
+                          }}
+                          className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
+                        >
+                          <div className="flex items-center gap-1">
+                            {col.label}
+                            {activitySortColumn === col.key && (
+                              activitySortDirection === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />
+                            )}
+                          </div>
+                        </th>
+                      ))}
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                    {(() => {
+                      // Sort data only if a column is selected
+                      let dataToDisplay = [...activityData];
+                      if (activitySortColumn) {
+                        dataToDisplay.sort((a, b) => {
+                          const aVal = (a[activitySortColumn as keyof typeof a] || '').toString().toLowerCase();
+                          const bVal = (b[activitySortColumn as keyof typeof b] || '').toString().toLowerCase();
+                          if (activitySortDirection === 'asc') {
+                            return aVal.localeCompare(bVal);
+                          } else {
+                            return bVal.localeCompare(aVal);
+                          }
+                        });
+                      }
+                      // Paginate
+                      const startIndex = (activityPage - 1) * activityPageSize;
+                      const paginated = dataToDisplay.slice(startIndex, startIndex + activityPageSize);
+                      return paginated.map((item) => (
+                        <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                            {item.timestamp ? formatDateTimeEgypt(item.timestamp) : '—'}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
+                              item.action.includes('approve') ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
+                              item.action.includes('reject') ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' :
+                              item.action.includes('delete') ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' :
+                              item.action.includes('create') || item.action.includes('add') ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400' :
+                              item.action.includes('update') ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' :
+                              item.action.includes('login') || item.action.includes('logout') ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400' :
+                              'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                            }`}>
+                              {formatActionName(item.action)}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                            {item.username || 'System'}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            {item.user_role ? (
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                                item.user_role === 'admin' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400' :
+                                item.user_role === 'director' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400' :
+                                'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                              }`}>
+                                {item.user_role.charAt(0).toUpperCase() + item.user_role.slice(1)}
+                              </span>
+                            ) : (
+                              <span className="text-gray-400 dark:text-gray-500">—</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                            {item.inviter_group_name || '—'}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                            {item.table_name}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                            {item.record_id || '—'}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 max-w-xs truncate" title={item.new_value || ''}>
+                            {item.new_value ? (item.new_value.length > 50 ? item.new_value.substring(0, 50) + '...' : item.new_value) : '—'}
+                          </td>
+                        </tr>
+                      ));
+                    })()}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Pagination Controls - Bottom */}
+              <div className="px-4 py-3 bg-gray-50 dark:bg-gray-700 border-t dark:border-gray-600 flex items-center justify-between">
+                <div className="text-sm text-gray-600 dark:text-gray-400">
+                  Showing {Math.min((activityPage - 1) * activityPageSize + 1, activityData.length)} to {Math.min(activityPage * activityPageSize, activityData.length)} of {activityData.length}
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setActivityPage(1)}
+                    disabled={activityPage === 1}
+                    className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm disabled:opacity-50 hover:bg-gray-100 dark:hover:bg-gray-600 dark:text-white"
+                  >
+                    First
+                  </button>
+                  <button
+                    onClick={() => setActivityPage(p => Math.max(1, p - 1))}
+                    disabled={activityPage === 1}
+                    className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm disabled:opacity-50 hover:bg-gray-100 dark:hover:bg-gray-600 dark:text-white"
+                  >
+                    Previous
+                  </button>
+                  <span className="px-3 py-1 text-sm text-gray-600 dark:text-gray-400">
+                    Page {activityPage} of {Math.ceil(activityData.length / activityPageSize)}
+                  </span>
+                  <button
+                    onClick={() => setActivityPage(p => Math.min(Math.ceil(activityData.length / activityPageSize), p + 1))}
+                    disabled={activityPage >= Math.ceil(activityData.length / activityPageSize)}
+                    className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm disabled:opacity-50 hover:bg-gray-100 dark:hover:bg-gray-600 dark:text-white"
+                  >
+                    Next
+                  </button>
+                  <button
+                    onClick={() => setActivityPage(Math.ceil(activityData.length / activityPageSize))}
+                    disabled={activityPage >= Math.ceil(activityData.length / activityPageSize)}
+                    className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm disabled:opacity-50 hover:bg-gray-100 dark:hover:bg-gray-600 dark:text-white"
+                  >
+                    Last
+                  </button>
+                </div>
+              </div>
+            </>
           )}
-          
-          {activityData.length > 0 && (
-            <div className="px-4 py-3 bg-gray-50 dark:bg-gray-700 border-t dark:border-gray-600 text-sm text-gray-600 dark:text-gray-400">
-              Total: {activityData.length} record(s)
+        </div>
+      )}
+
+      {/* Historical Data Report */}
+      {dataLoaded && activeReport === 'historical-data' && (
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+          {historicalData.length === 0 ? (
+            <div className="p-12 text-center">
+              <FileText className="mx-auto h-12 w-12 text-gray-300" />
+              <h3 className="mt-4 text-lg font-medium text-gray-900 dark:text-white">No Historical Data Found</h3>
+              <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                Try adjusting your filters or check back later.
+              </p>
             </div>
+          ) : (
+            <>
+              {/* Pagination Controls - Top */}
+              <div className="px-4 py-3 bg-gray-50 dark:bg-gray-700 border-b dark:border-gray-600 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-gray-600 dark:text-gray-400">Show</span>
+                  <select
+                    value={historicalPageSize}
+                    onChange={(e) => { setHistoricalPageSize(Number(e.target.value)); setHistoricalPage(1); }}
+                    className="px-2 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm bg-white dark:bg-gray-800 dark:text-white"
+                  >
+                    <option value={20}>20</option>
+                    <option value={50}>50</option>
+                    <option value={100}>100</option>
+                  </select>
+                  <span className="text-sm text-gray-600 dark:text-gray-400">entries</span>
+                </div>
+                <div className="text-sm text-gray-600 dark:text-gray-400">
+                  Total: {historicalData.length} record(s)
+                </div>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                  <thead className="bg-gray-50 dark:bg-gray-700">
+                    <tr>
+                      {[
+                        { key: 'event_name', label: 'Event' },
+                        { key: 'invitee_name', label: 'Invitee Name' },
+                        { key: 'position', label: 'Position' },
+                        { key: 'inviter_name', label: 'Inviter' },
+                        { key: 'inviter_group_name', label: 'Group' },
+                        { key: 'status', label: 'Status' },
+                        { key: 'status_date', label: 'Date' },
+                      ].map(col => (
+                        <th
+                          key={col.key}
+                          onClick={() => {
+                            if (historicalSortColumn === col.key) {
+                              setHistoricalSortDirection(historicalSortDirection === 'asc' ? 'desc' : 'asc');
+                            } else {
+                              setHistoricalSortColumn(col.key);
+                              setHistoricalSortDirection('asc');
+                            }
+                          }}
+                          className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
+                        >
+                          <div className="flex items-center gap-1">
+                            {col.label}
+                            {historicalSortColumn === col.key && (
+                              historicalSortDirection === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />
+                            )}
+                          </div>
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                    {(() => {
+                      // Sort data only if a column is selected
+                      let dataToDisplay = [...historicalData];
+                      if (historicalSortColumn) {
+                        dataToDisplay.sort((a, b) => {
+                          const aVal = (a[historicalSortColumn as keyof HistoricalInvitee] || '').toString().toLowerCase();
+                          const bVal = (b[historicalSortColumn as keyof HistoricalInvitee] || '').toString().toLowerCase();
+                          if (historicalSortDirection === 'asc') {
+                            return aVal.localeCompare(bVal);
+                          } else {
+                            return bVal.localeCompare(aVal);
+                          }
+                        });
+                      }
+                      // Paginate
+                      const startIndex = (historicalPage - 1) * historicalPageSize;
+                      const paginated = dataToDisplay.slice(startIndex, startIndex + historicalPageSize);
+                      return paginated.map((item) => (
+                        <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                            {item.event_name}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                            {item.invitee_name}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                            {item.position || '—'}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                            {item.inviter_name}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                            {item.inviter_group_name || '—'}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
+                              item.status === 'approved' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
+                              item.status === 'rejected' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' :
+                              'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
+                            }`}>
+                              {item.status}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                            {item.status_date || '—'}
+                          </td>
+                        </tr>
+                      ));
+                    })()}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Pagination Controls - Bottom */}
+              <div className="px-4 py-3 bg-gray-50 dark:bg-gray-700 border-t dark:border-gray-600 flex items-center justify-between">
+                <div className="text-sm text-gray-600 dark:text-gray-400">
+                  Showing {Math.min((historicalPage - 1) * historicalPageSize + 1, historicalData.length)} to {Math.min(historicalPage * historicalPageSize, historicalData.length)} of {historicalData.length}
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setHistoricalPage(1)}
+                    disabled={historicalPage === 1}
+                    className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm disabled:opacity-50 hover:bg-gray-100 dark:hover:bg-gray-600 dark:text-white"
+                  >
+                    First
+                  </button>
+                  <button
+                    onClick={() => setHistoricalPage(p => Math.max(1, p - 1))}
+                    disabled={historicalPage === 1}
+                    className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm disabled:opacity-50 hover:bg-gray-100 dark:hover:bg-gray-600 dark:text-white"
+                  >
+                    Previous
+                  </button>
+                  <span className="px-3 py-1 text-sm text-gray-600 dark:text-gray-400">
+                    Page {historicalPage} of {Math.ceil(historicalData.length / historicalPageSize)}
+                  </span>
+                  <button
+                    onClick={() => setHistoricalPage(p => Math.min(Math.ceil(historicalData.length / historicalPageSize), p + 1))}
+                    disabled={historicalPage >= Math.ceil(historicalData.length / historicalPageSize)}
+                    className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm disabled:opacity-50 hover:bg-gray-100 dark:hover:bg-gray-600 dark:text-white"
+                  >
+                    Next
+                  </button>
+                  <button
+                    onClick={() => setHistoricalPage(Math.ceil(historicalData.length / historicalPageSize))}
+                    disabled={historicalPage >= Math.ceil(historicalData.length / historicalPageSize)}
+                    className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm disabled:opacity-50 hover:bg-gray-100 dark:hover:bg-gray-600 dark:text-white"
+                  >
+                    Last
+                  </button>
+                </div>
+              </div>
+            </>
           )}
         </div>
       )}

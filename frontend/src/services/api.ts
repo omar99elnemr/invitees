@@ -326,6 +326,13 @@ export const reportsAPI = {
 
   activityLogUsers: () =>
     api.get<{ id: number; username: string; name: string }[]>('/reports/activity-log/users'),
+
+  // Historical Data
+  historicalData: (filters?: { event?: string; inviter?: string; group?: string; status?: string; search?: string }) =>
+    api.get('/reports/historical', { params: filters }),
+
+  historicalFilters: () =>
+    api.get<{ events: string[]; inviters: string[]; groups: string[] }>('/reports/historical/filters'),
 };
 
 // =========================

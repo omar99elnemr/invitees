@@ -1,6 +1,6 @@
 # Invitees Application - Windows Server 2019+ Deployment Guide
 
-## Domain: https://invitees.barrancocairo.com
+## Domain: https://invitees.aldauselect.com
 
 ---
 
@@ -42,7 +42,7 @@
 
 ### Target Domain
 ```
-https://invitees.barrancocairo.com
+https://invitees.aldauselect.com
 ```
 
 ### Architecture Overview
@@ -391,7 +391,7 @@ PERMANENT_SESSION_LIFETIME=1800
 BCRYPT_LOG_ROUNDS=12
 
 # CORS - Your domain
-CORS_ORIGINS=https://invitees.barrancocairo.com
+CORS_ORIGINS=https://invitees.aldauselect.com
 
 # Upload Configuration
 UPLOAD_FOLDER=C:\inetpub\wwwroot\invitees\backend\uploads
@@ -525,10 +525,10 @@ New-WebSite -Name "Invitees" `
     -Port 80 `
     -PhysicalPath "C:\inetpub\wwwroot\invitees\frontend\dist" `
     -ApplicationPool "InviteesAppPool" `
-    -HostHeader "invitees.barrancocairo.com"
+    -HostHeader "invitees.aldauselect.com"
 
 # Add HTTPS binding (after SSL certificate is installed)
-# New-WebBinding -Name "Invitees" -Protocol "https" -Port 443 -HostHeader "invitees.barrancocairo.com" -SslFlags 1
+# New-WebBinding -Name "Invitees" -Protocol "https" -Port 443 -HostHeader "invitees.aldauselect.com" -SslFlags 1
 ```
 
 ### Step 8.3: Create URL Rewrite Rules
@@ -639,13 +639,15 @@ Value: 123.45.67.89
 TTL: 600 seconds
 ```
 
+**Note:** Use domain `invitees.aldauselect.com` instead of `barrancocairo.com`
+
 ### Step 9.3: Verify DNS Propagation
 
 Wait 15-30 minutes for DNS propagation, then verify:
 
 ```powershell
 # From any machine
-nslookup invitees.barrancocairo.com
+nslookup invitees.aldauselect.com
 # Should return your server's IP address
 
 # Or use online tool: https://dnschecker.org
