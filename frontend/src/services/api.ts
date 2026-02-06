@@ -269,7 +269,7 @@ export const inviteesAPI = {
 
   // Bulk invite existing invitees to event
   inviteExistingToEvent: (eventId: number, inviteeIds: number[], invitationData?: { category?: string; inviter_id?: number; plus_one?: number; notes?: string }) =>
-    api.post<{ message: string; results: { successful: any[]; failed: any[]; already_invited: any[] } }>(
+    api.post<{ message: string; results: { successful: any[]; failed: any[]; already_invited: any[]; cross_group_duplicates?: any[] } }>(
       `/invitees/events/${eventId}/invite-existing`,
       { invitee_ids: inviteeIds, invitation_data: invitationData }
     ),

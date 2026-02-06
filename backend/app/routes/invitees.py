@@ -312,7 +312,8 @@ def get_event_invitees(event_id):
     # Check if user has access to this event
     if current_user.role != 'admin':
         if current_user.inviter_group_id:
-            has_access = any(g.id == current_user.inviter_group_id for g in event.inviter_groups)
+            # User has access if event is_all_groups OR their group is explicitly assigned
+            has_access = event.is_all_groups or any(g.id == current_user.inviter_group_id for g in event.inviter_groups)
             if not has_access:
                 return jsonify({'error': 'Access denied'}), 403
         else:
@@ -359,10 +360,10 @@ def add_invitee_to_event(event_id):
     if not event:
         return jsonify({'error': 'Event not found'}), 404
     
-    # Check event is assigned to user's group
+    # Check event is assigned to user's group (or is_all_groups)
     if current_user.role != 'admin':
         if current_user.inviter_group_id:
-            has_access = any(g.id == current_user.inviter_group_id for g in event.inviter_groups)
+            has_access = event.is_all_groups or any(g.id == current_user.inviter_group_id for g in event.inviter_groups)
             if not has_access:
                 return jsonify({'error': 'Event not assigned to your group'}), 403
         else:
@@ -370,6 +371,38 @@ def add_invitee_to_event(event_id):
     
     if current_user.role != 'admin' and not event.can_add_invitees():
         return jsonify({'error': 'Cannot add invitees to this event'}), 403
+    
+    # Cross-group duplicate phone check for event submissions
+    from app.models.event_invitee import EventInvitee
+    from app.models.invitee import Invitee
+    
+    phone = data.get('phone')
+    if phone and current_user.role != 'admin':
+        # Find if any invitee with this phone number is already submitted to this event by ANOTHER group
+        # Only block if status is 'waiting_for_approval' or 'approved'
+        # Rejected/cancelled submissions free the phone for everyone to submit again
+        existing_submission = db.session.query(EventInvitee, Invitee).join(
+            Invitee, EventInvitee.invitee_id == Invitee.id
+        ).filter(
+            EventInvitee.event_id == event_id,
+            Invitee.phone == phone,
+            Invitee.inviter_group_id != current_user.inviter_group_id,
+            EventInvitee.status.in_(['waiting_for_approval', 'approved'])
+        ).first()
+        
+        if existing_submission:
+            ei, other_invitee = existing_submission
+            from app.models.inviter import Inviter as InviterModel
+            inviter_info = InviterModel.query.get(ei.inviter_id) if ei.inviter_id else None
+            from app.models.inviter_group import InviterGroup
+            group_info = InviterGroup.query.get(other_invitee.inviter_group_id) if other_invitee.inviter_group_id else None
+            
+            inviter_name = inviter_info.name if inviter_info else 'Unknown Inviter'
+            group_name = group_info.name if group_info else 'Another Group'
+            
+            return jsonify({
+                'error': f'"{other_invitee.name}" is already invited to this event by "{inviter_name}" from "{group_name}"'
+            }), 409
     
     event_invitee, error = InviteeService.add_invitee_to_event(
         event_id=event_id,
@@ -521,6 +554,7 @@ def invite_existing_to_event(event_id):
     from app.models.inviter import Inviter
     from app.models.event_invitee import EventInvitee
     from app.models.audit_log import AuditLog
+    from app.models.inviter_group import InviterGroup
     from datetime import datetime
     
     data = request.get_json()
@@ -549,10 +583,10 @@ def invite_existing_to_event(event_id):
         if not inviter or inviter.inviter_group_id != current_user.inviter_group_id:
             return jsonify({'error': 'Invalid inviter selection'}), 400
     
-    # Check event is assigned to user's group
+    # Check event is assigned to user's group (or is_all_groups)
     if current_user.role != 'admin':
         if current_user.inviter_group_id:
-            has_access = any(g.id == current_user.inviter_group_id for g in event.inviter_groups)
+            has_access = event.is_all_groups or any(g.id == current_user.inviter_group_id for g in event.inviter_groups)
             if not has_access:
                 return jsonify({'error': 'Event not assigned to your group'}), 403
         else:
@@ -561,7 +595,8 @@ def invite_existing_to_event(event_id):
     results = {
         'successful': [],
         'failed': [],
-        'already_invited': []
+        'already_invited': [],
+        'cross_group_duplicates': []
     }
     
     for invitee_id in invitee_ids:
@@ -583,10 +618,40 @@ def invite_existing_to_event(event_id):
                 })
                 continue
 
-        # Check if already invited to this event
+        # Cross-group duplicate phone check MUST happen FIRST before any submission/resubmission
+        # This ensures that even when resubmitting a rejected contact, we check if another group
+        # has already submitted the same phone number
+        if invitee.phone and current_user.role != 'admin':
+            cross_group_existing = db.session.query(EventInvitee, Invitee).join(
+                Invitee, EventInvitee.invitee_id == Invitee.id
+            ).filter(
+                EventInvitee.event_id == event_id,
+                Invitee.phone == invitee.phone,
+                Invitee.inviter_group_id != current_user.inviter_group_id,
+                EventInvitee.status.in_(['waiting_for_approval', 'approved'])
+            ).first()
+            
+            if cross_group_existing:
+                ei, other_invitee = cross_group_existing
+                inviter_info = Inviter.query.get(ei.inviter_id) if ei.inviter_id else None
+                group_info = InviterGroup.query.get(other_invitee.inviter_group_id) if other_invitee.inviter_group_id else None
+                
+                inviter_name = inviter_info.name if inviter_info else 'Unknown Inviter'
+                group_name = group_info.name if group_info else 'Another Group'
+                
+                results['cross_group_duplicates'].append({
+                    'invitee_id': invitee_id,
+                    'name': invitee.name,
+                    'phone': invitee.phone,
+                    'reason': f'Already invited by "{inviter_name}" from "{group_name}"'
+                })
+                continue
+
+        # Check if already invited to this event (by same invitee record)
         existing = EventInvitee.query.filter_by(event_id=event_id, invitee_id=invitee_id).first()
         if existing:
             # If rejected, allow resubmission by updating status back to pending
+            # (cross-group check already passed above)
             if existing.status == 'rejected':
                 existing.status = 'waiting_for_approval'
                 existing.notes = invitation_data.get('notes', 'Resubmitted after rejection')
@@ -607,6 +672,8 @@ def invite_existing_to_event(event_id):
                     'status': existing.status
                 })
                 continue
+
+        # New submission - cross-group check already passed above
 
         # Use stored data from invitee if not provided
         final_inviter_id = inviter_id or invitee.inviter_id

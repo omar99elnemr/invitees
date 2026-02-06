@@ -454,7 +454,7 @@ export default function Invitees() {
     try {
       setSubmitting(true);
 
-      await inviteesAPI.inviteExistingToEvent(
+      const response = await inviteesAPI.inviteExistingToEvent(
         selectedEventId,
         selectedContactIds,
         {
@@ -463,7 +463,38 @@ export default function Invitees() {
         }
       );
 
-      toast.success(`${selectedContactIds.length} contact(s) submitted for approval`);
+      const results = response.data.results;
+      const successCount = results.successful?.length || 0;
+      const crossGroupDuplicates = results.cross_group_duplicates || [];
+      const alreadyInvited = results.already_invited || [];
+      const failed = results.failed || [];
+
+      // Show appropriate messages based on results
+      if (successCount > 0) {
+        toast.success(`${successCount} contact(s) submitted for approval`);
+      }
+
+      // Show cross-group duplicate errors with clear message
+      crossGroupDuplicates.forEach((dup: any) => {
+        toast.error(`"${dup.name}" ${dup.reason}`, { duration: 6000 });
+      });
+
+      // Show already invited notifications
+      if (alreadyInvited.length > 0) {
+        toast(`${alreadyInvited.length} contact(s) already invited to this event`, { icon: 'ℹ️' });
+      }
+
+      // Show failed notifications
+      failed.forEach((f: any) => {
+        toast.error(`${f.reason || 'Failed to submit contact'}`);
+      });
+
+      // If nothing succeeded and we had cross-group duplicates, show summary
+      if (successCount === 0 && crossGroupDuplicates.length > 0 && selectedContactIds.length === crossGroupDuplicates.length) {
+        // All were duplicates - no additional message needed, individual errors shown above
+      } else if (successCount === 0 && crossGroupDuplicates.length === 0 && alreadyInvited.length === 0) {
+        toast.error('No contacts were submitted');
+      }
 
       // Clear selection
       setSelectedContactIds([]);
@@ -1121,8 +1152,22 @@ export default function Invitees() {
                                       if (!selectedEventId) return;
                                       try {
                                         setSubmitting(true);
-                                        await inviteesAPI.inviteExistingToEvent(selectedEventId, [contact.id], {});
-                                        toast.success(`${contact.name} submitted for approval`);
+                                        const response = await inviteesAPI.inviteExistingToEvent(selectedEventId, [contact.id], {});
+                                        const results = response.data.results;
+                                        const successCount = results.successful?.length || 0;
+                                        const crossGroupDuplicates = results.cross_group_duplicates || [];
+                                        const alreadyInvited = results.already_invited || [];
+
+                                        if (successCount > 0) {
+                                          toast.success(`${contact.name} submitted for approval`);
+                                        } else if (crossGroupDuplicates.length > 0) {
+                                          // Show the specific cross-group duplicate error with clear message
+                                          toast.error(`"${contact.name}" ${crossGroupDuplicates[0].reason}`, { duration: 6000 });
+                                        } else if (alreadyInvited.length > 0) {
+                                          toast(`${contact.name} is already invited to this event`, { icon: 'ℹ️' });
+                                        } else {
+                                          toast.error(`Failed to submit ${contact.name}`);
+                                        }
                                         fetchEventInvitees(selectedEventId);
                                       } catch (error: any) {
                                         toast.error(error.response?.data?.error || 'Failed to submit contact');

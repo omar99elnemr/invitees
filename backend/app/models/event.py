@@ -51,6 +51,9 @@ class Event(db.Model):
     checkin_pin_active = db.Column(db.Boolean, default=False, nullable=False)
     checkin_pin_auto_deactivate_hours = db.Column(db.Integer, nullable=True)  # Hours after event end to auto-deactivate (null = manual)
     
+    # All groups flag - when True, event is assigned to ALL inviter groups
+    is_all_groups = db.Column(db.Boolean, default=False, nullable=False)
+    
     # Relationships
     event_invitees = db.relationship('EventInvitee', backref='event', lazy='dynamic', cascade='all, delete-orphan')
     inviter_groups = db.relationship('InviterGroup', secondary=event_inviter_groups, 
@@ -98,6 +101,16 @@ class Event(db.Model):
         # The status is updated by update_all_statuses() which runs on event queries
         # Manual status changes (cancelled, on_hold) are preserved
         
+        # Handle inviter groups - if is_all_groups is True, fetch all groups
+        if self.is_all_groups:
+            from app.models.inviter_group import InviterGroup
+            all_groups = InviterGroup.query.all()
+            inviter_group_ids = [g.id for g in all_groups]
+            inviter_group_names = [g.name for g in all_groups]
+        else:
+            inviter_group_ids = [g.id for g in self.inviter_groups] if self.inviter_groups else []
+            inviter_group_names = [g.name for g in self.inviter_groups] if self.inviter_groups else []
+        
         return {
             'id': self.id,
             'name': self.name,
@@ -112,8 +125,9 @@ class Event(db.Model):
             'created_at': to_utc_isoformat(self.created_at),
             'updated_at': to_utc_isoformat(self.updated_at),
             'invitee_count': self.event_invitees.count() if hasattr(self, 'event_invitees') else 0,
-            'inviter_group_ids': [g.id for g in self.inviter_groups] if self.inviter_groups else [],
-            'inviter_group_names': [g.name for g in self.inviter_groups] if self.inviter_groups else [],
+            'is_all_groups': self.is_all_groups,
+            'inviter_group_ids': inviter_group_ids,
+            'inviter_group_names': inviter_group_names,
             'checkin_pin_active': self.checkin_pin_active,
             'checkin_pin_auto_deactivate_hours': self.checkin_pin_auto_deactivate_hours,
             'has_checkin_pin': self.checkin_pin is not None,
@@ -141,6 +155,7 @@ class Event(db.Model):
     @staticmethod
     def get_all_for_user(user):
         """Get events visible to user based on role and inviter group"""
+        from sqlalchemy import or_
         # First update all event statuses
         Event.update_all_statuses()
         if user.role == 'admin':
@@ -148,10 +163,14 @@ class Event(db.Model):
             return Event.query.order_by(Event.start_date.desc()).all()
         else:
             # Organizers and directors only see active events assigned to their inviter group
+            # OR events where is_all_groups is True
             if user.inviter_group_id:
                 return Event.query.filter(
                     Event.status.in_(['upcoming', 'ongoing']),
-                    Event.inviter_groups.any(id=user.inviter_group_id)
+                    or_(
+                        Event.is_all_groups == True,
+                        Event.inviter_groups.any(id=user.inviter_group_id)
+                    )
                 ).order_by(Event.start_date).all()
             else:
                 # User has no group - return empty

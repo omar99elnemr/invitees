@@ -61,6 +61,7 @@ export interface Event {
   venue?: string;
   description?: string;
   status: 'upcoming' | 'ongoing' | 'ended' | 'cancelled' | 'on_hold';
+  is_all_groups?: boolean;
   created_by_user_id: number;
   creator_name?: string;
   created_at: string;

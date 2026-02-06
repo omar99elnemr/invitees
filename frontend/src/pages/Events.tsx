@@ -64,6 +64,7 @@ export default function Events() {
     end_date: '',
     venue: '',
     description: '',
+    is_all_groups: false,
     inviter_group_ids: [] as number[],
   });
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
@@ -187,8 +188,9 @@ export default function Events() {
       }
     }
     
-    if (!formData.inviter_group_ids || formData.inviter_group_ids.length === 0) {
-      errors.inviter_group_ids = 'Inviter group must be selected';
+    // Either is_all_groups must be true OR at least one group must be selected
+    if (!formData.is_all_groups && (!formData.inviter_group_ids || formData.inviter_group_ids.length === 0)) {
+      errors.inviter_group_ids = 'Select "All Groups" or choose specific inviter groups';
     }
     
     setFormErrors(errors);
@@ -279,6 +281,7 @@ export default function Events() {
       end_date: '',
       venue: '',
       description: '',
+      is_all_groups: false,
       inviter_group_ids: [],
     });
     setFormErrors({});
@@ -294,6 +297,7 @@ export default function Events() {
       end_date: formatDateForInput(event.end_date),
       venue: event.venue || '',
       description: event.description || '',
+      is_all_groups: event.is_all_groups || false,
       inviter_group_ids: event.inviter_group_ids || [],
     });
     setShowEditModal(true);
@@ -574,16 +578,23 @@ export default function Events() {
                 )}
 
                 {/* Inviter Groups (Admin only) */}
-                {isAdmin && event.inviter_group_names && event.inviter_group_names.length > 0 && (
+                {isAdmin && (
                   <div className="mt-3 flex flex-wrap gap-1.5">
-                    {event.inviter_group_names.map((name, idx) => (
-                      <span
-                        key={idx}
-                        className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium bg-purple-50 text-purple-700 border border-purple-100 dark:bg-purple-900/30 dark:text-purple-400 dark:border-purple-800"
-                      >
-                        {name}
+                    {event.is_all_groups ? (
+                      <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium bg-green-50 text-green-700 border border-green-100 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800">
+                        <Users className="w-3 h-3 mr-1" />
+                        All Groups
                       </span>
-                    ))}
+                    ) : event.inviter_group_names && event.inviter_group_names.length > 0 ? (
+                      event.inviter_group_names.map((name, idx) => (
+                        <span
+                          key={idx}
+                          className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium bg-purple-50 text-purple-700 border border-purple-100 dark:bg-purple-900/30 dark:text-purple-400 dark:border-purple-800"
+                        >
+                          {name}
+                        </span>
+                      ))
+                    ) : null}
                   </div>
                 )}
 
@@ -705,19 +716,86 @@ export default function Events() {
                   {/* Inviter Groups - Admin only */}
                   {isAdmin && (
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                         Inviter Groups
                       </label>
-                      <div className={`border rounded-lg p-3 max-h-40 overflow-y-auto bg-white dark:bg-gray-700 ${formErrors.inviter_group_ids ? 'border-red-300' : 'border-gray-300 dark:border-gray-600'}`}>
+                      
+                      {/* All Groups Option */}
+                      <div className="mb-3">
+                        <label 
+                          className={`flex items-center gap-3 cursor-pointer p-3 rounded-xl border-2 transition-all ${
+                            formData.is_all_groups 
+                              ? 'border-green-500 bg-green-50 dark:bg-green-900/30 dark:border-green-600 shadow-sm' 
+                              : 'border-dashed border-gray-300 dark:border-gray-600 hover:border-green-400 hover:bg-green-50/50 dark:hover:bg-green-900/10'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={formData.is_all_groups}
+                            onChange={(e) => {
+                              setFormData({
+                                ...formData,
+                                is_all_groups: e.target.checked,
+                                inviter_group_ids: e.target.checked ? [] : formData.inviter_group_ids,
+                              });
+                            }}
+                            className="h-5 w-5 text-green-600 rounded border-gray-300 focus:ring-green-500"
+                          />
+                          <div className="p-1.5 rounded-lg bg-green-100 dark:bg-green-800/50">
+                            <Users className="w-4 h-4 text-green-600 dark:text-green-400" />
+                          </div>
+                          <div className="flex-1">
+                            <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                              All Groups
+                            </span>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                              Event accessible by all inviter groups
+                            </p>
+                          </div>
+                          {formData.is_all_groups && (
+                            <CheckCircle className="w-5 h-5 text-green-500" />
+                          )}
+                        </label>
+                      </div>
+
+                      {/* Divider */}
+                      <div className="relative mb-3">
+                        <div className="absolute inset-0 flex items-center">
+                          <div className="w-full border-t border-gray-200 dark:border-gray-600"></div>
+                        </div>
+                        <div className="relative flex justify-center text-xs">
+                          <span className="px-2 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400">
+                            or select specific groups
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Specific Groups Selection */}
+                      <div className={`rounded-xl border overflow-hidden transition-all ${
+                        formErrors.inviter_group_ids 
+                          ? 'border-red-300 dark:border-red-700' 
+                          : 'border-gray-200 dark:border-gray-600'
+                      } ${formData.is_all_groups ? 'opacity-40 pointer-events-none' : ''}`}>
                         {inviterGroups.length === 0 ? (
-                          <p className="text-sm text-gray-500 dark:text-gray-400">No inviter groups available</p>
+                          <div className="p-4 text-center">
+                            <Users className="w-8 h-8 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
+                            <p className="text-sm text-gray-500 dark:text-gray-400">No inviter groups available</p>
+                          </div>
                         ) : (
-                          <div className="space-y-2">
-                            {inviterGroups.map((group) => (
-                              <label key={group.id} className="flex items-center gap-2 cursor-pointer">
+                          <div className="max-h-48 overflow-y-auto">
+                            {inviterGroups.map((group, index) => (
+                              <label 
+                                key={group.id} 
+                                className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer transition-colors ${
+                                  formData.inviter_group_ids.includes(group.id)
+                                    ? 'bg-indigo-50 dark:bg-indigo-900/20'
+                                    : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                                } ${index !== inviterGroups.length - 1 ? 'border-b border-gray-100 dark:border-gray-700' : ''}`}
+                              >
                                 <input
                                   type="checkbox"
                                   checked={formData.inviter_group_ids.includes(group.id)}
+                                  disabled={formData.is_all_groups}
                                   onChange={(e) => {
                                     if (e.target.checked) {
                                       setFormData({
@@ -731,20 +809,42 @@ export default function Events() {
                                       });
                                     }
                                   }}
-                                  className="h-4 w-4 text-primary rounded border-gray-300 focus:ring-primary"
+                                  className="h-4 w-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
                                 />
-                                <span className="text-sm text-gray-700 dark:text-gray-300">{group.name}</span>
+                                <div className={`w-2 h-2 rounded-full ${
+                                  formData.inviter_group_ids.includes(group.id) 
+                                    ? 'bg-indigo-500' 
+                                    : 'bg-gray-300 dark:bg-gray-500'
+                                }`}></div>
+                                <span className={`text-sm flex-1 ${
+                                  formData.inviter_group_ids.includes(group.id)
+                                    ? 'font-medium text-indigo-700 dark:text-indigo-300'
+                                    : 'text-gray-700 dark:text-gray-300'
+                                }`}>
+                                  {group.name}
+                                </span>
+                                {formData.inviter_group_ids.includes(group.id) && (
+                                  <CheckCircle className="w-4 h-4 text-indigo-500" />
+                                )}
                               </label>
                             ))}
                           </div>
                         )}
                       </div>
-                      {formErrors.inviter_group_ids && (
-                        <p className="mt-1 text-xs text-red-600">{formErrors.inviter_group_ids}</p>
+
+                      {/* Selection Summary */}
+                      {!formData.is_all_groups && formData.inviter_group_ids.length > 0 && (
+                        <p className="mt-2 text-xs text-indigo-600 dark:text-indigo-400 font-medium">
+                          {formData.inviter_group_ids.length} group{formData.inviter_group_ids.length !== 1 ? 's' : ''} selected
+                        </p>
                       )}
-                      <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                        Select which inviter groups can access this event
-                      </p>
+                      
+                      {formErrors.inviter_group_ids && (
+                        <p className="mt-1.5 text-xs text-red-600 dark:text-red-400 flex items-center gap-1">
+                          <XCircle className="w-3.5 h-3.5" />
+                          {formErrors.inviter_group_ids}
+                        </p>
+                      )}
                     </div>
                   )}
                 </div>

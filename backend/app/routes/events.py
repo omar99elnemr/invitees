@@ -66,6 +66,14 @@ def create_event():
         if field not in data:
             return jsonify({'error': f'{field} is required'}), 400
     
+    # Get is_all_groups flag
+    is_all_groups = data.get('is_all_groups', False)
+    
+    # Validate that either is_all_groups is True OR inviter_group_ids are provided
+    inviter_group_ids = data.get('inviter_group_ids', [])
+    if not is_all_groups and not inviter_group_ids:
+        return jsonify({'error': 'Either select "All Groups" or choose specific inviter groups'}), 400
+    
     event, error = EventService.create_event(
         name=data['name'],
         start_date=data['start_date'],
@@ -73,7 +81,8 @@ def create_event():
         venue=data.get('venue'),
         description=data.get('description'),
         created_by_user_id=current_user.id,
-        inviter_group_ids=data.get('inviter_group_ids', [])
+        inviter_group_ids=inviter_group_ids,
+        is_all_groups=is_all_groups
     )
     
     if error:
@@ -88,6 +97,10 @@ def update_event(event_id):
     """Update event information"""
     data = request.get_json()
     
+    # Get is_all_groups flag
+    is_all_groups = data.get('is_all_groups')
+    inviter_group_ids = data.get('inviter_group_ids')
+    
     event, error = EventService.update_event(
         event_id=event_id,
         name=data.get('name'),
@@ -96,7 +109,8 @@ def update_event(event_id):
         venue=data.get('venue'),
         description=data.get('description'),
         updated_by_user_id=current_user.id,
-        inviter_group_ids=data.get('inviter_group_ids')
+        inviter_group_ids=inviter_group_ids,
+        is_all_groups=is_all_groups
     )
     
     if error:

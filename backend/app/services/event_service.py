@@ -13,7 +13,7 @@ class EventService:
     """Service for event management operations"""
     
     @staticmethod
-    def create_event(name, start_date, end_date, venue, description, created_by_user_id, inviter_group_ids=None):
+    def create_event(name, start_date, end_date, venue, description, created_by_user_id, inviter_group_ids=None, is_all_groups=False):
         """
         Create a new event
         Returns (event, error_message)
@@ -36,13 +36,17 @@ class EventService:
             end_date=end_dt,
             venue=venue,
             description=description,
-            created_by_user_id=created_by_user_id
+            created_by_user_id=created_by_user_id,
+            is_all_groups=is_all_groups
         )
         
-        # Assign inviter groups if provided
-        if inviter_group_ids:
+        # Assign inviter groups only if not is_all_groups
+        if not is_all_groups and inviter_group_ids:
             groups = InviterGroup.query.filter(InviterGroup.id.in_(inviter_group_ids)).all()
             event.inviter_groups = groups
+        elif is_all_groups:
+            # Clear any specific group assignments when is_all_groups is True
+            event.inviter_groups = []
         
         # Set initial status based on dates
         event.update_status()
@@ -64,7 +68,7 @@ class EventService:
         return event, None
     
     @staticmethod
-    def update_event(event_id, name=None, start_date=None, end_date=None, venue=None, description=None, updated_by_user_id=None, inviter_group_ids=None):
+    def update_event(event_id, name=None, start_date=None, end_date=None, venue=None, description=None, updated_by_user_id=None, inviter_group_ids=None, is_all_groups=None):
         """
         Update event information
         Returns (event, error_message)
@@ -101,8 +105,15 @@ class EventService:
         if description is not None:
             event.description = description
         
-        # Update inviter groups if provided
-        if inviter_group_ids is not None:
+        # Update is_all_groups flag if provided
+        if is_all_groups is not None:
+            event.is_all_groups = is_all_groups
+            if is_all_groups:
+                # Clear specific group assignments when is_all_groups is True
+                event.inviter_groups = []
+        
+        # Update inviter groups if provided and not is_all_groups
+        if inviter_group_ids is not None and not event.is_all_groups:
             groups = InviterGroup.query.filter(InviterGroup.id.in_(inviter_group_ids)).all()
             event.inviter_groups = groups
         
