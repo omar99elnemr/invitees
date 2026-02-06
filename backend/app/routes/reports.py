@@ -221,7 +221,7 @@ def get_historical_data():
             'inviter_group_name': group.name if group else '',
             'status': ei.status,
             'status_date': ei.status_date.isoformat() if ei.status_date else (ei.created_at.isoformat() if ei.created_at else ''),
-            'category': ei.category.name if ei.category else '',
+            'category': ei.category_rel.name if ei.category_rel else '',
             'plus_one': ei.plus_one or 0
         })
     
