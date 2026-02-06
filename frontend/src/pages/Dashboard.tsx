@@ -298,19 +298,19 @@ function ApproverDashboard({ stats, events, recentActivity, navigate, user }: Da
 
       {/* Priority Alert */}
       {pendingCount > 0 && (
-        <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-4 flex items-center gap-4">
-          <div className="p-3 bg-amber-100 rounded-full">
-            <AlertCircle className="w-6 h-6 text-amber-600" />
+        <div className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/30 dark:to-orange-900/30 border border-amber-200 dark:border-amber-700 rounded-xl p-4 flex items-center gap-4">
+          <div className="p-3 bg-amber-100 dark:bg-amber-800/50 rounded-full">
+            <AlertCircle className="w-6 h-6 text-amber-600 dark:text-amber-400" />
           </div>
           <div className="flex-1">
-            <h3 className="font-semibold text-amber-900">Pending Approvals</h3>
-            <p className="text-amber-700 text-sm">
+            <h3 className="font-semibold text-amber-900 dark:text-amber-100">Pending Approvals</h3>
+            <p className="text-amber-700 dark:text-amber-300 text-sm">
               You have <span className="font-bold">{pendingCount}</span> invitation{pendingCount !== 1 ? 's' : ''} waiting for your review
             </p>
           </div>
           <button
             onClick={() => navigate('/approvals')}
-            className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg font-medium transition-colors"
+            className="px-4 py-2 bg-amber-500 hover:bg-amber-600 dark:bg-amber-600 dark:hover:bg-amber-500 text-white rounded-lg font-medium transition-colors"
           >
             Review Now
           </button>
