@@ -70,7 +70,7 @@ export default function ActionMenu({ children, disabled = false }: ActionMenuPro
         className={`p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
         disabled={disabled}
       >
-        <MoreVertical className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+        <MoreVertical className="w-5 h-5 text-gray-400 dark:text-gray-500" />
       </button>
 
       {isOpen &&

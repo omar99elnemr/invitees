@@ -736,7 +736,7 @@ export default function Events() {
                               setFormData({
                                 ...formData,
                                 is_all_groups: e.target.checked,
-                                inviter_group_ids: e.target.checked ? [] : formData.inviter_group_ids,
+                                inviter_group_ids: e.target.checked ? inviterGroups.map(g => g.id) : [],
                               });
                             }}
                             className="h-5 w-5 text-green-600 rounded border-gray-300 focus:ring-green-500"
@@ -782,6 +782,38 @@ export default function Events() {
                             <p className="text-sm text-gray-500 dark:text-gray-400">No inviter groups available</p>
                           </div>
                         ) : (
+                          <>
+                          {/* Select All / Deselect All toolbar */}
+                          <div className="flex items-center justify-between px-3 py-2 bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-600">
+                            <span className="text-xs text-gray-500 dark:text-gray-400">
+                              {formData.inviter_group_ids.length} of {inviterGroups.length} selected
+                            </span>
+                            <div className="flex gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setFormData({
+                                  ...formData,
+                                  inviter_group_ids: inviterGroups.map(g => g.id),
+                                })}
+                                disabled={formData.inviter_group_ids.length === inviterGroups.length}
+                                className="text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 disabled:opacity-40 disabled:cursor-default transition-colors"
+                              >
+                                Select All
+                              </button>
+                              <span className="text-gray-300 dark:text-gray-600">|</span>
+                              <button
+                                type="button"
+                                onClick={() => setFormData({
+                                  ...formData,
+                                  inviter_group_ids: [],
+                                })}
+                                disabled={formData.inviter_group_ids.length === 0}
+                                className="text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 disabled:opacity-40 disabled:cursor-default transition-colors"
+                              >
+                                Deselect All
+                              </button>
+                            </div>
+                          </div>
                           <div className="max-h-48 overflow-y-auto">
                             {inviterGroups.map((group, index) => (
                               <label 
@@ -829,6 +861,7 @@ export default function Events() {
                               </label>
                             ))}
                           </div>
+                          </>
                         )}
                       </div>
 

@@ -5,8 +5,6 @@ import {
   Clock,
   Users,
   Search,
-  Check,
-  X,
   ChevronLeft,
   ChevronRight,
   Calendar,
@@ -660,18 +658,18 @@ export default function Approvals() {
                               <button
                                 onClick={() => openQuickRejectModal(approval)}
                                 disabled={submitting}
-                                className="p-2 text-red-600 hover:bg-red-50 rounded-full transition-colors"
+                                className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-full transition-colors"
                                 title="Reject"
                               >
-                                <X className="w-5 h-5" />
+                                <XCircle className="w-5 h-5" />
                               </button>
                               <button
                                 onClick={() => quickApprove(approval.id)}
                                 disabled={submitting}
-                                className="p-2 text-green-600 hover:bg-green-50 rounded-full transition-colors"
+                                className="p-1 text-gray-400 hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30 rounded-full transition-colors"
                                 title="Approve"
                               >
-                                <Check className="w-5 h-5" />
+                                <CheckCircle className="w-5 h-5" />
                               </button>
                             </div>
                           </td>

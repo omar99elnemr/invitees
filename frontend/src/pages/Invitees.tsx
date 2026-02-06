@@ -1396,25 +1396,25 @@ export default function Invitees() {
                             <div className="flex justify-end gap-1">
                               <button
                                 onClick={() => handleViewHistory(contact)}
-                                className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+                                className="p-1 text-gray-400 hover:text-primary rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
                                 title="View History"
                               >
-                                <History className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                                <History className="w-5 h-5" />
                               </button>
                               <button
                                 onClick={() => openEditModal(contact)}
-                                className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+                                className="p-1 text-gray-400 hover:text-primary rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
                                 title="Edit"
                               >
-                                <Edit2 className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                                <Edit2 className="w-5 h-5" />
                               </button>
                               {isAdmin && (
                                 <button
                                   onClick={() => openDeleteModal(contact)}
-                                  className="p-1.5 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg"
+                                  className="p-1 text-gray-400 hover:text-red-600 rounded-full hover:bg-red-50 dark:hover:bg-red-900/30"
                                   title="Delete"
                                 >
-                                  <Trash2 className="w-4 h-4 text-red-500" />
+                                  <Trash2 className="w-5 h-5" />
                                 </button>
                               )}
                             </div>

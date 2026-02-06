@@ -28,8 +28,13 @@ export function ProtectedRoute({ children, roles }: ProtectedRouteProps) {
   if (roles && !hasRole(roles)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-8 max-w-md text-center border border-gray-200 dark:border-gray-700">
-          <h2 className="text-2xl font-bold text-danger mb-4">Access Denied</h2>
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-8 max-w-md text-center">
+          <div className="flex items-center justify-center w-16 h-16 mx-auto bg-red-100 dark:bg-red-900/30 rounded-full mb-4">
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-8 h-8 text-red-600 dark:text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+            </svg>
+          </div>
+          <h2 className="text-2xl font-bold text-red-600 dark:text-red-400 mb-4">Access Denied</h2>
           <p className="text-gray-600 dark:text-gray-400 mb-6">
             You don't have permission to access this page.
           </p>
@@ -38,7 +43,7 @@ export function ProtectedRoute({ children, roles }: ProtectedRouteProps) {
           </p>
           <button
             onClick={() => window.history.back()}
-            className="mt-6 btn btn-primary"
+            className="mt-6 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium transition-colors"
           >
             Go Back
           </button>

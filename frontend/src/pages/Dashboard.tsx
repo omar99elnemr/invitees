@@ -219,7 +219,7 @@ function AdminDashboard({ stats, events, recentActivity, navigate, user }: Dashb
             </div>
             {upcomingEvents.length === 0 ? (
               <div className="text-center py-12">
-                <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                <Calendar className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
                 <p className="text-gray-500 dark:text-gray-400">No active events</p>
                 <button
                   onClick={() => navigate('/events')}
@@ -303,8 +303,8 @@ function ApproverDashboard({ stats, events, recentActivity, navigate, user }: Da
             <AlertCircle className="w-6 h-6 text-amber-600 dark:text-amber-400" />
           </div>
           <div className="flex-1">
-            <h3 className="font-semibold text-amber-900 dark:text-amber-300">Pending Approvals</h3>
-            <p className="text-amber-700 dark:text-amber-400 text-sm">
+            <h3 className="font-semibold text-amber-900 dark:text-amber-200">Pending Approvals</h3>
+            <p className="text-amber-700 dark:text-amber-300 text-sm">
               You have <span className="font-bold">{pendingCount}</span> invitation{pendingCount !== 1 ? 's' : ''} waiting for your review
             </p>
           </div>
