@@ -798,8 +798,8 @@ export default function Invitees() {
             <button
               onClick={() => { setActiveTab('events'); sessionStorage.setItem('invitees_activeTab', 'events'); setSearchQuery(''); }}
               className={`flex items-center gap-2 px-4 sm:px-6 py-4 text-sm font-medium border-b-2 transition-all whitespace-nowrap ${activeTab === 'events'
-                ? 'border-indigo-600 text-indigo-600 bg-indigo-50/50'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                ? 'border-indigo-600 text-indigo-600 bg-indigo-50/50 dark:bg-indigo-900/20'
+                : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
                 }`}
             >
               <Calendar className="w-4 h-4" />
@@ -811,8 +811,8 @@ export default function Invitees() {
             <button
               onClick={() => { setActiveTab('contacts'); sessionStorage.setItem('invitees_activeTab', 'contacts'); setSearchQuery(''); setCurrentPage(1); }}
               className={`flex items-center gap-2 px-4 sm:px-6 py-4 text-sm font-medium border-b-2 transition-all whitespace-nowrap ${activeTab === 'contacts'
-                ? 'border-indigo-600 text-indigo-600 bg-indigo-50/50'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                ? 'border-indigo-600 text-indigo-600 bg-indigo-50/50 dark:bg-indigo-900/20'
+                : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
                 }`}
             >
               <Users className="w-4 h-4" />
@@ -909,11 +909,11 @@ export default function Invitees() {
                           toast.error('Only Directors and Admins can access pending approvals');
                         }
                       }}
-                      className="text-center hover:bg-yellow-50 p-2 rounded-lg transition-colors cursor-pointer"
+                      className="text-center hover:bg-yellow-50 dark:hover:bg-yellow-900/20 p-2 rounded-lg transition-colors cursor-pointer"
                       title="View pending approvals"
                     >
-                      <div className="text-2xl font-bold text-yellow-600">{pendingInvitees.length}</div>
-                      <div className="text-gray-500">Pending</div>
+                      <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-500">{pendingInvitees.length}</div>
+                      <div className="text-gray-500 dark:text-gray-400">Pending</div>
                     </button>
                     <button
                       onClick={() => {
@@ -923,24 +923,24 @@ export default function Invitees() {
                           toast.error('Only Directors and Admins can access approved invitees');
                         }
                       }}
-                      className="text-center hover:bg-green-50 p-2 rounded-lg transition-colors cursor-pointer"
+                      className="text-center hover:bg-green-50 dark:hover:bg-green-900/20 p-2 rounded-lg transition-colors cursor-pointer"
                       title="View approved invitees"
                     >
-                      <div className="text-2xl font-bold text-green-600">
+                      <div className="text-2xl font-bold text-green-600 dark:text-green-500">
                         {eventInvitees.filter(ei => ei.status === 'approved').length}
                       </div>
-                      <div className="text-gray-500">Approved</div>
+                      <div className="text-gray-500 dark:text-gray-400">Approved</div>
                     </button>
                     <button
                       onClick={() => {
                         setStatusFilter('rejected');
                         toast.success('Showing rejected contacts');
                       }}
-                      className="text-center hover:bg-red-50 p-2 rounded-lg transition-colors cursor-pointer"
+                      className="text-center hover:bg-red-50 dark:hover:bg-red-900/20 p-2 rounded-lg transition-colors cursor-pointer"
                       title="Filter to rejected contacts"
                     >
-                      <div className="text-2xl font-bold text-red-600">{rejectedInvitees.length}</div>
-                      <div className="text-gray-500">Rejected</div>
+                      <div className="text-2xl font-bold text-red-600 dark:text-red-500">{rejectedInvitees.length}</div>
+                      <div className="text-gray-500 dark:text-gray-400">Rejected</div>
                     </button>
                   </div>
                 </div>
@@ -950,8 +950,8 @@ export default function Invitees() {
 
               {/* Status Filter Badge */}
               {statusFilter !== 'all' && (
-                <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
-                  <span className="text-sm text-red-700">
+                <div className="flex items-center gap-2 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                  <span className="text-sm text-red-700 dark:text-red-400">
                     Showing: <strong>{statusFilter}</strong> contacts
                   </span>
                   <button
@@ -1069,7 +1069,7 @@ export default function Invitees() {
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
                   </div>
                 ) : filteredAvailableContacts.length === 0 ? (
-                  <div className="text-center py-12 text-gray-500">
+                  <div className="text-center py-12 text-gray-500 dark:text-gray-400">
                     <Users className="w-12 h-12 mx-auto mb-3 text-gray-300" />
                     <p className="font-medium">No contacts available</p>
                     <p className="text-sm">All contacts have been submitted or approved for this event</p>
@@ -1321,8 +1321,8 @@ export default function Invitees() {
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
               </div>
             ) : paginatedContacts.length === 0 ? (
-              <div className="text-center py-12 text-gray-500">
-                <Users className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+              <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+                <Users className="w-12 h-12 mx-auto mb-3 text-gray-300 dark:text-gray-600" />
                 <p className="font-medium">No contacts found</p>
                 {searchQuery && <p className="text-sm">Try adjusting your search</p>}
               </div>
@@ -1510,7 +1510,7 @@ export default function Invitees() {
                       value={formData.name}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                       placeholder="John Doe"
-                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent ${formErrors.name ? 'border-red-500' : 'border-gray-300'
+                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-700 dark:text-white ${formErrors.name ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
                         }`}
                     />
                     {formErrors.name && <p className="text-red-500 text-sm mt-1">{formErrors.name}</p>}
@@ -1525,7 +1525,7 @@ export default function Invitees() {
                       value={formData.email}
                       onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                       placeholder="john@email.com"
-                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent ${formErrors.email ? 'border-red-500' : 'border-gray-300'
+                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-700 dark:text-white ${formErrors.email ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
                         }`}
                     />
                     {formErrors.email && <p className="text-red-500 text-sm mt-1">{formErrors.email}</p>}
@@ -1542,7 +1542,7 @@ export default function Invitees() {
                       placeholder="201012345678"
                       //                      pattern="201[0-9]{9}"
                       maxLength={12}
-                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent ${formErrors.phone ? 'border-red-500' : 'border-gray-300'
+                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-700 dark:text-white ${formErrors.phone ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
                         }`}
                     />
                     {formErrors.phone && <p className="text-red-500 text-sm mt-1">{formErrors.phone}</p>}
@@ -1869,7 +1869,7 @@ export default function Invitees() {
               <div className="flex gap-3">
                 <button
                   onClick={() => { setShowDeleteContactModal(false); setSelectedContact(null); }}
-                  className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+                  className="flex-1 px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600"
                   disabled={submitting}
                 >
                   Cancel
@@ -1902,7 +1902,7 @@ export default function Invitees() {
               <div className="flex gap-3">
                 <button
                   onClick={() => setShowBulkDeleteModal(false)}
-                  className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+                  className="flex-1 px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600"
                   disabled={submitting}
                 >
                   Cancel
@@ -1950,8 +1950,8 @@ export default function Invitees() {
                   </div>
                 </div>
                 {(selectedContact.position || selectedContact.company) && (
-                  <div className="mt-3 pt-3 border-t border-gray-200">
-                    <p className="text-sm text-gray-600">
+                  <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
                       {selectedContact.position && <span>{selectedContact.position}</span>}
                       {selectedContact.position && selectedContact.company && <span> at </span>}
                       {selectedContact.company && <span className="font-medium">{selectedContact.company}</span>}
@@ -1968,8 +1968,8 @@ export default function Invitees() {
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
                 </div>
               ) : contactHistory.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  <Calendar className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+                <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                  <Calendar className="w-12 h-12 mx-auto mb-2 text-gray-300 dark:text-gray-600" />
                   <p>No event history found</p>
                 </div>
               ) : (
@@ -1992,12 +1992,12 @@ export default function Invitees() {
                         </span>
                       </div>
                       {eventInvitee.category && (
-                        <p className="text-sm text-gray-600 mt-2">Category: {eventInvitee.category}</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">Category: {eventInvitee.category}</p>
                       )}
                       {eventInvitee.status === 'rejected' && eventInvitee.approval_notes && (
-                        <div className="mt-2 p-2 bg-red-50 border border-red-100 rounded text-sm">
-                          <span className="text-red-600 font-medium">Rejection Note: </span>
-                          <span className="text-gray-700">{eventInvitee.approval_notes}</span>
+                        <div className="mt-2 p-2 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800 rounded text-sm">
+                          <span className="text-red-600 dark:text-red-400 font-medium">Rejection Note: </span>
+                          <span className="text-gray-700 dark:text-gray-300">{eventInvitee.approval_notes}</span>
                         </div>
                       )}
                     </div>
@@ -2008,7 +2008,7 @@ export default function Invitees() {
               <div className="mt-6">
                 <button
                   onClick={() => { setShowHistoryModal(false); setSelectedContact(null); setContactHistory([]); }}
-                  className="w-full px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+                  className="w-full px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600"
                 >
                   Close
                 </button>

@@ -545,7 +545,7 @@ export default function Reports() {
       {/* Filters */}
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
         <div className="flex items-center gap-2 mb-4">
-          <Filter className="w-5 h-5 text-gray-500" />
+          <Filter className="w-5 h-5 text-gray-500 dark:text-gray-400" />
           <h2 className="font-medium text-gray-900 dark:text-white">Filters</h2>
         </div>
 
@@ -874,7 +874,7 @@ export default function Reports() {
                                     <User className="w-4 h-4 text-gray-400" />
                                     <span className="text-sm text-gray-900 dark:text-white">{item.inviter_name}</span>
                                     {item.inviter_group_name && (
-                                      <span className="text-xs text-gray-500">({item.inviter_group_name})</span>
+                                      <span className="text-xs text-gray-500 dark:text-gray-400">({item.inviter_group_name})</span>
                                     )}
                                   </>
                                 ) : (
@@ -1031,7 +1031,7 @@ export default function Reports() {
                         <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                           <td className="px-2 py-2 max-w-[140px]">
                             <div className="truncate text-sm font-medium text-gray-900 dark:text-white" title={item.invitee_name}>{item.invitee_name}</div>
-                            <div className="truncate text-xs text-gray-500" title={item.invitee_email}>{item.invitee_email}</div>
+                            <div className="truncate text-xs text-gray-500 dark:text-gray-400" title={item.invitee_email}>{item.invitee_email}</div>
                           </td>
                           <td className="px-2 py-2 text-sm text-gray-900 dark:text-white max-w-[100px] truncate" title={item.event_name}>
                             {item.event_name}
@@ -1039,7 +1039,7 @@ export default function Reports() {
                           <td className="px-2 py-2 max-w-[120px]">
                             <div className="truncate text-sm text-gray-900 dark:text-white" title={item.inviter_name}>{item.inviter_name}</div>
                             {item.inviter_group_name && (
-                              <div className="truncate text-xs text-gray-500" title={item.inviter_group_name}>{item.inviter_group_name}</div>
+                              <div className="truncate text-xs text-gray-500 dark:text-gray-400" title={item.inviter_group_name}>{item.inviter_group_name}</div>
                             )}
                           </td>
                           <td className="px-2 py-2 text-sm text-gray-500 dark:text-gray-400 max-w-[80px] truncate" title={item.category || ''}>

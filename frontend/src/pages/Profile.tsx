@@ -167,7 +167,7 @@ export default function Profile() {
             </div>
 
             <div className="flex items-center gap-3 p-4 bg-gradient-to-br from-gray-50 to-gray-100/50 dark:from-gray-700 dark:to-gray-700/50 rounded-xl border border-gray-100 dark:border-gray-600">
-              <Building className="w-5 h-5 text-gray-500" />
+              <Building className="w-5 h-5 text-gray-500 dark:text-gray-400" />
               <div>
                 <p className="text-xs text-gray-500 dark:text-gray-400">Inviter Group</p>
                 <p className="font-medium text-gray-900 dark:text-white">{user?.inviter_group_name || '—'}</p>

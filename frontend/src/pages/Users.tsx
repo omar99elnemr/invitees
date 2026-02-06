@@ -701,7 +701,7 @@ export default function Users() {
                       </div>
                       <div className="ml-4">
                         <div className="text-sm font-medium text-gray-900 dark:text-white">{user.full_name || user.username}</div>
-                        <div className="text-sm text-gray-500 flex items-center gap-1">
+                        <div className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1">
                           <Mail className="w-3 h-3" />
                           {user.email}
                         </div>
@@ -716,7 +716,7 @@ export default function Users() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     {user.inviter_group_name ? (
-                      <div className="flex items-center gap-1 text-sm text-gray-600">
+                      <div className="flex items-center gap-1 text-sm text-gray-600 dark:text-gray-400">
                         <Building className="w-4 h-4" />
                         {user.inviter_group_name}
                       </div>
@@ -1904,8 +1904,8 @@ export default function Users() {
                 if (groupInviters.length === 0) {
                   return (
                     <div className="text-center py-8">
-                      <UserCog className="mx-auto h-10 w-10 text-gray-400" />
-                      <p className="mt-2 text-sm text-gray-500">No inviters in this group</p>
+                      <UserCog className="mx-auto h-10 w-10 text-gray-400 dark:text-gray-500" />
+                      <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">No inviters in this group</p>
                     </div>
                   );
                 }
@@ -1920,7 +1920,7 @@ export default function Users() {
                           </div>
                           <div>
                             <div className="text-sm font-medium text-gray-900 dark:text-white">{inviter.name}</div>
-                            <div className="text-xs text-gray-500">
+                            <div className="text-xs text-gray-500 dark:text-gray-400">
                               {inviter.email || inviter.phone || inviter.position || 'No contact info'}
                             </div>
                           </div>
@@ -1933,7 +1933,7 @@ export default function Users() {
                         <div className="flex items-center gap-1">
                           <button
                             onClick={() => openInviterModal(inviter)}
-                            className="p-1.5 text-gray-400 hover:text-primary rounded-full hover:bg-white"
+                            className="p-1.5 text-gray-400 hover:text-primary rounded-full hover:bg-white dark:hover:bg-gray-600"
                             title="Edit"
                           >
                             <Edit2 className="w-4 h-4" />
@@ -2017,8 +2017,8 @@ export default function Users() {
                 if (groupMembers.length === 0) {
                   return (
                     <div className="text-center py-8">
-                      <UsersIcon className="mx-auto h-10 w-10 text-gray-400" />
-                      <p className="mt-2 text-sm text-gray-500">No members in this group</p>
+                      <UsersIcon className="mx-auto h-10 w-10 text-gray-400 dark:text-gray-500" />
+                      <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">No members in this group</p>
                     </div>
                   );
                 }
@@ -2035,7 +2035,7 @@ export default function Users() {
                           </div>
                           <div>
                             <div className="text-sm font-medium text-gray-900 dark:text-white">{member.full_name || member.username}</div>
-                            <div className="text-xs text-gray-500">@{member.username}</div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400">@{member.username}</div>
                           </div>
                           <span className={`ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getRoleBadge(member.role)}`}>
                             {member.role.charAt(0).toUpperCase() + member.role.slice(1)}
@@ -2047,7 +2047,7 @@ export default function Users() {
                             setSelectedGroupForDetail(null);
                             openEditModal(member);
                           }}
-                          className="p-1.5 text-gray-400 hover:text-primary rounded-full hover:bg-white"
+                          className="p-1.5 text-gray-400 hover:text-primary rounded-full hover:bg-white dark:hover:bg-gray-600"
                           title="Edit User"
                         >
                           <Edit2 className="w-4 h-4" />

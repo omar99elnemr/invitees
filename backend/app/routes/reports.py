@@ -138,3 +138,113 @@ def get_activity_users():
         'role': u.role,
         'inviter_group': u.inviter_group.name if u.inviter_group else None
     } for u in users]), 200
+
+
+@reports_bp.route('/historical', methods=['GET'])
+@login_required
+@admin_required
+def get_historical_data():
+    """
+    Report 6: Historical Data
+    Shows all event invitees with their status history
+    """
+    from app.models.event_invitee import EventInvitee
+    from app.models.invitee import Invitee
+    from app.models.event import Event
+    from app.models.inviter import Inviter
+    from app.models.inviter_group import InviterGroup
+    
+    # Get filter parameters
+    event_filter = request.args.get('event', '')
+    inviter_filter = request.args.get('inviter', '')
+    group_filter = request.args.get('group', '')
+    status_filter = request.args.get('status', '')
+    search_query = request.args.get('search', '')
+    
+    # Build query
+    query = db.session.query(
+        EventInvitee,
+        Invitee,
+        Event,
+        Inviter,
+        InviterGroup
+    ).join(
+        Invitee, EventInvitee.invitee_id == Invitee.id
+    ).join(
+        Event, EventInvitee.event_id == Event.id
+    ).outerjoin(
+        Inviter, EventInvitee.inviter_id == Inviter.id
+    ).outerjoin(
+        InviterGroup, Invitee.inviter_group_id == InviterGroup.id
+    )
+    
+    # Apply filters
+    if event_filter:
+        query = query.filter(Event.name.ilike(f'%{event_filter}%'))
+    
+    if inviter_filter:
+        query = query.filter(Inviter.name.ilike(f'%{inviter_filter}%'))
+    
+    if group_filter:
+        query = query.filter(InviterGroup.name.ilike(f'%{group_filter}%'))
+    
+    if status_filter:
+        query = query.filter(EventInvitee.status == status_filter)
+    
+    if search_query:
+        search_term = f'%{search_query}%'
+        query = query.filter(
+            db.or_(
+                Invitee.name.ilike(search_term),
+                Invitee.email.ilike(search_term),
+                Invitee.phone.ilike(search_term),
+                Event.name.ilike(search_term),
+                Inviter.name.ilike(search_term)
+            )
+        )
+    
+    # Order by most recent first
+    query = query.order_by(EventInvitee.status_date.desc().nullsfirst(), EventInvitee.created_at.desc())
+    
+    # Limit to prevent performance issues
+    results = query.limit(1000).all()
+    
+    historical_data = []
+    for ei, invitee, event, inviter, group in results:
+        historical_data.append({
+            'id': ei.id,
+            'event_name': event.name if event else 'Unknown',
+            'invitee_name': invitee.name if invitee else 'Unknown',
+            'invitee_email': invitee.email if invitee else '',
+            'position': invitee.position if invitee else '',
+            'inviter_name': inviter.name if inviter else 'Unknown',
+            'inviter_group_name': group.name if group else '',
+            'status': ei.status,
+            'status_date': ei.status_date.isoformat() if ei.status_date else (ei.created_at.isoformat() if ei.created_at else ''),
+            'category': ei.category.name if ei.category else '',
+            'plus_one': ei.plus_one or 0
+        })
+    
+    return jsonify(historical_data), 200
+
+
+@reports_bp.route('/historical/filters', methods=['GET'])
+@login_required
+@admin_required
+def get_historical_filters():
+    """
+    Get filter options for historical data report
+    """
+    from app.models.event import Event
+    from app.models.inviter import Inviter
+    from app.models.inviter_group import InviterGroup
+    
+    events = Event.query.order_by(Event.name).all()
+    inviters = Inviter.query.filter(Inviter.is_active == True).order_by(Inviter.name).all()
+    groups = InviterGroup.query.order_by(InviterGroup.name).all()
+    
+    return jsonify({
+        'events': [e.name for e in events],
+        'inviters': [i.name for i in inviters],
+        'groups': [g.name for g in groups]
+    }), 200

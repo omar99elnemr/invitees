@@ -572,7 +572,7 @@ export default function Events() {
 
                 {/* Description */}
                 {event.description && (
-                  <p className="mt-4 text-sm text-gray-500 line-clamp-2">
+                  <p className="mt-4 text-sm text-gray-500 dark:text-gray-400 line-clamp-2">
                     {event.description}
                   </p>
                 )}
@@ -1025,7 +1025,7 @@ export default function Events() {
                           onClick={() => copyToClipboard(pinInfo.code, 'Event code')}
                           className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
                         >
-                          <Copy className="w-4 h-4 text-gray-500" />
+                          <Copy className="w-4 h-4 text-gray-500 dark:text-gray-400" />
                         </button>
                       </div>
                     </div>
@@ -1039,7 +1039,7 @@ export default function Events() {
                           onClick={() => copyToClipboard(pinInfo.pin, 'PIN')}
                           className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
                         >
-                          <Copy className="w-4 h-4 text-gray-500" />
+                          <Copy className="w-4 h-4 text-gray-500 dark:text-gray-400" />
                         </button>
                       </div>
                     </div>
@@ -1062,7 +1062,7 @@ export default function Events() {
                           onClick={() => copyToClipboard(`${window.location.origin}/checkin/${pinInfo.code}`, 'Check-in URL')}
                           className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
                         >
-                          <Copy className="w-4 h-4 text-gray-500" />
+                          <Copy className="w-4 h-4 text-gray-500 dark:text-gray-400" />
                         </button>
                         <a
                           href={`/checkin/${pinInfo.code}`}
@@ -1090,7 +1090,7 @@ export default function Events() {
                           onClick={() => copyToClipboard(`${window.location.origin}/live/${pinInfo.code}`, 'Live Dashboard URL')}
                           className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
                         >
-                          <Copy className="w-4 h-4 text-gray-500" />
+                          <Copy className="w-4 h-4 text-gray-500 dark:text-gray-400" />
                         </button>
                         <a
                           href={`/live/${pinInfo.code}`}

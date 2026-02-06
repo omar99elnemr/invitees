@@ -254,7 +254,7 @@ function AdminDashboard({ stats, events, recentActivity, navigate, user }: Dashb
           </button>
         </div>
         {recentActivity.length === 0 ? (
-          <p className="text-gray-500 text-center py-8">No recent activity</p>
+          <p className="text-gray-500 dark:text-gray-400 text-center py-8">No recent activity</p>
         ) : (
           <div className="space-y-3">
             {recentActivity.slice(0, 5).map((activity, index) => (
@@ -406,8 +406,8 @@ function ApproverDashboard({ stats, events, recentActivity, navigate, user }: Da
             </div>
             {recentActivity.length === 0 ? (
               <div className="text-center py-12">
-                <ClipboardCheck className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                <p className="text-gray-500">No recent decisions</p>
+                <ClipboardCheck className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+                <p className="text-gray-500 dark:text-gray-400">No recent decisions</p>
               </div>
             ) : (
               <div className="space-y-3">
@@ -569,8 +569,8 @@ function InviterDashboard({ stats, events, recentActivity, navigate, user, showE
             </div>
             {events.length === 0 ? (
               <div className="text-center py-12">
-                <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                <p className="text-gray-500">No events assigned to you yet</p>
+                <Calendar className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+                <p className="text-gray-500 dark:text-gray-400">No events assigned to you yet</p>
                 <p className="text-sm text-gray-400 mt-1">Contact your administrator to get assigned to events</p>
               </div>
             ) : (
@@ -594,8 +594,8 @@ function InviterDashboard({ stats, events, recentActivity, navigate, user, showE
         </div>
         {recentActivity.length === 0 ? (
           <div className="text-center py-8">
-            <Send className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-            <p className="text-gray-500">No recent submissions</p>
+            <Send className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+            <p className="text-gray-500 dark:text-gray-400">No recent submissions</p>
             <button
               onClick={() => navigate('/invitees')}
               className="mt-3 text-sm text-indigo-600 hover:text-indigo-700 font-medium"
