@@ -146,7 +146,7 @@ const CategoryManager: React.FC<CategoryManagerProps> = ({ isOpen, onClose, onUp
                     <div className="bg-white dark:bg-gray-800 px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                         <div className="flex justify-between items-start mb-4">
                             <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white">Manage Categories</h3>
-                            <button onClick={onClose} className="text-gray-400 hover:text-gray-500">
+                            <button onClick={onClose} className="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300">
                                 <X className="h-6 w-6" />
                             </button>
                         </div>
@@ -333,7 +333,7 @@ const CategoryRow: React.FC<CategoryRowProps> = ({
                         }}
                     />
                     <button onClick={onSave} className="ml-2 text-green-600 hover:text-green-700"><Check className="h-4 w-4" /></button>
-                    <button onClick={onCancelEdit} className="ml-1 text-gray-400 hover:text-gray-500"><X className="h-4 w-4" /></button>
+                    <button onClick={onCancelEdit} className="ml-1 text-gray-400 hover:text-gray-500 dark:hover:text-gray-300"><X className="h-4 w-4" /></button>
                 </div>
             ) : (
                 <span className={clsx("text-sm font-medium dark:text-white", !category.is_active && "text-gray-500 dark:text-gray-400 line-through")}>

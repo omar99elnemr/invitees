@@ -67,7 +67,7 @@ export default function ActionMenu({ children, disabled = false }: ActionMenuPro
       <button
         ref={buttonRef}
         onClick={() => !disabled && setIsOpen(!isOpen)}
-        className={`p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+        className={`p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
         disabled={disabled}
       >
         <MoreVertical className="w-5 h-5 text-gray-500 dark:text-gray-400" />

@@ -1396,25 +1396,25 @@ export default function Invitees() {
                             <div className="flex justify-end gap-1">
                               <button
                                 onClick={() => handleViewHistory(contact)}
-                                className="p-1.5 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 rounded-full hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors"
+                                className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
                                 title="View History"
                               >
-                                <History className="w-4 h-4" />
+                                <History className="w-4 h-4 text-gray-500 dark:text-gray-400" />
                               </button>
                               <button
                                 onClick={() => openEditModal(contact)}
-                                className="p-1.5 text-gray-400 hover:text-primary rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
                                 title="Edit"
                               >
-                                <Edit2 className="w-4 h-4" />
+                                <Edit2 className="w-4 h-4 text-gray-500 dark:text-gray-400" />
                               </button>
                               {isAdmin && (
                                 <button
                                   onClick={() => openDeleteModal(contact)}
-                                  className="p-1.5 text-gray-400 hover:text-red-600 rounded-full hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors"
+                                  className="p-1.5 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg"
                                   title="Delete"
                                 >
-                                  <Trash2 className="w-4 h-4" />
+                                  <Trash2 className="w-4 h-4 text-red-500" />
                                 </button>
                               )}
                             </div>
