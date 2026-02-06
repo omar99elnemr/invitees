@@ -624,7 +624,7 @@ export default function Attendance() {
                               {attendee.checked_in && (
                                 <button
                                   onClick={() => handleUndoCheckIn(attendee.id)}
-                                  className="p-1.5 text-gray-400 hover:text-red-600 rounded-full hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors"
+                                  className="p-1 text-gray-400 hover:text-red-600 rounded"
                                   title="Undo Check-in"
                                 >
                                   <Undo2 className="w-4 h-4" />

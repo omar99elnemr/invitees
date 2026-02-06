@@ -912,7 +912,7 @@ export default function Users() {
                           <div className="flex items-center justify-end gap-2">
                             <button
                               onClick={() => openGroupModal(group)}
-                              className="p-1 text-gray-400 hover:text-primary rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                              className="p-1 text-gray-400 hover:text-primary rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
                               title="Edit"
                             >
                               <Edit2 className="w-5 h-5" />
@@ -922,7 +922,7 @@ export default function Users() {
                                 setSelectedGroup(group);
                                 setShowDeleteGroupModal(true);
                               }}
-                              className="p-1 text-gray-400 hover:text-red-600 rounded-full hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors"
+                              className="p-1 text-gray-400 hover:text-red-600 rounded-full hover:bg-red-50 dark:hover:bg-red-900/30"
                               title="Delete"
                             >
                               <Trash2 className="w-5 h-5" />
@@ -1065,7 +1065,7 @@ export default function Users() {
                                   });
                                   setShowInviterModal(true);
                                 }}
-                                className="p-1 text-gray-400 hover:text-primary rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                className="p-1 text-gray-400 hover:text-primary rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
                                 title="Edit"
                               >
                                 <Edit2 className="w-5 h-5" />
@@ -1075,7 +1075,7 @@ export default function Users() {
                                   setSelectedInviter(inviter);
                                   setShowDeleteInviterModal(true);
                                 }}
-                                className="p-1 text-gray-400 hover:text-red-600 rounded-full hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors"
+                                className="p-1 text-gray-400 hover:text-red-600 rounded-full hover:bg-red-50 dark:hover:bg-red-900/30"
                                 title="Delete"
                               >
                                 <Trash2 className="w-5 h-5" />

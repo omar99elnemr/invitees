@@ -140,37 +140,13 @@ def get_activity_users():
     } for u in users]), 200
 
 
-# =============================================================================
-# IMPORTANT: HISTORICAL DATA - LEGACY SYSTEM (DO NOT MODIFY)
-# =============================================================================
-# The historical_invitees table contains ~5866 records from a previous system.
-# This is READ-ONLY archival data, completely separate from the current system.
-# 
-# Table: historical_invitees
-# Columns: id, event_name, invitee_name, position, inviter_name, 
-#          inviter_group_name, status, status_date, created_at
-#
-# DO NOT:
-# - Join this with current system tables (events, invitees, event_invitees, etc.)
-# - Modify or delete records from this table
-# - Replace this implementation with queries against current system tables
-#
-# This endpoint must ONLY query the historical_invitees table directly.
-# =============================================================================
-
 @reports_bp.route('/historical', methods=['GET'])
 @login_required
 @admin_required
 def get_historical_data():
     """
-    Report 6: Historical Data - LEGACY SYSTEM
-    
-    IMPORTANT: This reads from the historical_invitees table which contains
-    ~5866 records from the OLD system. This is completely separate from the
-    current event_invitees table. DO NOT change this to query current tables.
-    
-    The historical_invitees table is a standalone archive table with no
-    foreign key relationships to the current system.
+    Report 6: Historical Data
+    Read-only legacy data from historical_invitees table (5800+ records from old system)
     """
     from sqlalchemy import text
     
@@ -181,7 +157,7 @@ def get_historical_data():
     status_filter = request.args.get('status', '')
     search_query = request.args.get('search', '')
     
-    # IMPORTANT: Query the historical_invitees table directly - NOT event_invitees!
+    # Build query against historical_invitees table
     base_query = "SELECT id, event_name, invitee_name, position, inviter_name, inviter_group_name, status, status_date, created_at FROM historical_invitees WHERE 1=1"
     params = {}
     

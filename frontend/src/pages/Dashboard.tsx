@@ -303,8 +303,8 @@ function ApproverDashboard({ stats, events, recentActivity, navigate, user }: Da
             <AlertCircle className="w-6 h-6 text-amber-600 dark:text-amber-400" />
           </div>
           <div className="flex-1">
-            <h3 className="font-semibold text-amber-900 dark:text-amber-100">Pending Approvals</h3>
-            <p className="text-amber-700 dark:text-amber-300 text-sm">
+            <h3 className="font-semibold text-amber-900 dark:text-amber-300">Pending Approvals</h3>
+            <p className="text-amber-700 dark:text-amber-400 text-sm">
               You have <span className="font-bold">{pendingCount}</span> invitation{pendingCount !== 1 ? 's' : ''} waiting for your review
             </p>
           </div>
