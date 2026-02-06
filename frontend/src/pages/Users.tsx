@@ -7,8 +7,6 @@ import {
   ShieldOff,
   Key,
   X,
-  ChevronLeft,
-  ChevronRight,
   Shield,
   Users as UsersIcon,
   Building,
@@ -26,6 +24,8 @@ import { useAuth } from '../context/AuthContext';
 import type { User, InviterGroup, Inviter, UserFormData } from '../types';
 import toast from 'react-hot-toast';
 import ActionMenu, { ActionMenuItem } from '../components/common/ActionMenu';
+import TablePagination from '../components/common/TablePagination';
+import SortableColumnHeader, { applySorting, type SortDirection } from '../components/common/SortableColumnHeader';
 import { formatDateTimeEgypt, formatDateEgypt } from '../utils/formatters';
 
 export default function Users() {
@@ -81,7 +81,32 @@ export default function Users() {
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [itemsPerPage, setItemsPerPage] = useState(20);
+  const [groupsPage, setGroupsPage] = useState(1);
+  const [groupsPerPage, setGroupsPerPage] = useState(20);
+  const [invitersPage, setInvitersPage] = useState(1);
+  const [invitersPerPage, setInvitersPerPage] = useState(20);
+
+  // Sorting
+  const [sortField, setSortField] = useState<string | null>(null);
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+  const [groupsSortField, setGroupsSortField] = useState<string | null>(null);
+  const [groupsSortDirection, setGroupsSortDirection] = useState<SortDirection>('asc');
+  const [invitersSortField, setInvitersSortField] = useState<string | null>(null);
+  const [invitersSortDirection, setInvitersSortDirection] = useState<SortDirection>('asc');
+
+  const handleSort = (field: string) => {
+    setSortDirection(sortField === field && sortDirection === 'asc' ? 'desc' : 'asc');
+    setSortField(field);
+  };
+  const handleGroupsSort = (field: string) => {
+    setGroupsSortDirection(groupsSortField === field && groupsSortDirection === 'asc' ? 'desc' : 'asc');
+    setGroupsSortField(field);
+  };
+  const handleInvitersSort = (field: string) => {
+    setInvitersSortDirection(invitersSortField === field && invitersSortDirection === 'asc' ? 'desc' : 'asc');
+    setInvitersSortField(field);
+  };
 
   // Form state
   const [formData, setFormData] = useState<UserFormData>({
@@ -123,7 +148,7 @@ export default function Users() {
   };
 
   // Filter users
-  const filteredUsers = users.filter(user => {
+  const filteredUsers = applySorting(users.filter(user => {
     const matchesSearch =
       user.username?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       user.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -134,10 +159,9 @@ export default function Users() {
       (statusFilter === 'active' && user.is_active) ||
       (statusFilter === 'inactive' && !user.is_active);
     return matchesSearch && matchesRole && matchesStatus;
-  });
+  }), sortField, sortDirection);
 
   // Pagination
-  const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
   const paginatedUsers = filteredUsers.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
@@ -462,7 +486,7 @@ export default function Users() {
   }
 
   // Compute filtered inviters for the Inviters tab
-  const filteredInviters = inviters.filter(inv => {
+  const filteredInviters = applySorting(inviters.filter(inv => {
     if (inviterGroupFilter === 'unassigned' && inv.inviter_group_id) return false;
     if (inviterGroupFilter !== 'all' && inviterGroupFilter !== 'unassigned' && inv.inviter_group_id !== parseInt(inviterGroupFilter)) return false;
     const searchMatch = inviterSearchQuery === '' || 
@@ -470,7 +494,11 @@ export default function Users() {
       inv.email?.toLowerCase().includes(inviterSearchQuery.toLowerCase()) ||
       inv.position?.toLowerCase().includes(inviterSearchQuery.toLowerCase());
     return searchMatch;
-  });
+  }), invitersSortField, invitersSortDirection);
+  const paginatedInviters = filteredInviters.slice(
+    (invitersPage - 1) * invitersPerPage,
+    invitersPage * invitersPerPage
+  );
   const filteredInviterIds = filteredInviters.map(inv => inv.id);
   const allInvitersSelected = filteredInviters.length > 0 && filteredInviterIds.every(id => selectedInviterIds.includes(id));
 
@@ -641,27 +669,17 @@ export default function Users() {
 
         <select
           value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
+          onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
           className="px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white dark:bg-gray-800 dark:text-white shadow-sm"
         >
           <option value="all">All Status</option>
           <option value="active">Active</option>
           <option value="inactive">Inactive</option>
         </select>
-
-        <select
-          value={itemsPerPage}
-          onChange={(e) => {
-            setItemsPerPage(Number(e.target.value));
-            setCurrentPage(1);
-          }}
-          className="px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white dark:bg-gray-800 dark:text-white shadow-sm"
-        >
-          <option value={20}>20 / page</option>
-          <option value={50}>50 / page</option>
-          <option value={100}>100 / page</option>
-        </select>
       </div>
+
+      {/* Result count */}
+      <p className="text-sm text-gray-500 dark:text-gray-400">{filteredUsers.length} user{filteredUsers.length !== 1 ? 's' : ''} found</p>
 
       {/* Users Table */}
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
@@ -669,24 +687,12 @@ export default function Users() {
           <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
             <thead className="bg-gray-50 dark:bg-gray-700">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  User
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Role
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Group
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Last Login
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Actions
-                </th>
+                <SortableColumnHeader field="full_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>User</SortableColumnHeader>
+                <SortableColumnHeader field="role" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Role</SortableColumnHeader>
+                <SortableColumnHeader field="inviter_group_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Group</SortableColumnHeader>
+                <SortableColumnHeader field="is_active" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Status</SortableColumnHeader>
+                <SortableColumnHeader field="last_login" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Last Login</SortableColumnHeader>
+                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
@@ -779,40 +785,13 @@ export default function Users() {
           </table>
         </div>
 
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="bg-white dark:bg-gray-800 px-4 py-3 flex items-center justify-between border-t border-gray-200 dark:border-gray-700 sm:px-6">
-            <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-              <div>
-                <p className="text-sm text-gray-700 dark:text-gray-300">
-                  Showing <span className="font-medium">{(currentPage - 1) * itemsPerPage + 1}</span> to{' '}
-                  <span className="font-medium">
-                    {Math.min(currentPage * itemsPerPage, filteredUsers.length)}
-                  </span>{' '}
-                  of <span className="font-medium">{filteredUsers.length}</span> results
-                </p>
-              </div>
-              <div>
-                <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
-                  <button
-                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                    disabled={currentPage === 1}
-                    className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
-                  >
-                    <ChevronLeft className="h-5 w-5" />
-                  </button>
-                  <button
-                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                    disabled={currentPage === totalPages}
-                    className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
-                  >
-                    <ChevronRight className="h-5 w-5" />
-                  </button>
-                </nav>
-              </div>
-            </div>
-          </div>
-        )}
+        <TablePagination
+          currentPage={currentPage}
+          totalItems={filteredUsers.length}
+          itemsPerPage={itemsPerPage}
+          onPageChange={setCurrentPage}
+          onItemsPerPageChange={(size) => { setItemsPerPage(size); setCurrentPage(1); }}
+        />
       </div>
         </>
       )}
@@ -836,32 +815,23 @@ export default function Users() {
               </button>
             </div>
           ) : (
+            <>
+            {/* Groups result count */}
+            <p className="px-4 py-2 text-sm text-gray-500 dark:text-gray-400 border-b dark:border-gray-700">{inviterGroups.length} group{inviterGroups.length !== 1 ? 's' : ''} found</p>
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                 <thead className="bg-gray-50 dark:bg-gray-700">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Group Name
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Description
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Inviters
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Members
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Created
-                    </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Actions
-                    </th>
+                    <SortableColumnHeader field="name" sortField={groupsSortField} sortDirection={groupsSortDirection} onSort={handleGroupsSort}>Group Name</SortableColumnHeader>
+                    <SortableColumnHeader field="description" sortField={groupsSortField} sortDirection={groupsSortDirection} onSort={handleGroupsSort}>Description</SortableColumnHeader>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Inviters</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Members</th>
+                    <SortableColumnHeader field="created_at" sortField={groupsSortField} sortDirection={groupsSortDirection} onSort={handleGroupsSort}>Created</SortableColumnHeader>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                  {inviterGroups.map((group) => {
+                  {applySorting(inviterGroups, groupsSortField, groupsSortDirection).slice((groupsPage - 1) * groupsPerPage, groupsPage * groupsPerPage).map((group) => {
                     const memberCount = users.filter(u => u.inviter_group_id === group.id).length;
                     const inviterCount = inviters.filter(i => i.inviter_group_id === group.id).length;
                     return (
@@ -935,6 +905,14 @@ export default function Users() {
                 </tbody>
               </table>
             </div>
+            <TablePagination
+              currentPage={groupsPage}
+              totalItems={inviterGroups.length}
+              itemsPerPage={groupsPerPage}
+              onPageChange={setGroupsPage}
+              onItemsPerPageChange={(size) => { setGroupsPerPage(size); setGroupsPage(1); }}
+            />
+            </>
           )}
         </div>
       )}
@@ -1001,6 +979,9 @@ export default function Users() {
               <p>No inviters found</p>
             </div>
           ) : (
+            <>
+            {/* Inviters result count */}
+            <p className="px-4 py-2 text-sm text-gray-500 dark:text-gray-400 border-b dark:border-gray-700">{filteredInviters.length} inviter{filteredInviters.length !== 1 ? 's' : ''} found</p>
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-gray-50 dark:bg-gray-700">
@@ -1013,17 +994,17 @@ export default function Users() {
                         className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
                       />
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Name</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Email</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Phone</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Position</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Group</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Status</th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Actions</th>
+                    <SortableColumnHeader field="name" sortField={invitersSortField} sortDirection={invitersSortDirection} onSort={handleInvitersSort}>Name</SortableColumnHeader>
+                    <SortableColumnHeader field="email" sortField={invitersSortField} sortDirection={invitersSortDirection} onSort={handleInvitersSort}>Email</SortableColumnHeader>
+                    <SortableColumnHeader field="phone" sortField={invitersSortField} sortDirection={invitersSortDirection} onSort={handleInvitersSort}>Phone</SortableColumnHeader>
+                    <SortableColumnHeader field="position" sortField={invitersSortField} sortDirection={invitersSortDirection} onSort={handleInvitersSort}>Position</SortableColumnHeader>
+                    <SortableColumnHeader field="inviter_group_id" sortField={invitersSortField} sortDirection={invitersSortDirection} onSort={handleInvitersSort}>Group</SortableColumnHeader>
+                    <SortableColumnHeader field="is_active" sortField={invitersSortField} sortDirection={invitersSortDirection} onSort={handleInvitersSort}>Status</SortableColumnHeader>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                  {filteredInviters.map(inviter => {
+                  {paginatedInviters.map(inviter => {
                       const group = inviterGroups.find(g => g.id === inviter.inviter_group_id);
                       return (
                         <tr key={inviter.id} className={`hover:bg-gray-50 dark:hover:bg-gray-700 ${selectedInviterIds.includes(inviter.id) ? 'bg-red-50 dark:bg-red-900/20' : ''}`}>
@@ -1088,6 +1069,14 @@ export default function Users() {
                 </tbody>
               </table>
             </div>
+            <TablePagination
+              currentPage={invitersPage}
+              totalItems={filteredInviters.length}
+              itemsPerPage={invitersPerPage}
+              onPageChange={setInvitersPage}
+              onItemsPerPageChange={(size) => { setInvitersPerPage(size); setInvitersPage(1); }}
+            />
+            </>
           )}
         </div>
       )}

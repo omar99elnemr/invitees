@@ -5,16 +5,16 @@ import {
   Clock,
   Users,
   Search,
-  ChevronLeft,
-  ChevronRight,
   Calendar,
   Building,
   User,
-} from 'lucide-react'; // keep all other imports except Filter
+} from 'lucide-react';
 import { approvalsAPI, eventsAPI, inviterGroupsAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import type { Event, EventInvitee, InviterGroup } from '../types';
 import toast from 'react-hot-toast';
+import TablePagination from '../components/common/TablePagination';
+import SortableColumnHeader, { applySorting, type SortDirection } from '../components/common/SortableColumnHeader';
 import { formatDateEgypt, formatDateTimeEgypt } from '../utils/formatters';
 
 export default function Approvals() {
@@ -55,32 +55,13 @@ export default function Approvals() {
 
   // Sorting state
   const [sortField, setSortField] = useState<string | null>(null);
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
 
   // Handle sort
   const handleSort = (field: string) => {
-    if (sortField === field) {
-      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortField(field);
-      setSortDirection('asc');
-    }
+    setSortDirection(sortField === field && sortDirection === 'asc' ? 'desc' : 'asc');
+    setSortField(field);
   };
-
-  // Sortable header component
-  const SortableHeader = ({ field, children, className = '' }: { field: string; children: React.ReactNode; className?: string }) => (
-    <th
-      className={`px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 select-none ${className}`}
-      onClick={() => handleSort(field)}
-    >
-      <div className="flex items-center gap-1">
-        {children}
-        {sortField === field && (
-          <span className="text-primary">{sortDirection === 'asc' ? '↑' : '↓'}</span>
-        )}
-      </div>
-    </th>
-  );
 
   // Check permissions
   const canApprove = user?.role === 'admin' || user?.role === 'director';
@@ -116,22 +97,6 @@ export default function Approvals() {
     }
   };
 
-  // Sort helper function
-  const applySorting = <T extends Record<string, any>>(items: T[]): T[] => {
-    if (!sortField) return items;
-    return [...items].sort((a, b) => {
-      let aVal = a[sortField] || '';
-      let bVal = b[sortField] || '';
-      
-      if (typeof aVal === 'string') aVal = aVal.toLowerCase();
-      if (typeof bVal === 'string') bVal = bVal.toLowerCase();
-      
-      if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
-      if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
-      return 0;
-    });
-  };
-
   // Get unique categories from approvals
   const uniqueCategories = [...new Set([
     ...pendingApprovals.map(a => a.category).filter(Boolean),
@@ -148,7 +113,7 @@ export default function Approvals() {
     const matchesGroup = groupFilter === 'all' || approval.inviter_group_name === groupFilter;
     const matchesCategory = categoryFilter === 'all' || approval.category === categoryFilter;
     return matchesSearch && matchesEvent && matchesGroup && matchesCategory;
-  }));
+  }), sortField, sortDirection);
 
   // Filter approved invitees
   const filteredApproved = applySorting(approvedInvitees.filter(invitee => {
@@ -160,10 +125,9 @@ export default function Approvals() {
     const matchesGroup = groupFilter === 'all' || invitee.inviter_group_name === groupFilter;
     const matchesCategory = categoryFilter === 'all' || invitee.category === categoryFilter;
     return matchesSearch && matchesEvent && matchesGroup && matchesCategory;
-  }));
+  }), sortField, sortDirection);
 
   // Pagination
-  const totalPages = Math.ceil(filteredApprovals.length / itemsPerPage);
   const paginatedApprovals = filteredApprovals.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
@@ -547,18 +511,6 @@ export default function Approvals() {
           ))}
         </select>
 
-        <select
-          value={itemsPerPage}
-          onChange={(e) => {
-            setItemsPerPage(Number(e.target.value));
-            setCurrentPage(1);
-          }}
-          className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-800 dark:text-white"
-        >
-          <option value={20}>20 / page</option>
-          <option value={50}>50 / page</option>
-          <option value={100}>100 / page</option>
-        </select>
       </div>
 
       {/* Pending Tab Content */}
@@ -587,10 +539,10 @@ export default function Approvals() {
                           className="rounded border-gray-300 text-primary focus:ring-primary"
                         />
                       </th>
-                      <SortableHeader field="invitee_name">Invitee</SortableHeader>
-                      <SortableHeader field="event_name">Event</SortableHeader>
-                      <SortableHeader field="inviter_name">Invited By</SortableHeader>
-                      <SortableHeader field="created_at">Date</SortableHeader>
+                      <SortableColumnHeader field="invitee_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Invitee</SortableColumnHeader>
+                      <SortableColumnHeader field="event_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Event</SortableColumnHeader>
+                      <SortableColumnHeader field="inviter_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Invited By</SortableColumnHeader>
+                      <SortableColumnHeader field="created_at" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Date</SortableColumnHeader>
                       {!isAdmin && (
                         <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                           Actions
@@ -680,40 +632,13 @@ export default function Approvals() {
                 </table>
               </div>
 
-              {/* Pagination */}
-              {totalPages > 1 && (
-                <div className="bg-white dark:bg-gray-800 px-4 py-3 flex items-center justify-between border-t border-gray-200 dark:border-gray-700 sm:px-6">
-                  <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-                    <div>
-                      <p className="text-sm text-gray-700 dark:text-gray-300">
-                        Showing <span className="font-medium">{(currentPage - 1) * itemsPerPage + 1}</span> to{' '}
-                        <span className="font-medium">
-                          {Math.min(currentPage * itemsPerPage, filteredApprovals.length)}
-                        </span>{' '}
-                        of <span className="font-medium">{filteredApprovals.length}</span> results
-                      </p>
-                    </div>
-                    <div>
-                      <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
-                        <button
-                          onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                          disabled={currentPage === 1}
-                          className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
-                        >
-                          <ChevronLeft className="h-5 w-5" />
-                        </button>
-                        <button
-                          onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                          disabled={currentPage === totalPages}
-                          className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
-                        >
-                          <ChevronRight className="h-5 w-5" />
-                        </button>
-                      </nav>
-                    </div>
-                  </div>
-                </div>
-              )}
+              <TablePagination
+                currentPage={currentPage}
+                totalItems={filteredApprovals.length}
+                itemsPerPage={itemsPerPage}
+                onPageChange={setCurrentPage}
+                onItemsPerPageChange={(size) => { setItemsPerPage(size); setCurrentPage(1); }}
+              />
             </div>
           )}
         </>
@@ -744,11 +669,11 @@ export default function Approvals() {
                           className="rounded border-gray-300 text-primary focus:ring-primary"
                         />
                       </th>
-                      <SortableHeader field="invitee_name">Invitee</SortableHeader>
-                      <SortableHeader field="event_name">Event</SortableHeader>
-                      <SortableHeader field="inviter_name">Inviter</SortableHeader>
-                      <SortableHeader field="category">Category</SortableHeader>
-                      <SortableHeader field="approved_by_name">Approved By</SortableHeader>
+                      <SortableColumnHeader field="invitee_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Invitee</SortableColumnHeader>
+                      <SortableColumnHeader field="event_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Event</SortableColumnHeader>
+                      <SortableColumnHeader field="inviter_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Inviter</SortableColumnHeader>
+                      <SortableColumnHeader field="category" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Category</SortableColumnHeader>
+                      <SortableColumnHeader field="approved_by_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Approved By</SortableColumnHeader>
                       {!isAdmin && (
                         <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                           Actions
@@ -825,6 +750,13 @@ export default function Approvals() {
                   </tbody>
                 </table>
               </div>
+              <TablePagination
+                currentPage={currentPage}
+                totalItems={filteredApproved.length}
+                itemsPerPage={itemsPerPage}
+                onPageChange={setCurrentPage}
+                onItemsPerPageChange={(size) => { setItemsPerPage(size); setCurrentPage(1); }}
+              />
             </div>
           )}
         </>

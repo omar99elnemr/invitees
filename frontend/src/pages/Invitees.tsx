@@ -16,8 +16,6 @@ import {
   Download,
   X,
   UserCheck,
-  ChevronLeft,
-  ChevronRight,
   XCircle,
   History,
 } from 'lucide-react';
@@ -26,6 +24,8 @@ import { useAuth } from '../context/AuthContext';
 import { eventsAPI, inviteesAPI, invitersAPI, importAPI, categoriesAPI, inviterGroupsAPI } from '../services/api';
 import type { Event, EventInvitee, Inviter, InviteeWithStats, InviteeFormData, Category, InviterGroup } from '../types';
 import CategoryManager from '../components/categories/CategoryManager';
+import TablePagination from '../components/common/TablePagination';
+import SortableColumnHeader, { applySorting, type SortDirection } from '../components/common/SortableColumnHeader';
 import { formatDateEgypt } from '../utils/formatters';
 
 // Status display helpers
@@ -144,32 +144,13 @@ export default function Invitees() {
 
   // Sorting state
   const [sortField, setSortField] = useState<string | null>(null);
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
 
   // Handle sort
   const handleSort = (field: string) => {
-    if (sortField === field) {
-      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortField(field);
-      setSortDirection('asc');
-    }
+    setSortDirection(sortField === field && sortDirection === 'asc' ? 'desc' : 'asc');
+    setSortField(field);
   };
-
-  // Sortable header component
-  const SortableHeader = ({ field, children, className = '' }: { field: string; children: React.ReactNode; className?: string }) => (
-    <th
-      className={`px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 select-none ${className}`}
-      onClick={() => handleSort(field)}
-    >
-      <div className="flex items-center gap-1">
-        {children}
-        {sortField === field && (
-          <span className="text-primary">{sortDirection === 'asc' ? '↑' : '↓'}</span>
-        )}
-      </div>
-    </th>
-  );
 
   // Fetch events (assigned to user's inviter group)
   const fetchEvents = useCallback(async () => {
@@ -308,28 +289,7 @@ export default function Invitees() {
       return matchesSearch && matchesInviter && matchesCategory && matchesGroup;
     });
 
-    // Apply sorting
-    if (sortField) {
-      result = [...result].sort((a, b) => {
-        let aVal = (a as any)[sortField] || '';
-        let bVal = (b as any)[sortField] || '';
-        
-        // Handle special fields
-        if (sortField === 'inviter_name') {
-          aVal = a.inviter_name || '';
-          bVal = b.inviter_name || '';
-        }
-        
-        if (typeof aVal === 'string') aVal = aVal.toLowerCase();
-        if (typeof bVal === 'string') bVal = bVal.toLowerCase();
-        
-        if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
-        if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
-        return 0;
-      });
-    }
-
-    return result;
+    return applySorting(result, sortField, sortDirection);
   }, [contacts, searchQuery, sortField, sortDirection, inviterFilter, categoryFilter, groupFilter]);
 
   // Filter available contacts by search, status, inviter, and category
@@ -369,22 +329,7 @@ export default function Invitees() {
       });
     }
     
-    // Apply sorting
-    if (sortField) {
-      result = [...result].sort((a, b) => {
-        let aVal = (a as any)[sortField] || '';
-        let bVal = (b as any)[sortField] || '';
-        
-        if (typeof aVal === 'string') aVal = aVal.toLowerCase();
-        if (typeof bVal === 'string') bVal = bVal.toLowerCase();
-        
-        if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
-        if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
-        return 0;
-      });
-    }
-    
-    return result;
+    return applySorting(result, sortField, sortDirection);
   }, [availableContacts, searchQuery, statusFilter, rejectedInvitees, contacts, sortField, sortDirection, eventInviterFilter, eventCategoryFilter]);
 
   // Paginate
@@ -1087,12 +1032,12 @@ export default function Invitees() {
                               className="rounded border-gray-300 text-primary focus:ring-primary"
                             />
                           </th>
-                          <SortableHeader field="name">Name</SortableHeader>
-                          <SortableHeader field="inviter_name">Inviter</SortableHeader>
-                          <SortableHeader field="category">Category</SortableHeader>
-                          <SortableHeader field="plus_one">Guests</SortableHeader>
-                          <SortableHeader field="position">Position</SortableHeader>
-                          <SortableHeader field="company">Company</SortableHeader>
+                          <SortableColumnHeader field="name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Name</SortableColumnHeader>
+                          <SortableColumnHeader field="inviter_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Inviter</SortableColumnHeader>
+                          <SortableColumnHeader field="category" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Category</SortableColumnHeader>
+                          <SortableColumnHeader field="plus_one" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Guests</SortableColumnHeader>
+                          <SortableColumnHeader field="position" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Position</SortableColumnHeader>
+                          <SortableColumnHeader field="company" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Company</SortableColumnHeader>
                           {!isAdmin && (
                             <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Action</th>
                           )}
@@ -1258,18 +1203,6 @@ export default function Invitees() {
                   <option key={cat.id} value={cat.name}>{cat.name}</option>
                 ))}
               </select>
-              <select
-                value={itemsPerPage}
-                onChange={(e) => {
-                  setItemsPerPage(Number(e.target.value));
-                  setCurrentPage(1);
-                }}
-                className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-800 dark:text-white text-sm"
-              >
-                <option value={20}>20 / page</option>
-                <option value={50}>50 / page</option>
-                <option value={100}>100 / page</option>
-              </select>
             </div>
             <div className="flex gap-2">
               {isAdmin && (
@@ -1340,12 +1273,12 @@ export default function Invitees() {
                             className="rounded border-gray-300 text-primary focus:ring-primary"
                           />
                         </th>
-                        <SortableHeader field="name">Name</SortableHeader>
-                        <SortableHeader field="inviter_name">Inviter</SortableHeader>
-                        <SortableHeader field="category">Category</SortableHeader>
-                        <SortableHeader field="plus_one">Guests</SortableHeader>
-                        <SortableHeader field="position">Position</SortableHeader>
-                        <SortableHeader field="company">Company</SortableHeader>
+                        <SortableColumnHeader field="name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Name</SortableColumnHeader>
+                        <SortableColumnHeader field="inviter_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Inviter</SortableColumnHeader>
+                        <SortableColumnHeader field="category" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Category</SortableColumnHeader>
+                        <SortableColumnHeader field="plus_one" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Guests</SortableColumnHeader>
+                        <SortableColumnHeader field="position" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Position</SortableColumnHeader>
+                        <SortableColumnHeader field="company" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Company</SortableColumnHeader>
                         <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Events</th>
                         <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Actions</th>
                       </tr>
@@ -1425,33 +1358,13 @@ export default function Invitees() {
                   </table>
                 </div>
 
-                {/* Pagination */}
-                {totalPages > 1 && (
-                  <div className="px-4 py-3 border-t dark:border-gray-700 flex items-center justify-between">
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                      Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, filteredContacts.length)} of {filteredContacts.length}
-                    </p>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                        disabled={currentPage === 1}
-                        className="p-2 border dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed dark:text-gray-300"
-                      >
-                        <ChevronLeft className="w-4 h-4" />
-                      </button>
-                      <span className="px-3 py-2 text-sm dark:text-gray-300">
-                        Page {currentPage} of {totalPages}
-                      </span>
-                      <button
-                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                        disabled={currentPage === totalPages}
-                        className="p-2 border dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed dark:text-gray-300"
-                      >
-                        <ChevronRight className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                )}
+                <TablePagination
+                  currentPage={currentPage}
+                  totalItems={filteredContacts.length}
+                  itemsPerPage={itemsPerPage}
+                  onPageChange={setCurrentPage}
+                  onItemsPerPageChange={(size) => { setItemsPerPage(size); setCurrentPage(1); }}
+                />
               </>
             )}
           </div>

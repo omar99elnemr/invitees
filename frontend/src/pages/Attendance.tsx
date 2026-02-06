@@ -11,8 +11,6 @@ import {
   Mail,
   MessageSquare,
   FileText,
-  ChevronLeft,
-  ChevronRight,
   Ticket,
   Calendar,
   MapPin,
@@ -22,6 +20,8 @@ import { attendanceAPI, AttendanceStats, AttendanceFilters } from '../services/a
 import type { Event, EventInvitee } from '../types';
 import toast from 'react-hot-toast';
 import { exportToExcel, exportToPDF, exportToCSV } from '../utils/exportHelpers';
+import TablePagination from '../components/common/TablePagination';
+import SortableColumnHeader, { applySorting, type SortDirection } from '../components/common/SortableColumnHeader';
 import { formatDateEgypt, formatTimeEgypt } from '../utils/formatters';
 
 export default function Attendance() {
@@ -56,7 +56,15 @@ export default function Attendance() {
   
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 20;
+  const [itemsPerPage, setItemsPerPage] = useState(20);
+
+  // Sorting
+  const [sortField, setSortField] = useState<string | null>(null);
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+  const handleSort = (field: string) => {
+    setSortDirection(sortField === field && sortDirection === 'asc' ? 'desc' : 'asc');
+    setSortField(field);
+  };
 
   // Load events on mount
   useEffect(() => {
@@ -218,9 +226,9 @@ export default function Attendance() {
     setSelectedIds(newSelection);
   };
 
-  // Pagination
-  const totalPages = Math.ceil(attendees.length / itemsPerPage);
-  const paginatedAttendees = attendees.slice(
+  // Sort + Paginate
+  const sortedAttendees = applySorting(attendees, sortField, sortDirection);
+  const paginatedAttendees = sortedAttendees.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
@@ -556,12 +564,12 @@ export default function Attendance() {
                             className="rounded border-gray-300 text-primary focus:ring-primary"
                           />
                         </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Name</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Code</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Category</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Status</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Guests</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Inviter</th>
+                        <SortableColumnHeader field="invitee_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Name</SortableColumnHeader>
+                        <SortableColumnHeader field="attendance_code" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Code</SortableColumnHeader>
+                        <SortableColumnHeader field="category" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Category</SortableColumnHeader>
+                        <SortableColumnHeader field="status" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Status</SortableColumnHeader>
+                        <SortableColumnHeader field="plus_one" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Guests</SortableColumnHeader>
+                        <SortableColumnHeader field="inviter_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Inviter</SortableColumnHeader>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Actions</th>
                       </tr>
                     </thead>
@@ -638,30 +646,13 @@ export default function Attendance() {
                   </table>
                 </div>
                 
-                {/* Pagination */}
-                {totalPages > 1 && (
-                  <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                      Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, attendees.length)} of {attendees.length}
-                    </p>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                        disabled={currentPage === 1}
-                        className="p-2 border border-gray-300 dark:border-gray-600 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700 dark:text-gray-300"
-                      >
-                        <ChevronLeft className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                        disabled={currentPage === totalPages}
-                        className="p-2 border border-gray-300 dark:border-gray-600 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700 dark:text-gray-300"
-                      >
-                        <ChevronRight className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                )}
+                <TablePagination
+                  currentPage={currentPage}
+                  totalItems={attendees.length}
+                  itemsPerPage={itemsPerPage}
+                  onPageChange={setCurrentPage}
+                  onItemsPerPageChange={(size) => { setItemsPerPage(size); setCurrentPage(1); }}
+                />
               </div>
             </div>
           )}

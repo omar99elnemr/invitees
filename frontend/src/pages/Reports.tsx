@@ -23,6 +23,7 @@ import { reportsAPI, eventsAPI, inviterGroupsAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import type { Event, InviterGroup, EventInvitee } from '../types';
 import { exportToCSV, exportToExcel, exportToPDF } from '../utils/exportHelpers';
+import TablePagination from '../components/common/TablePagination';
 import { formatDateTimeEgypt, formatDateEgypt } from '../utils/formatters';
 import toast from 'react-hot-toast';
 
@@ -929,24 +930,9 @@ export default function Reports() {
             </div>
           ) : (
             <>
-              {/* Pagination Controls - Top */}
-              <div className="px-4 py-3 bg-gray-50 dark:bg-gray-700 border-b dark:border-gray-600 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-600 dark:text-gray-400">Show</span>
-                  <select
-                    value={detailPageSize}
-                    onChange={(e) => { setDetailPageSize(Number(e.target.value)); setDetailPage(1); }}
-                    className="px-2 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm bg-white dark:bg-gray-800 dark:text-white"
-                  >
-                    <option value={20}>20</option>
-                    <option value={50}>50</option>
-                    <option value={100}>100</option>
-                  </select>
-                  <span className="text-sm text-gray-600 dark:text-gray-400">entries</span>
-                </div>
-                <div className="text-sm text-gray-600 dark:text-gray-400">
-                  Total: {detailData.length} record(s)
-                </div>
+              {/* Result count */}
+              <div className="px-4 py-2 bg-gray-50 dark:bg-gray-700 border-b dark:border-gray-600">
+                <p className="text-sm text-gray-600 dark:text-gray-400">{detailData.length} record{detailData.length !== 1 ? 's' : ''} found</p>
               </div>
 
               <div className="overflow-x-auto">
@@ -1109,45 +1095,13 @@ export default function Reports() {
                 </table>
               </div>
 
-              {/* Pagination Controls - Bottom */}
-              <div className="px-4 py-3 bg-gray-50 dark:bg-gray-700 border-t dark:border-gray-600 flex items-center justify-between">
-                <div className="text-sm text-gray-600 dark:text-gray-400">
-                  Showing {Math.min((detailPage - 1) * detailPageSize + 1, detailData.length)} to {Math.min(detailPage * detailPageSize, detailData.length)} of {detailData.length}
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setDetailPage(1)}
-                    disabled={detailPage === 1}
-                    className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm disabled:opacity-50 hover:bg-gray-100 dark:hover:bg-gray-600 dark:text-white"
-                  >
-                    First
-                  </button>
-                  <button
-                    onClick={() => setDetailPage(p => Math.max(1, p - 1))}
-                    disabled={detailPage === 1}
-                    className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm disabled:opacity-50 hover:bg-gray-100 dark:hover:bg-gray-600 dark:text-white"
-                  >
-                    Previous
-                  </button>
-                  <span className="px-3 py-1 text-sm text-gray-600 dark:text-gray-400">
-                    Page {detailPage} of {Math.ceil(detailData.length / detailPageSize)}
-                  </span>
-                  <button
-                    onClick={() => setDetailPage(p => Math.min(Math.ceil(detailData.length / detailPageSize), p + 1))}
-                    disabled={detailPage >= Math.ceil(detailData.length / detailPageSize)}
-                    className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm disabled:opacity-50 hover:bg-gray-100 dark:hover:bg-gray-600 dark:text-white"
-                  >
-                    Next
-                  </button>
-                  <button
-                    onClick={() => setDetailPage(Math.ceil(detailData.length / detailPageSize))}
-                    disabled={detailPage >= Math.ceil(detailData.length / detailPageSize)}
-                    className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm disabled:opacity-50 hover:bg-gray-100 dark:hover:bg-gray-600 dark:text-white"
-                  >
-                    Last
-                  </button>
-                </div>
-              </div>
+              <TablePagination
+                currentPage={detailPage}
+                totalItems={detailData.length}
+                itemsPerPage={detailPageSize}
+                onPageChange={setDetailPage}
+                onItemsPerPageChange={(size) => { setDetailPageSize(size); setDetailPage(1); }}
+              />
             </>
           )}
         </div>
@@ -1166,24 +1120,9 @@ export default function Reports() {
             </div>
           ) : (
             <>
-              {/* Pagination Controls - Top */}
-              <div className="px-4 py-3 bg-gray-50 dark:bg-gray-700 border-b dark:border-gray-600 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-600 dark:text-gray-400">Show</span>
-                  <select
-                    value={activityPageSize}
-                    onChange={(e) => { setActivityPageSize(Number(e.target.value)); setActivityPage(1); }}
-                    className="px-2 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm bg-white dark:bg-gray-800 dark:text-white"
-                  >
-                    <option value={20}>20</option>
-                    <option value={50}>50</option>
-                    <option value={100}>100</option>
-                  </select>
-                  <span className="text-sm text-gray-600 dark:text-gray-400">entries</span>
-                </div>
-                <div className="text-sm text-gray-600 dark:text-gray-400">
-                  Total: {activityData.length} record(s)
-                </div>
+              {/* Result count */}
+              <div className="px-4 py-2 bg-gray-50 dark:bg-gray-700 border-b dark:border-gray-600">
+                <p className="text-sm text-gray-600 dark:text-gray-400">{activityData.length} record{activityData.length !== 1 ? 's' : ''} found</p>
               </div>
 
               <div className="overflow-x-auto">
@@ -1293,45 +1232,13 @@ export default function Reports() {
                 </table>
               </div>
 
-              {/* Pagination Controls - Bottom */}
-              <div className="px-4 py-3 bg-gray-50 dark:bg-gray-700 border-t dark:border-gray-600 flex items-center justify-between">
-                <div className="text-sm text-gray-600 dark:text-gray-400">
-                  Showing {Math.min((activityPage - 1) * activityPageSize + 1, activityData.length)} to {Math.min(activityPage * activityPageSize, activityData.length)} of {activityData.length}
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setActivityPage(1)}
-                    disabled={activityPage === 1}
-                    className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm disabled:opacity-50 hover:bg-gray-100 dark:hover:bg-gray-600 dark:text-white"
-                  >
-                    First
-                  </button>
-                  <button
-                    onClick={() => setActivityPage(p => Math.max(1, p - 1))}
-                    disabled={activityPage === 1}
-                    className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm disabled:opacity-50 hover:bg-gray-100 dark:hover:bg-gray-600 dark:text-white"
-                  >
-                    Previous
-                  </button>
-                  <span className="px-3 py-1 text-sm text-gray-600 dark:text-gray-400">
-                    Page {activityPage} of {Math.ceil(activityData.length / activityPageSize)}
-                  </span>
-                  <button
-                    onClick={() => setActivityPage(p => Math.min(Math.ceil(activityData.length / activityPageSize), p + 1))}
-                    disabled={activityPage >= Math.ceil(activityData.length / activityPageSize)}
-                    className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm disabled:opacity-50 hover:bg-gray-100 dark:hover:bg-gray-600 dark:text-white"
-                  >
-                    Next
-                  </button>
-                  <button
-                    onClick={() => setActivityPage(Math.ceil(activityData.length / activityPageSize))}
-                    disabled={activityPage >= Math.ceil(activityData.length / activityPageSize)}
-                    className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm disabled:opacity-50 hover:bg-gray-100 dark:hover:bg-gray-600 dark:text-white"
-                  >
-                    Last
-                  </button>
-                </div>
-              </div>
+              <TablePagination
+                currentPage={activityPage}
+                totalItems={activityData.length}
+                itemsPerPage={activityPageSize}
+                onPageChange={setActivityPage}
+                onItemsPerPageChange={(size) => { setActivityPageSize(size); setActivityPage(1); }}
+              />
             </>
           )}
         </div>
@@ -1350,24 +1257,9 @@ export default function Reports() {
             </div>
           ) : (
             <>
-              {/* Pagination Controls - Top */}
-              <div className="px-4 py-3 bg-gray-50 dark:bg-gray-700 border-b dark:border-gray-600 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-600 dark:text-gray-400">Show</span>
-                  <select
-                    value={historicalPageSize}
-                    onChange={(e) => { setHistoricalPageSize(Number(e.target.value)); setHistoricalPage(1); }}
-                    className="px-2 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm bg-white dark:bg-gray-800 dark:text-white"
-                  >
-                    <option value={20}>20</option>
-                    <option value={50}>50</option>
-                    <option value={100}>100</option>
-                  </select>
-                  <span className="text-sm text-gray-600 dark:text-gray-400">entries</span>
-                </div>
-                <div className="text-sm text-gray-600 dark:text-gray-400">
-                  Total: {historicalData.length} record(s)
-                </div>
+              {/* Result count */}
+              <div className="px-4 py-2 bg-gray-50 dark:bg-gray-700 border-b dark:border-gray-600">
+                <p className="text-sm text-gray-600 dark:text-gray-400">{historicalData.length} record{historicalData.length !== 1 ? 's' : ''} found</p>
               </div>
 
               <div className="overflow-x-auto">
@@ -1459,45 +1351,13 @@ export default function Reports() {
                 </table>
               </div>
 
-              {/* Pagination Controls - Bottom */}
-              <div className="px-4 py-3 bg-gray-50 dark:bg-gray-700 border-t dark:border-gray-600 flex items-center justify-between">
-                <div className="text-sm text-gray-600 dark:text-gray-400">
-                  Showing {Math.min((historicalPage - 1) * historicalPageSize + 1, historicalData.length)} to {Math.min(historicalPage * historicalPageSize, historicalData.length)} of {historicalData.length}
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setHistoricalPage(1)}
-                    disabled={historicalPage === 1}
-                    className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm disabled:opacity-50 hover:bg-gray-100 dark:hover:bg-gray-600 dark:text-white"
-                  >
-                    First
-                  </button>
-                  <button
-                    onClick={() => setHistoricalPage(p => Math.max(1, p - 1))}
-                    disabled={historicalPage === 1}
-                    className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm disabled:opacity-50 hover:bg-gray-100 dark:hover:bg-gray-600 dark:text-white"
-                  >
-                    Previous
-                  </button>
-                  <span className="px-3 py-1 text-sm text-gray-600 dark:text-gray-400">
-                    Page {historicalPage} of {Math.ceil(historicalData.length / historicalPageSize)}
-                  </span>
-                  <button
-                    onClick={() => setHistoricalPage(p => Math.min(Math.ceil(historicalData.length / historicalPageSize), p + 1))}
-                    disabled={historicalPage >= Math.ceil(historicalData.length / historicalPageSize)}
-                    className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm disabled:opacity-50 hover:bg-gray-100 dark:hover:bg-gray-600 dark:text-white"
-                  >
-                    Next
-                  </button>
-                  <button
-                    onClick={() => setHistoricalPage(Math.ceil(historicalData.length / historicalPageSize))}
-                    disabled={historicalPage >= Math.ceil(historicalData.length / historicalPageSize)}
-                    className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm disabled:opacity-50 hover:bg-gray-100 dark:hover:bg-gray-600 dark:text-white"
-                  >
-                    Last
-                  </button>
-                </div>
-              </div>
+              <TablePagination
+                currentPage={historicalPage}
+                totalItems={historicalData.length}
+                itemsPerPage={historicalPageSize}
+                onPageChange={setHistoricalPage}
+                onItemsPerPageChange={(size) => { setHistoricalPageSize(size); setHistoricalPage(1); }}
+              />
             </>
           )}
         </div>
