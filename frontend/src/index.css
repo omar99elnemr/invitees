@@ -8,7 +8,7 @@
   }
   
   body {
-    @apply bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-gray-100 transition-colors duration-200;
+    @apply bg-gray-100/80 text-gray-900 dark:bg-gray-900 dark:text-gray-100 transition-colors duration-200;
   }
 
   /* Dark mode text colors */
@@ -51,16 +51,16 @@
   }
   
   .card {
-    @apply bg-white rounded-lg shadow p-6 dark:bg-gray-800 dark:border-gray-700;
+    @apply bg-white rounded-lg shadow-sm ring-1 ring-gray-200/60 p-6 dark:bg-gray-800 dark:ring-0 dark:border-gray-700 dark:shadow;
   }
   
   .stat-card {
-    @apply bg-white rounded-lg shadow p-6 hover:shadow-md transition-shadow duration-200 dark:bg-gray-800 dark:border-gray-700;
+    @apply bg-white rounded-lg shadow-sm ring-1 ring-gray-200/60 p-6 hover:shadow-md transition-all duration-200 dark:bg-gray-800 dark:ring-0 dark:border-gray-700 dark:shadow;
   }
 
   /* Dark mode utility classes for common patterns */
   .dark-card {
-    @apply bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700;
+    @apply bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700;
   }
 
   .dark-text {
@@ -76,12 +76,14 @@
   }
 
   .dark-hover {
-    @apply hover:bg-gray-50 dark:hover:bg-gray-700;
+    @apply hover:bg-gray-100/70 dark:hover:bg-gray-700;
   }
 
   .dark-border {
     @apply border-gray-200 dark:border-gray-700;
   }
+
+  /* (light-theme table polish is applied via plain CSS below) */
 
   /* React-Select dark mode styles */
   .dark .react-select__control {
@@ -145,4 +147,34 @@
   .card {
     @apply shadow-none border;
   }
+}
+
+/* ── Light-theme enhancements (class-based dark mode) ── */
+
+/* Zebra-striped table rows — light mode only */
+html:not(.dark) tbody tr:nth-child(even) {
+  background-color: rgba(249, 250, 251, 0.7); /* gray-50 at 70% */
+}
+
+/* Stronger row hover in light mode */
+html:not(.dark) tbody tr:hover {
+  background-color: rgba(238, 242, 255, 0.55) !important; /* indigo-50 at 55% */
+}
+
+/* Give light-mode table wrappers a subtle ring for depth */
+html:not(.dark) .overflow-x-auto {
+  border-radius: 0.5rem;
+}
+
+/* Light-mode cards & panels: subtle outer ring for definition */
+html:not(.dark) .rounded-xl.shadow-sm.border.border-gray-100 {
+  border-color: rgb(229, 231, 235); /* gray-200 */
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.06), 0 1px 2px -1px rgba(0, 0, 0, 0.06);
+}
+
+/* Better focus ring for inputs in light mode */
+html:not(.dark) input:focus,
+html:not(.dark) select:focus,
+html:not(.dark) textarea:focus {
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
 }

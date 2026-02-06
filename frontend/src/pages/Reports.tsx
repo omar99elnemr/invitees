@@ -488,7 +488,7 @@ export default function Reports() {
   if (!canViewReports) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center p-8 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 max-w-md">
+        <div className="text-center p-8 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 max-w-md">
           <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
             <FileText className="h-8 w-8 text-red-500 dark:text-red-400" />
           </div>
@@ -525,7 +525,7 @@ export default function Reports() {
             className={`group p-4 rounded-xl border text-left transition-all hover:-translate-y-0.5 ${
               activeReport === report.id
                 ? 'border-indigo-300 dark:border-indigo-600 bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/30 dark:to-purple-900/30 shadow-md'
-                : 'border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-gray-200 dark:hover:border-gray-600 hover:shadow-sm'
+                : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-gray-200 dark:hover:border-gray-600 hover:shadow-sm'
             }`}
           >
             <div className={`w-10 h-10 rounded-lg flex items-center justify-center mb-3 ${
@@ -544,7 +544,7 @@ export default function Reports() {
       </div>
 
       {/* Filters */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-5">
         <div className="flex items-center gap-2 mb-4">
           <Filter className="w-5 h-5 text-gray-500 dark:text-gray-400" />
           <h2 className="font-medium text-gray-900 dark:text-white">Filters</h2>

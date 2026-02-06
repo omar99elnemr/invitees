@@ -84,13 +84,13 @@ export function Sidebar({ isOpen, isMobile, onClose }: SidebarProps) {
 
   return (
     <aside 
-      className={`fixed left-0 top-16 h-[calc(100vh-4rem)] w-64 bg-white dark:bg-gray-800 border-r border-gray-200/80 dark:border-gray-700/80 overflow-y-auto shadow-xl lg:shadow-none z-40 transition-transform duration-300 ease-in-out ${
+      className={`fixed left-0 top-16 h-[calc(100vh-4rem)] w-64 bg-gradient-to-b from-white to-gray-50/80 dark:from-gray-800 dark:to-gray-800 border-r border-gray-200 dark:border-gray-700/80 overflow-y-auto shadow-xl lg:shadow-md dark:lg:shadow-none z-40 transition-transform duration-300 ease-in-out ${
         isOpen ? 'translate-x-0' : '-translate-x-full'
       }`}
     >
       {/* Mobile close button */}
       {isMobile && (
-        <div className="flex items-center justify-between p-4 border-b border-gray-100 dark:border-gray-700">
+        <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
           <span className="font-semibold text-gray-900 dark:text-white">Menu</span>
           <button
             onClick={onClose}
@@ -127,7 +127,7 @@ export function Sidebar({ isOpen, isMobile, onClose }: SidebarProps) {
       </nav>
 
       {/* User Info at Bottom */}
-      <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-100 dark:border-gray-700 bg-gradient-to-t from-gray-50 to-white dark:from-gray-800 dark:to-gray-800">
+      <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200 dark:border-gray-700 bg-gradient-to-t from-gray-50 to-white dark:from-gray-800 dark:to-gray-800">
         <div className="flex items-center gap-3">
           <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${getRoleGradient()} text-white flex items-center justify-center font-semibold text-sm shadow-md`}>
             {user?.username?.charAt(0).toUpperCase()}

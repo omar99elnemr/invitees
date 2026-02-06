@@ -361,7 +361,7 @@ export default function Attendance() {
           {/* Stats Cards */}
           {stats && (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-md transition-shadow">
+              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow">
                 <div className="flex items-center gap-3">
                   <div className="p-2.5 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl text-white shadow-md">
                     <Users className="w-5 h-5" />
@@ -373,7 +373,7 @@ export default function Attendance() {
                 </div>
               </div>
               
-              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-md transition-shadow">
+              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow">
                 <div className="flex items-center gap-3">
                   <div className="p-2.5 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl text-white shadow-md">
                     <Ticket className="w-5 h-5" />
@@ -385,7 +385,7 @@ export default function Attendance() {
                 </div>
               </div>
               
-              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-md transition-shadow">
+              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow">
                 <div className="flex items-center gap-3">
                   <div className="p-2.5 bg-gradient-to-br from-amber-500 to-amber-600 rounded-xl text-white shadow-md">
                     <Send className="w-5 h-5" />
@@ -397,7 +397,7 @@ export default function Attendance() {
                 </div>
               </div>
               
-              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-md transition-shadow">
+              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow">
                 <div className="flex items-center gap-3">
                   <div className="p-2.5 bg-gradient-to-br from-teal-500 to-teal-600 rounded-xl text-white shadow-md">
                     <UserCheck className="w-5 h-5" />
@@ -409,7 +409,7 @@ export default function Attendance() {
                 </div>
               </div>
               
-              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-md transition-shadow">
+              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow">
                 <div className="flex items-center gap-3">
                   <div className="p-2.5 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl text-white shadow-md">
                     <CheckCircle className="w-5 h-5" />
@@ -421,7 +421,7 @@ export default function Attendance() {
                 </div>
               </div>
               
-              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-md transition-shadow">
+              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow">
                 <div className="flex items-center gap-3">
                   <div className="p-2.5 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl text-white shadow-md">
                     <Users className="w-5 h-5" />
@@ -740,19 +740,19 @@ export default function Attendance() {
                     </div>
                     
                     <div className="space-y-2">
-                      <div className="flex justify-between py-2 border-b border-gray-100 dark:border-gray-700">
+                      <div className="flex justify-between py-2 border-b border-gray-200 dark:border-gray-700">
                         <span className="text-gray-500 dark:text-gray-400">Name</span>
                         <span className="font-medium dark:text-white">{checkInResult.invitee_name}</span>
                       </div>
-                      <div className="flex justify-between py-2 border-b border-gray-100 dark:border-gray-700">
+                      <div className="flex justify-between py-2 border-b border-gray-200 dark:border-gray-700">
                         <span className="text-gray-500 dark:text-gray-400">Code</span>
                         <code className="font-mono bg-gray-100 dark:bg-gray-700 dark:text-gray-300 px-2 py-0.5 rounded">{checkInResult.attendance_code}</code>
                       </div>
-                      <div className="flex justify-between py-2 border-b border-gray-100 dark:border-gray-700">
+                      <div className="flex justify-between py-2 border-b border-gray-200 dark:border-gray-700">
                         <span className="text-gray-500 dark:text-gray-400">Category</span>
                         <span className="font-medium dark:text-white">{checkInResult.category || '-'}</span>
                       </div>
-                      <div className="flex justify-between py-2 border-b border-gray-100 dark:border-gray-700">
+                      <div className="flex justify-between py-2 border-b border-gray-200 dark:border-gray-700">
                         <span className="text-gray-500 dark:text-gray-400">Guests</span>
                         <span className="font-medium dark:text-white">{checkInResult.actual_guests}</span>
                       </div>

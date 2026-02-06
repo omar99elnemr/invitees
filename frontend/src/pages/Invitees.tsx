@@ -737,8 +737,8 @@ export default function Invitees() {
       </div>
 
       {/* Tab Navigation */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
-        <div className="border-b border-gray-100 dark:border-gray-700">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <div className="border-b border-gray-200 dark:border-gray-700">
           <nav className="-mb-px flex overflow-x-auto">
             <button
               onClick={() => { setActiveTab('events'); sessionStorage.setItem('invitees_activeTab', 'events'); setSearchQuery(''); }}
@@ -774,7 +774,7 @@ export default function Invitees() {
       {activeTab === 'events' && (
         <div className="space-y-6">
           {/* Event Selector */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-5">
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
               Select Event
             </label>
@@ -797,7 +797,7 @@ export default function Invitees() {
                     onClick={() => setSelectedEventId(event.id)}
                     className={`group p-4 rounded-xl border text-left transition-all hover:-translate-y-0.5 ${selectedEventId === event.id
                       ? 'border-indigo-300 dark:border-indigo-600 bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/30 dark:to-purple-900/30 shadow-md'
-                      : 'border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-gray-200 dark:hover:border-gray-600 hover:shadow-sm'
+                      : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-gray-200 dark:hover:border-gray-600 hover:shadow-sm'
                       }`}
                   >
                     <div className="flex justify-between items-start mb-2 gap-2">

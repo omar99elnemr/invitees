@@ -162,7 +162,7 @@ function AdminDashboard({ stats, events, recentActivity, navigate, user }: Dashb
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Quick Actions */}
         <div className="lg:col-span-1">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 h-full">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 h-full">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
               <Zap className="w-5 h-5 text-amber-500" />
               Quick Actions
@@ -203,7 +203,7 @@ function AdminDashboard({ stats, events, recentActivity, navigate, user }: Dashb
 
         {/* Active Events */}
         <div className="lg:col-span-2">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 h-full">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 h-full">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                 <CalendarDays className="w-5 h-5 text-indigo-500" />
@@ -240,7 +240,7 @@ function AdminDashboard({ stats, events, recentActivity, navigate, user }: Dashb
       </div>
 
       {/* Recent Activity */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
             <Activity className="w-5 h-5 text-indigo-500" />
@@ -356,7 +356,7 @@ function ApproverDashboard({ stats, events, recentActivity, navigate, user }: Da
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Quick Actions */}
         <div className="lg:col-span-1">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 h-full">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 h-full">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
               <Zap className="w-5 h-5 text-amber-500" />
               Quick Actions
@@ -390,7 +390,7 @@ function ApproverDashboard({ stats, events, recentActivity, navigate, user }: Da
 
         {/* Recent Decisions */}
         <div className="lg:col-span-2">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 h-full">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 h-full">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                 <ListChecks className="w-5 h-5 text-emerald-500" />
@@ -421,7 +421,7 @@ function ApproverDashboard({ stats, events, recentActivity, navigate, user }: Da
       </div>
 
       {/* Assigned Events */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
             <CalendarDays className="w-5 h-5 text-teal-500" />
@@ -517,7 +517,7 @@ function InviterDashboard({ stats, events, recentActivity, navigate, user, showE
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Quick Actions */}
         <div className="lg:col-span-1">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 h-full">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 h-full">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
               <Zap className="w-5 h-5 text-amber-500" />
               Quick Actions
@@ -551,7 +551,7 @@ function InviterDashboard({ stats, events, recentActivity, navigate, user, showE
 
         {/* My Events */}
         <div className="lg:col-span-2">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 h-full">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 h-full">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                 <CalendarDays className="w-5 h-5 text-indigo-500" />
@@ -585,7 +585,7 @@ function InviterDashboard({ stats, events, recentActivity, navigate, user, showE
       </div>
 
       {/* Recent Activity */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
             <Activity className="w-5 h-5 text-indigo-500" />
@@ -638,7 +638,7 @@ interface MetricCardProps {
 function MetricCard({ title, value, subtitle, icon: Icon, gradient, onClick, alert, suffix }: MetricCardProps) {
   return (
     <div
-      className={`relative overflow-hidden bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5 ${onClick ? 'cursor-pointer hover:shadow-md transition-all hover:-translate-y-0.5' : ''}`}
+      className={`relative overflow-hidden bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-5 ${onClick ? 'cursor-pointer hover:shadow-md transition-all hover:-translate-y-0.5' : ''}`}
       onClick={onClick}
     >
       <div className="flex items-start justify-between">
@@ -691,7 +691,7 @@ function ActionCard({ title, description, icon: Icon, color, onClick, badge, pri
       className={`group w-full flex items-center gap-3 p-3 rounded-xl transition-all ${
         primary 
           ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white hover:from-indigo-600 hover:to-purple-600 shadow-md hover:shadow-lg'
-          : 'hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-100 dark:border-gray-700'
+          : 'hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700'
       }`}
     >
       <div className={`p-2.5 rounded-lg transition-colors ${primary ? 'bg-white/20' : colorClasses[color]}`}>
@@ -717,7 +717,7 @@ function EventCard({ event, onClick, compact }: { event: Event; onClick: () => v
   return (
     <div
       onClick={onClick}
-      className="group p-4 border border-gray-100 dark:border-gray-700 rounded-xl hover:border-indigo-200 dark:hover:border-indigo-700 hover:bg-indigo-50/30 dark:hover:bg-indigo-900/20 cursor-pointer transition-all"
+      className="group p-4 border border-gray-200 dark:border-gray-700 rounded-xl hover:border-indigo-200 dark:hover:border-indigo-700 hover:bg-indigo-50/30 dark:hover:bg-indigo-900/20 cursor-pointer transition-all"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
@@ -833,7 +833,7 @@ function EventsModal({ events, onClose, navigate }: { events: Event[]; onClose: 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-hidden">
-        <div className="p-5 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+        <div className="p-5 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white flex items-center gap-2">
             <CalendarDays className="w-5 h-5 text-indigo-500" />
             My Assigned Events
@@ -857,7 +857,7 @@ function EventsModal({ events, onClose, navigate }: { events: Event[]; onClose: 
                 <div
                   key={event.id}
                   onClick={() => { onClose(); navigate('/invitees'); }}
-                  className="p-4 border border-gray-100 dark:border-gray-700 rounded-xl hover:border-indigo-200 dark:hover:border-indigo-700 hover:bg-indigo-50/50 dark:hover:bg-indigo-900/20 cursor-pointer transition-all"
+                  className="p-4 border border-gray-200 dark:border-gray-700 rounded-xl hover:border-indigo-200 dark:hover:border-indigo-700 hover:bg-indigo-50/50 dark:hover:bg-indigo-900/20 cursor-pointer transition-all"
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
@@ -892,7 +892,7 @@ function EventsModal({ events, onClose, navigate }: { events: Event[]; onClose: 
             </div>
           )}
         </div>
-        <div className="p-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+        <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
           <button
             onClick={onClose}
             className="w-full px-4 py-2.5 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-600 font-medium transition-colors"

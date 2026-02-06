@@ -137,7 +137,7 @@ export default function Login() {
           </div>
 
           {/* Form Card */}
-          <div className="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700">
+          <div className="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700">
             <div className="text-center mb-8">
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Welcome Back</h2>
               <p className="text-gray-500 dark:text-gray-400 mt-2">Sign in to your account</p>

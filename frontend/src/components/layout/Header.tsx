@@ -47,7 +47,7 @@ export function Header({ onMenuClick, sidebarOpen }: HeaderProps) {
   };
 
   return (
-    <header className="fixed top-0 left-0 right-0 h-16 bg-white/80 dark:bg-gray-900/80 backdrop-blur-lg border-b border-gray-200/50 dark:border-gray-700/50 z-50 shadow-sm">
+    <header className="fixed top-0 left-0 right-0 h-16 bg-white/90 dark:bg-gray-900/80 backdrop-blur-lg border-b border-gray-200 dark:border-gray-700/50 z-50 shadow-sm">
       <div className="h-full px-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <button
@@ -118,9 +118,9 @@ export function Header({ onMenuClick, sidebarOpen }: HeaderProps) {
             </button>
 
             {showMenu && (
-              <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-100 dark:border-gray-700 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+              <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
                 {/* User info header */}
-                <div className="px-4 py-3 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-800 border-b border-gray-100 dark:border-gray-700">
+                <div className="px-4 py-3 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-800 border-b border-gray-200 dark:border-gray-700">
                   <div className="font-medium text-gray-900 dark:text-white">{user?.full_name || user?.username}</div>
                   <div className="text-xs text-gray-500 dark:text-gray-400">{user?.email || user?.username}</div>
                 </div>
@@ -148,7 +148,7 @@ export function Header({ onMenuClick, sidebarOpen }: HeaderProps) {
                     Change Password
                   </button>
                   
-                  <hr className="my-1 border-gray-100 dark:border-gray-700" />
+                  <hr className="my-1 border-gray-200 dark:border-gray-700" />
                   
                   <button
                     onClick={handleLogout}

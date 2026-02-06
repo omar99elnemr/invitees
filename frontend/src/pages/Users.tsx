@@ -464,7 +464,7 @@ export default function Users() {
   if (!isAdmin) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center p-8 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 max-w-md">
+        <div className="text-center p-8 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 max-w-md">
           <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
             <Shield className="h-8 w-8 text-red-500 dark:text-red-400" />
           </div>
@@ -541,8 +541,8 @@ export default function Users() {
       </div>
 
       {/* Tabs */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
-        <div className="border-b border-gray-100 dark:border-gray-700">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <div className="border-b border-gray-200 dark:border-gray-700">
           <nav className="-mb-px flex overflow-x-auto">
             <button
               onClick={() => { setActiveTab('users'); sessionStorage.setItem('users_activeTab', 'users'); }}
@@ -599,7 +599,7 @@ export default function Users() {
             <button
               onClick={() => { setRoleFilter('all'); setCurrentPage(1); }}
               className={`bg-white dark:bg-gray-800 rounded-xl shadow-sm border p-4 flex items-center gap-3 text-left transition-all hover:shadow-md hover:-translate-y-0.5 ${
-                roleFilter === 'all' ? 'ring-2 ring-indigo-500 border-indigo-200 dark:border-indigo-700' : 'border-gray-100 dark:border-gray-700'
+                roleFilter === 'all' ? 'ring-2 ring-indigo-500 border-indigo-200 dark:border-indigo-700' : 'border-gray-200 dark:border-gray-700'
               }`}
             >
               <div className="p-2.5 sm:p-3 bg-gradient-to-br from-gray-500 to-gray-600 rounded-xl text-white shadow-md">
@@ -613,7 +613,7 @@ export default function Users() {
             <button
               onClick={() => { setRoleFilter('admin'); setCurrentPage(1); }}
               className={`bg-white dark:bg-gray-800 rounded-xl shadow-sm border p-4 flex items-center gap-3 text-left transition-all hover:shadow-md hover:-translate-y-0.5 ${
-                roleFilter === 'admin' ? 'ring-2 ring-purple-500 border-purple-200 dark:border-purple-700' : 'border-gray-100 dark:border-gray-700'
+                roleFilter === 'admin' ? 'ring-2 ring-purple-500 border-purple-200 dark:border-purple-700' : 'border-gray-200 dark:border-gray-700'
               }`}
             >
               <div className="p-2.5 sm:p-3 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl text-white shadow-md">
@@ -627,7 +627,7 @@ export default function Users() {
             <button
               onClick={() => { setRoleFilter('director'); setCurrentPage(1); }}
               className={`bg-white dark:bg-gray-800 rounded-xl shadow-sm border p-4 flex items-center gap-3 text-left transition-all hover:shadow-md hover:-translate-y-0.5 ${
-                roleFilter === 'director' ? 'ring-2 ring-blue-500 border-blue-200 dark:border-blue-700' : 'border-gray-100 dark:border-gray-700'
+                roleFilter === 'director' ? 'ring-2 ring-blue-500 border-blue-200 dark:border-blue-700' : 'border-gray-200 dark:border-gray-700'
               }`}
             >
               <div className="p-2.5 sm:p-3 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl text-white shadow-md">
@@ -641,7 +641,7 @@ export default function Users() {
             <button
               onClick={() => { setRoleFilter('organizer'); setCurrentPage(1); }}
               className={`bg-white dark:bg-gray-800 rounded-xl shadow-sm border p-4 flex items-center gap-3 text-left transition-all hover:shadow-md hover:-translate-y-0.5 ${
-                roleFilter === 'organizer' ? 'ring-2 ring-emerald-500 border-emerald-200 dark:border-emerald-700' : 'border-gray-100 dark:border-gray-700'
+                roleFilter === 'organizer' ? 'ring-2 ring-emerald-500 border-emerald-200 dark:border-emerald-700' : 'border-gray-200 dark:border-gray-700'
               }`}
             >
               <div className="p-2.5 sm:p-3 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl text-white shadow-md">
@@ -682,7 +682,7 @@ export default function Users() {
       <p className="text-sm text-gray-500 dark:text-gray-400">{filteredUsers.length} user{filteredUsers.length !== 1 ? 's' : ''} found</p>
 
       {/* Users Table */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
             <thead className="bg-gray-50 dark:bg-gray-700">

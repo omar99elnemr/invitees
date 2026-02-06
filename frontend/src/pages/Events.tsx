@@ -400,7 +400,7 @@ export default function Events() {
 
       {/* Stats Summary */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-gray-100 dark:bg-gray-700 rounded-lg">
               <Calendar className="w-5 h-5 text-gray-600 dark:text-gray-400" />
@@ -411,7 +411,7 @@ export default function Events() {
             </div>
           </div>
         </div>
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
               <Clock className="w-5 h-5 text-blue-600 dark:text-blue-400" />
@@ -422,7 +422,7 @@ export default function Events() {
             </div>
           </div>
         </div>
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg">
               <CheckCircle className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
@@ -433,7 +433,7 @@ export default function Events() {
             </div>
           </div>
         </div>
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
               <Users className="w-5 h-5 text-purple-600 dark:text-purple-400" />
@@ -478,7 +478,7 @@ export default function Events() {
 
       {/* Events Grid */}
       {filteredEvents.length === 0 ? (
-        <div className="text-center py-16 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
+        <div className="text-center py-16 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
           <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
             <Calendar className="h-8 w-8 text-gray-400" />
           </div>
@@ -503,7 +503,7 @@ export default function Events() {
           {filteredEvents.map((event) => (
             <div
               key={event.id}
-              className="group bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-lg hover:border-indigo-200 dark:hover:border-indigo-700 transition-all duration-300"
+              className="group bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-lg hover:border-indigo-200 dark:hover:border-indigo-700 transition-all duration-300"
             >
               <div className="p-5 sm:p-6">
                 {/* Header */}
@@ -599,7 +599,7 @@ export default function Events() {
                 )}
 
                 {/* Footer */}
-                <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700 text-xs text-gray-400 dark:text-gray-500">
+                <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 text-xs text-gray-400 dark:text-gray-500">
                   Created by <span className="text-gray-600 dark:text-gray-400">{event.creator_name || 'Unknown'}</span>
                 </div>
               </div>
@@ -822,7 +822,7 @@ export default function Events() {
                                   formData.inviter_group_ids.includes(group.id)
                                     ? 'bg-indigo-50 dark:bg-indigo-900/20'
                                     : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'
-                                } ${index !== inviterGroups.length - 1 ? 'border-b border-gray-100 dark:border-gray-700' : ''}`}
+                                } ${index !== inviterGroups.length - 1 ? 'border-b border-gray-200 dark:border-gray-700' : ''}`}
                               >
                                 <input
                                   type="checkbox"

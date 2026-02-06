@@ -137,7 +137,7 @@ export default function CategoryInput({
 
               {/* Divider if showing both */}
               {searchQuery && !exactMatchExists && filteredCategories.length > 0 && (
-                <div className="border-t border-gray-100 dark:border-gray-700" />
+                <div className="border-t border-gray-200 dark:border-gray-700" />
               )}
 
               {/* Existing categories */}

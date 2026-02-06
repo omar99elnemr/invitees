@@ -54,7 +54,7 @@ export default function TablePagination({
   if (totalItems === 0) return null;
 
   return (
-    <div className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 px-4 py-3">
+    <div className="bg-gray-50/80 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 px-4 py-3">
       {/* Top row: result count + per-page selector */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <p className="text-sm text-gray-600 dark:text-gray-400">

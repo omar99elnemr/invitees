@@ -126,8 +126,8 @@ export default function Profile() {
       </div>
 
       {/* Profile Information */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
-        <div className="p-5 sm:p-6 border-b border-gray-100 dark:border-gray-700">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+        <div className="p-5 sm:p-6 border-b border-gray-200 dark:border-gray-700">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Profile Information</h2>
           <p className="text-sm text-gray-500 dark:text-gray-400">Your account details and permissions</p>
         </div>
@@ -219,8 +219,8 @@ export default function Profile() {
       </div>
 
       {/* Security Section */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
-        <div className="p-5 sm:p-6 border-b border-gray-100 dark:border-gray-700">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+        <div className="p-5 sm:p-6 border-b border-gray-200 dark:border-gray-700">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Security</h2>
           <p className="text-sm text-gray-500 dark:text-gray-400">Manage your password</p>
         </div>

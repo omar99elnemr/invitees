@@ -284,7 +284,7 @@ export default function Approvals() {
   if (!canApprove) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center p-8 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 max-w-md">
+        <div className="text-center p-8 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 max-w-md">
           <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
             <XCircle className="h-8 w-8 text-red-500 dark:text-red-400" />
           </div>
@@ -350,8 +350,8 @@ export default function Approvals() {
       </div>
 
       {/* Tabs */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
-        <div className="border-b border-gray-100 dark:border-gray-700">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <div className="border-b border-gray-200 dark:border-gray-700">
           <nav className="-mb-px flex">
             <button
               onClick={() => { setActiveTab('pending'); setSelectedIds(new Set()); }}
