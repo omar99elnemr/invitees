@@ -16,8 +16,7 @@ import { AmiriRegularBase64, NotoSansRegularBase64 } from '../fonts';
 // Import embedded logo
 import { logoBase64 } from './logoData';
 
-// Track if fonts are loaded (performance optimization)
-let customFontsLoaded = false;
+// Fonts must be registered on every new jsPDF instance (per-instance, not global)
 
 /**
  * Script/Language Detection
@@ -113,10 +112,8 @@ const detectScripts = (data: any[]): ScriptDetection => {
  * Load custom fonts into jsPDF
  */
 const loadCustomFonts = (doc: jsPDF): void => {
-  if (customFontsLoaded) return;
-
   try {
-    // Only load fonts if base64 data is available
+    // Register fonts on this jsPDF instance (must be done per-instance)
     if (AmiriRegularBase64 && typeof AmiriRegularBase64 === 'string' && AmiriRegularBase64.length > 100) {
       doc.addFileToVFS('Amiri-Regular.ttf', AmiriRegularBase64);
       doc.addFont('Amiri-Regular.ttf', 'Amiri', 'normal');
@@ -129,7 +126,6 @@ const loadCustomFonts = (doc: jsPDF): void => {
       console.log('✅ Unicode font (Noto Sans) loaded');
     }
     
-    customFontsLoaded = true;
     console.log('✅ Custom fonts loaded successfully');
   } catch (error) {
     console.error('❌ Failed to load custom fonts:', (error as Error).message);
