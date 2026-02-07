@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Users,
   QrCode,
@@ -18,6 +18,8 @@ import {
   ExternalLink,
   Copy,
   Key,
+  Printer,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { attendanceAPI, AttendanceStats, AttendanceFilters, settingsAPI, eventsAPI, CheckinPinInfo } from '../services/api';
 import type { Event, EventInvitee } from '../types';
@@ -61,10 +63,17 @@ export default function Attendance() {
   const [sortField, setSortField] = useState<string | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
 
-  // Dynamic logos from admin settings for PDF exports
+  // Dynamic logos from admin settings for exports
   const [exportLogoLeft, setExportLogoLeft] = useState<string | null>(null);
   const [exportLogoRight, setExportLogoRight] = useState<string | null>(null);
   const [exportLogosLoaded, setExportLogosLoaded] = useState(false);
+
+  // Logo data for Excel exports
+  const [logoImageData, setLogoImageData] = useState<string>('');
+
+  // Export dropdown
+  const [showExportMenu, setShowExportMenu] = useState(false);
+  const exportMenuRef = useRef<HTMLDivElement>(null);
   const handleSort = (field: string) => {
     setSortDirection(sortField === field && sortDirection === 'asc' ? 'desc' : 'asc');
     setSortField(field);
@@ -74,7 +83,28 @@ export default function Attendance() {
   useEffect(() => {
     loadEvents();
     loadExportLogos();
+    loadLogoData();
   }, []);
+
+  // Close export menu on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(e.target as Node)) {
+        setShowExportMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const loadLogoData = async () => {
+    try {
+      const { logoBase64 } = await import('../utils/logoData');
+      setLogoImageData(logoBase64);
+    } catch {
+      setLogoImageData('');
+    }
+  };
 
   const loadExportLogos = async () => {
     try {
@@ -278,6 +308,10 @@ export default function Attendance() {
 
   const handleExport = (format: 'excel' | 'pdf' | 'csv') => {
     const data = getExportData();
+    if (data.length === 0) {
+      toast.error('No data to export');
+      return;
+    }
     const filename = `attendance_${selectedEvent?.name || 'export'}_${new Date().toISOString().split('T')[0]}`;
     const title = `Attendance - ${selectedEvent?.name || 'Event'}`;
     
@@ -285,13 +319,91 @@ export default function Attendance() {
       ? { logoLeft: exportLogoLeft, logoRight: exportLogoRight }
       : undefined;
 
-    if (format === 'excel') {
-      exportToExcel(data, filename, title, '', logoOptions);
-    } else if (format === 'pdf') {
-      exportToPDF(data, filename, title, 'landscape', logoOptions);
-    } else {
-      exportToCSV(data, filename);
+    try {
+      if (format === 'excel') {
+        exportToExcel(data, filename, title, logoImageData, logoOptions);
+      } else if (format === 'pdf') {
+        exportToPDF(data, filename, title, 'landscape', logoOptions);
+      } else {
+        exportToCSV(data, filename);
+      }
+      toast.success(`Exported as ${format.toUpperCase()}`);
+    } catch {
+      toast.error('Failed to export');
     }
+    setShowExportMenu(false);
+  };
+
+  const handlePrint = () => {
+    const data = getExportData();
+    if (data.length === 0) {
+      toast.error('No data to print');
+      return;
+    }
+    const title = `Attendance - ${selectedEvent?.name || 'Event'}`;
+    const headers = Object.keys(data[0]);
+    const tableRows = data.map((row, idx) =>
+      `<tr style="${idx % 2 === 0 ? '' : 'background-color: #f9fafb;'}">
+        ${headers.map(h => `<td>${row[h] ?? '—'}</td>`).join('')}
+      </tr>`
+    ).join('');
+
+    const printLeftLogo = exportLogosLoaded && exportLogoLeft
+      ? `<img src="${exportLogoLeft}" style="height:45px;max-width:130px;" />`
+      : '';
+    const printRightLogo = exportLogosLoaded && exportLogoRight
+      ? `<img src="${exportLogoRight}" style="height:45px;max-width:130px;" />`
+      : '';
+
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(`
+        <html>
+          <head>
+            <title>${title}</title>
+            <style>
+              body { font-family: 'Segoe UI', Arial, sans-serif; padding: 30px; margin: 0; }
+              .print-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+              .print-header-center { text-align: center; flex: 1; }
+              .print-header-center h1 { font-size: 22px; margin: 0 0 4px 0; color: #1f2937; }
+              .print-header-center .meta { color: #6b7280; font-size: 11px; }
+              table { width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 15px; }
+              th { background-color: #2980b9; color: white; padding: 10px 8px; text-align: left; font-weight: 600; }
+              td { border-bottom: 1px solid #e5e7eb; padding: 8px; }
+              tr:hover { background-color: #f3f4f6; }
+              .footer { margin-top: 20px; font-size: 10px; color: #9ca3af; text-align: center; }
+              @media print {
+                body { padding: 15px; }
+                table { font-size: 10px; }
+                th, td { padding: 6px; }
+              }
+            </style>
+          </head>
+          <body>
+            <div class="print-header">
+              <div>${printLeftLogo}</div>
+              <div class="print-header-center">
+                <h1>${title}</h1>
+                <div class="meta">Generated: ${new Date().toLocaleString()}</div>
+              </div>
+              <div>${printRightLogo}</div>
+            </div>
+            <table>
+              <thead>
+                <tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr>
+              </thead>
+              <tbody>
+                ${tableRows}
+              </tbody>
+            </table>
+            <div class="footer">Total Records: ${data.length}</div>
+          </body>
+        </html>
+      `);
+      printWindow.document.close();
+      printWindow.print();
+    }
+    setShowExportMenu(false);
   };
 
   const getStatusBadge = (attendee: EventInvitee) => {
@@ -567,34 +679,47 @@ export default function Attendance() {
                     </button>
                   )}
                   
-                  <div className="relative group">
-                    <button className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 dark:text-gray-300 flex items-center gap-2">
+                  <div className="relative" ref={exportMenuRef}>
+                    <button
+                      onClick={() => setShowExportMenu(prev => !prev)}
+                      className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 dark:text-gray-300 flex items-center gap-2"
+                    >
                       <Download className="w-4 h-4" />
                       Export
                     </button>
-                    <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 hidden group-hover:block z-10">
-                      <button
-                        onClick={() => handleExport('excel')}
-                        className="w-full px-4 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 dark:text-gray-300 flex items-center gap-2"
-                      >
-                        <FileText className="w-4 h-4" />
-                        Export to Excel
-                      </button>
-                      <button
-                        onClick={() => handleExport('csv')}
-                        className="w-full px-4 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 dark:text-gray-300 flex items-center gap-2"
-                      >
-                        <FileText className="w-4 h-4" />
-                        Export to CSV
-                      </button>
-                      <button
-                        onClick={() => handleExport('pdf')}
-                        className="w-full px-4 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 dark:text-gray-300 flex items-center gap-2"
-                      >
-                        <FileText className="w-4 h-4" />
-                        Export to PDF
-                      </button>
-                    </div>
+                    {showExportMenu && (
+                      <div className="absolute right-0 mt-1 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 z-20 py-1">
+                        <button
+                          onClick={() => handleExport('csv')}
+                          className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 flex items-center gap-2.5"
+                        >
+                          <Download className="w-4 h-4" />
+                          CSV
+                        </button>
+                        <button
+                          onClick={() => handleExport('excel')}
+                          className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 flex items-center gap-2.5"
+                        >
+                          <FileSpreadsheet className="w-4 h-4" />
+                          Excel
+                        </button>
+                        <button
+                          onClick={() => handleExport('pdf')}
+                          className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 flex items-center gap-2.5"
+                        >
+                          <FileText className="w-4 h-4" />
+                          PDF
+                        </button>
+                        <div className="border-t border-gray-200 dark:border-gray-700 my-1"></div>
+                        <button
+                          onClick={handlePrint}
+                          className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 flex items-center gap-2.5"
+                        >
+                          <Printer className="w-4 h-4" />
+                          Print
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

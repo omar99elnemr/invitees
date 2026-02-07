@@ -1,6 +1,6 @@
 /**
  * Export Settings Page
- * Admin-only page for managing PDF export logos (left and right)
+ * Admin-only page for managing export logos (left and right) for PDF, Excel, and Print reports
  */
 import { useState, useEffect, useRef } from 'react';
 import { Settings, Upload, Trash2, Image, Save, RefreshCw, AlertCircle, CheckCircle } from 'lucide-react';
@@ -182,7 +182,7 @@ export default function ExportSettings() {
             Export Settings
           </h1>
           <p className="text-gray-500 dark:text-gray-400 mt-1">
-            Manage logos displayed on PDF exports. Changes apply to all reports.
+            Manage logos displayed on exported reports. Changes apply to PDF, Excel, and Print exports.
           </p>
         </div>
       </div>
@@ -191,7 +191,7 @@ export default function ExportSettings() {
       <div className="rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
           <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-            PDF Header Preview
+            Export Header Preview
           </h2>
         </div>
         <div className="p-6">
@@ -235,7 +235,7 @@ export default function ExportSettings() {
             </div>
           </div>
           <p className="text-xs text-gray-400 dark:text-gray-500 mt-2 text-center">
-            This preview shows how logos will appear in the PDF header on every page
+            This preview shows how logos will appear in PDF, Excel, and Print report headers
           </p>
         </div>
       </div>
@@ -246,7 +246,7 @@ export default function ExportSettings() {
         <LogoCard
           side="left"
           title="Left Logo"
-          description="Appears in the top-left corner of every PDF page"
+          description="Appears in the top-left corner of exported reports"
           image={getDisplayImage('left')}
           status={getStatus('left')}
           meta={settings.logo_left}
@@ -260,7 +260,7 @@ export default function ExportSettings() {
         <LogoCard
           side="right"
           title="Right Logo"
-          description="Appears in the top-right corner of every PDF page"
+          description="Appears in the top-right corner of exported reports"
           image={getDisplayImage('right')}
           status={getStatus('right')}
           meta={settings.logo_right}

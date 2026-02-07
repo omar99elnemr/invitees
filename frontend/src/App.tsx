@@ -23,6 +23,7 @@ import Portal from './pages/Portal';
 import CheckInConsole from './pages/CheckInConsole';
 import LiveDashboard from './pages/LiveDashboard';
 import ExportSettings from './pages/ExportSettings';
+import NotFound from './pages/NotFound';
 
 function App() {
   return (
@@ -122,7 +123,11 @@ function App() {
                 </ProtectedRoute>
               }
             />
+            {/* Catch-all for unknown routes inside layout */}
+            <Route path="*" element={<NotFound />} />
           </Route>
+          {/* Catch-all for unknown routes outside layout */}
+          <Route path="*" element={<NotFound />} />
         </Routes>
       </AuthProvider>
       </ThemeProvider>
