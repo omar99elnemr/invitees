@@ -123,10 +123,8 @@ function App() {
                 </ProtectedRoute>
               }
             />
-            {/* Catch-all for unknown routes inside layout */}
-            <Route path="*" element={<NotFound />} />
           </Route>
-          {/* Catch-all for unknown routes outside layout */}
+          {/* Catch-all for unknown routes */}
           <Route path="*" element={<NotFound />} />
         </Routes>
       </AuthProvider>
