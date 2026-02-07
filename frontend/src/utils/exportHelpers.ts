@@ -43,6 +43,15 @@ export const exportToExcel = (
 /**
  * Export Excel with actual logo image using HTML table approach
  */
+const escapeHtml = (val: any): string => {
+  const str = String(val ?? '');
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+};
+
 const exportToExcelWithImage = (
   data: any[],
   filename: string,
@@ -64,15 +73,15 @@ const exportToExcelWithImage = (
     ? `background-image: url('data:${leftMime};base64,${leftBase64}'); background-repeat: no-repeat; background-position: 15px center; background-size: 100px 35px;`
     : '';
 
-  // Right logo as inline img (rendered after title text)
+  // Right logo as inline img in the logo row
   const rightLogoHtml = rightLogo
     ? `<img src="${rightLogo}" width="100" height="35" style="float:right;" />`
     : '';
   
-  let html = `
+  let html = `\ufeff
     <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
     <head>
-      <meta charset="utf-8">
+      <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
       <meta name=ProgId content=Excel.Sheet>
       <meta name=Generator content="Microsoft Excel 15">
       <!--[if gte mso 9]><xml>
@@ -89,7 +98,7 @@ const exportToExcelWithImage = (
       </xml><![endif]-->
       <style>
         table { border-collapse: collapse; width: 100%; mso-display-gridlines: yes; }
-        th, td { border: 1px solid #ddd; padding: 8px; mso-number-format: \@; }
+        th, td { border: 1px solid #ddd; padding: 8px; mso-number-format: \\@; }
         .header-bg { background-color: #2980B9; color: white; font-weight: bold; text-align: center; }
         .title-bg { background-color: #2C3E50; color: white; font-weight: bold; text-align: center; }
         .even-row { background-color: #F8F9FA; }
@@ -102,14 +111,18 @@ const exportToExcelWithImage = (
         <tr>
           <td colspan="${headers.length}" style="height:50px;vertical-align:middle;padding:10px;padding-left:130px;background-color:#ECF0F1;${logoBgStyle}">
             ${rightLogoHtml}
-            <span class="logo-text">${sheetName.toUpperCase()}</span>
+          </td>
+        </tr>
+        <tr>
+          <td colspan="${headers.length}" class="title-bg" style="height:35px;vertical-align:middle;padding:10px;">
+            <span class="title-text">${sheetName.toUpperCase()}</span>
           </td>
         </tr>
         <tr>
           <td colspan="${headers.length}" style="height:5px;"></td>
         </tr>
         <tr>
-          ${headers.map(h => `<th class="header-bg">${h.toUpperCase().replace(/_/g, ' ')}</th>`).join('')}
+          ${headers.map(h => `<th class="header-bg">${escapeHtml(h).toUpperCase().replace(/_/g, ' ')}</th>`).join('')}
         </tr>
   `;
   
@@ -118,7 +131,7 @@ const exportToExcelWithImage = (
     const rowClass = index % 2 === 0 ? 'even-row' : '';
     html += `<tr>`;
     headers.forEach(header => {
-      const value = item[header] ?? '';
+      const value = escapeHtml(item[header]);
       html += `<td class="${rowClass}" style="vertical-align:middle;">${value}</td>`;
     });
     html += `</tr>`;
@@ -130,8 +143,8 @@ const exportToExcelWithImage = (
     </html>
   `;
   
-  // Create blob and download as .xls (Excel can open HTML tables)
-  const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
+  // Create blob with UTF-8 BOM for proper Unicode rendering
+  const blob = new Blob([html], { type: 'application/vnd.ms-excel;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
