@@ -51,12 +51,22 @@ const exportToExcelWithImage = (
   leftLogo: string | null,
   rightLogo: string | null
 ) => {
-  // Build logo cells for the header row
-  const leftLogoHtml = leftLogo
-    ? `<img src="${leftLogo}" style="height:40px;max-width:120px;" />`
+  // Extract pure base64 for CSS background-image (left logo)
+  const leftBase64 = leftLogo
+    ? (leftLogo.startsWith('data:') ? leftLogo.split(',')[1] : leftLogo)
     : '';
+  const leftMime = leftLogo?.startsWith('data:')
+    ? leftLogo.substring(5, leftLogo.indexOf(';'))
+    : 'image/png';
+
+  // Build background style for left logo
+  const logoBgStyle = leftBase64
+    ? `background-image: url('data:${leftMime};base64,${leftBase64}'); background-repeat: no-repeat; background-position: 15px center; background-size: 100px 35px;`
+    : '';
+
+  // Right logo as inline img (rendered after title text)
   const rightLogoHtml = rightLogo
-    ? `<img src="${rightLogo}" style="height:40px;max-width:120px;" />`
+    ? `<img src="${rightLogo}" width="100" height="35" style="float:right;" />`
     : '';
   
   let html = `
@@ -82,17 +92,18 @@ const exportToExcelWithImage = (
         th, td { border: 1px solid #ddd; padding: 8px; mso-number-format: \@; }
         .header-bg { background-color: #2980B9; color: white; font-weight: bold; text-align: center; }
         .title-bg { background-color: #2C3E50; color: white; font-weight: bold; text-align: center; }
-        .logo-bg { background-color: #ECF0F1; }
         .even-row { background-color: #F8F9FA; }
+        .logo-text { font-size: 18px; font-weight: bold; color: #2980B9; vertical-align: middle; font-family: 'Calibri', 'Arial', sans-serif; letter-spacing: 1px; }
         .title-text { font-size: 14px; font-weight: bold; vertical-align: middle; font-family: 'Calibri', 'Arial', sans-serif; }
       </style>
     </head>
     <body>
       <table>
-        <tr class="logo-bg">
-          <td style="height:50px;vertical-align:middle;padding:10px;text-align:left;">${leftLogoHtml}</td>
-          <td colspan="${Math.max(headers.length - 2, 1)}" style="height:50px;vertical-align:middle;padding:10px;text-align:center;font-size:16px;font-weight:bold;color:#2980B9;font-family:'Calibri','Arial',sans-serif;">${sheetName.toUpperCase()}</td>
-          <td style="height:50px;vertical-align:middle;padding:10px;text-align:right;">${rightLogoHtml}</td>
+        <tr>
+          <td colspan="${headers.length}" style="height:50px;vertical-align:middle;padding:10px;padding-left:130px;background-color:#ECF0F1;${logoBgStyle}">
+            ${rightLogoHtml}
+            <span class="logo-text">${sheetName.toUpperCase()}</span>
+          </td>
         </tr>
         <tr>
           <td colspan="${headers.length}" style="height:5px;"></td>
