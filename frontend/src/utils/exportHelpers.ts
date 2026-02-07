@@ -1,14 +1,30 @@
 /**
  * Export helper functions for generating reports in various formats
  */
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import Papa from 'papaparse';
 import { format } from 'date-fns';
 
 /**
+ * Detect image extension from a data URI or default to png
+ */
+const getImageExtension = (dataUri: string): 'png' | 'jpeg' | 'gif' => {
+  if (dataUri.includes('image/jpeg') || dataUri.includes('image/jpg')) return 'jpeg';
+  if (dataUri.includes('image/gif')) return 'gif';
+  return 'png';
+};
+
+/**
+ * Extract pure base64 from a data URI
+ */
+const extractBase64 = (dataUri: string): string => {
+  return dataUri.startsWith('data:') ? dataUri.split(',')[1] : dataUri;
+};
+
+/**
  * Export data to Excel format with logo information
  */
-export const exportToExcel = (
+export const exportToExcel = async (
   data: any[],
   filename: string,
   sheetName = 'Report',
@@ -27,13 +43,7 @@ export const exportToExcel = (
     const leftLogo = options?.logoLeft !== undefined ? options.logoLeft : (logoData || null);
     const rightLogo = options?.logoRight !== undefined ? options.logoRight : null;
     
-    // If any logo data is available, use HTML approach with actual image
-    if (leftLogo || rightLogo) {
-      exportToExcelWithImage(data, filename, sheetName, headers, leftLogo, rightLogo);
-    } else {
-      // Fallback to standard XLSX without image
-      exportToExcelStandard(data, filename, sheetName, headers);
-    }
+    await exportToExcelWithExcelJS(data, filename, sheetName, headers, leftLogo, rightLogo);
   } catch (error) {
     console.error('❌ Excel export failed:', error);
     throw new Error('Failed to export to Excel');
@@ -41,18 +51,9 @@ export const exportToExcel = (
 };
 
 /**
- * Export Excel with actual logo image using HTML table approach
+ * Export Excel with ExcelJS — proper .xlsx with embedded images, styling, and Unicode support
  */
-const escapeHtml = (val: any): string => {
-  const str = String(val ?? '');
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-};
-
-const exportToExcelWithImage = (
+const exportToExcelWithExcelJS = async (
   data: any[],
   filename: string,
   sheetName: string,
@@ -60,137 +61,141 @@ const exportToExcelWithImage = (
   leftLogo: string | null,
   rightLogo: string | null
 ) => {
-  // Extract pure base64 for CSS background-image (left logo)
-  const leftBase64 = leftLogo
-    ? (leftLogo.startsWith('data:') ? leftLogo.split(',')[1] : leftLogo)
-    : '';
-  const leftMime = leftLogo?.startsWith('data:')
-    ? leftLogo.substring(5, leftLogo.indexOf(';'))
-    : 'image/png';
+  const workbook = new ExcelJS.Workbook();
+  const worksheet = workbook.addWorksheet(sheetName);
 
-  // Build background style for left logo
-  const logoBgStyle = leftBase64
-    ? `background-image: url('data:${leftMime};base64,${leftBase64}'); background-repeat: no-repeat; background-position: 15px center; background-size: 100px 35px;`
-    : '';
+  const thinBorder: Partial<ExcelJS.Borders> = {
+    top: { style: 'thin', color: { argb: 'FFDDDDDD' } },
+    bottom: { style: 'thin', color: { argb: 'FFDDDDDD' } },
+    left: { style: 'thin', color: { argb: 'FFDDDDDD' } },
+    right: { style: 'thin', color: { argb: 'FFDDDDDD' } },
+  };
 
-  // Right logo as inline img in the logo row
-  const rightLogoHtml = rightLogo
-    ? `<img src="${rightLogo}" width="100" height="35" style="float:right;" />`
-    : '';
-  
-  let html = `\ufeff
-    <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
-    <head>
-      <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-      <meta name=ProgId content=Excel.Sheet>
-      <meta name=Generator content="Microsoft Excel 15">
-      <!--[if gte mso 9]><xml>
-        <x:ExcelWorkbook>
-          <x:ExcelWorksheets>
-            <x:ExcelWorksheet>
-              <x:Name>${sheetName}</x:Name>
-              <x:WorksheetOptions>
-                <x:DisplayGridlines/>
-              </x:WorksheetOptions>
-            </x:ExcelWorksheet>
-          </x:ExcelWorksheets>
-        </x:ExcelWorkbook>
-      </xml><![endif]-->
-      <style>
-        table { border-collapse: collapse; width: 100%; mso-display-gridlines: yes; }
-        th, td { border: 1px solid #ddd; padding: 8px; mso-number-format: \\@; }
-        .header-bg { background-color: #2980B9; color: white; font-weight: bold; text-align: center; }
-        .title-bg { background-color: #2C3E50; color: white; font-weight: bold; text-align: center; }
-        .even-row { background-color: #F8F9FA; }
-        .logo-text { font-size: 18px; font-weight: bold; color: #2980B9; vertical-align: middle; font-family: 'Calibri', 'Arial', sans-serif; letter-spacing: 1px; }
-        .title-text { font-size: 14px; font-weight: bold; vertical-align: middle; font-family: 'Calibri', 'Arial', sans-serif; }
-      </style>
-    </head>
-    <body>
-      <table>
-        <tr>
-          <td colspan="${headers.length}" style="height:50px;vertical-align:middle;padding:10px;padding-left:130px;background-color:#ECF0F1;${logoBgStyle}">
-            ${rightLogoHtml}
-          </td>
-        </tr>
-        <tr>
-          <td colspan="${headers.length}" class="title-bg" style="height:35px;vertical-align:middle;padding:10px;">
-            <span class="title-text">${sheetName.toUpperCase()}</span>
-          </td>
-        </tr>
-        <tr>
-          <td colspan="${headers.length}" style="height:5px;"></td>
-        </tr>
-        <tr>
-          ${headers.map(h => `<th class="header-bg">${escapeHtml(h).toUpperCase().replace(/_/g, ' ')}</th>`).join('')}
-        </tr>
-  `;
-  
-  // Add data rows
-  data.forEach((item, index) => {
-    const rowClass = index % 2 === 0 ? 'even-row' : '';
-    html += `<tr>`;
-    headers.forEach(header => {
-      const value = escapeHtml(item[header]);
-      html += `<td class="${rowClass}" style="vertical-align:middle;">${value}</td>`;
-    });
-    html += `</tr>`;
+  let currentRow = 1;
+
+  // --- Row 1: Logo row (light background) ---
+  worksheet.mergeCells(currentRow, 1, currentRow, headers.length);
+  const logoRow = worksheet.getRow(currentRow);
+  logoRow.height = 45;
+  logoRow.getCell(1).fill = {
+    type: 'pattern',
+    pattern: 'solid',
+    fgColor: { argb: 'FFECF0F1' },
+  };
+
+  if (leftLogo) {
+    try {
+      const leftImageId = workbook.addImage({
+        base64: extractBase64(leftLogo),
+        extension: getImageExtension(leftLogo),
+      });
+      worksheet.addImage(leftImageId, {
+        tl: { col: 0.15, row: currentRow - 1 + 0.1 },
+        ext: { width: 130, height: 38 },
+      });
+    } catch (e) {
+      console.warn('⚠️ Failed to embed left logo:', e);
+    }
+  }
+
+  if (rightLogo) {
+    try {
+      const rightImageId = workbook.addImage({
+        base64: extractBase64(rightLogo),
+        extension: getImageExtension(rightLogo),
+      });
+      worksheet.addImage(rightImageId, {
+        tl: { col: Math.max(headers.length - 2, 1) + 0.5, row: currentRow - 1 + 0.1 },
+        ext: { width: 130, height: 38 },
+      });
+    } catch (e) {
+      console.warn('⚠️ Failed to embed right logo:', e);
+    }
+  }
+  currentRow++;
+
+  // --- Row 2: Title row (dark background) ---
+  worksheet.mergeCells(currentRow, 1, currentRow, headers.length);
+  const titleRow = worksheet.getRow(currentRow);
+  titleRow.height = 30;
+  const titleCell = titleRow.getCell(1);
+  titleCell.value = sheetName.toUpperCase();
+  titleCell.font = { bold: true, size: 14, color: { argb: 'FFFFFFFF' }, name: 'Calibri' };
+  titleCell.fill = {
+    type: 'pattern',
+    pattern: 'solid',
+    fgColor: { argb: 'FF2C3E50' },
+  };
+  titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+  currentRow++;
+
+  // --- Row 3: Spacer ---
+  worksheet.getRow(currentRow).height = 5;
+  currentRow++;
+
+  // --- Row 4: Column headers (blue) ---
+  const headerRow = worksheet.getRow(currentRow);
+  headerRow.height = 25;
+  headers.forEach((header, i) => {
+    const cell = headerRow.getCell(i + 1);
+    cell.value = header.toUpperCase().replace(/_/g, ' ');
+    cell.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 10, name: 'Calibri' };
+    cell.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FF2980B9' },
+    };
+    cell.alignment = { horizontal: 'center', vertical: 'middle' };
+    cell.border = thinBorder;
   });
-  
-  html += `
-      </table>
-    </body>
-    </html>
-  `;
-  
-  // Create blob with UTF-8 BOM for proper Unicode rendering
-  const blob = new Blob([html], { type: 'application/vnd.ms-excel;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  
-  const timestamp = format(new Date(), 'yyyy-MM-dd');
-  link.download = `${filename}_${timestamp}.xls`;
-  
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
-  
-  console.log('✅ Excel export successful with logo(s)');
-};
+  currentRow++;
 
-/**
- * Standard Excel export without image (fallback)
- */
-const exportToExcelStandard = (data: any[], filename: string, sheetName: string, headers: string[]) => {
-  const wsData = [
-    ['🏢 INVITATION SYSTEM'], // Company name
-    [sheetName.toUpperCase()], // Report title
-    [], // Empty spacer
-    headers.map(h => h.toUpperCase().replace(/_/g, ' ')), // Column headers
-    ...data.map(item => headers.map(h => item[h] ?? '')) // Data rows
-  ];
-  
-  const ws = XLSX.utils.aoa_to_sheet(wsData);
-  const wb = XLSX.utils.book_new();
-  
-  // Set column widths and styling...
-  ws['!cols'] = headers.map(header => {
+  // --- Data rows ---
+  data.forEach((item, idx) => {
+    const row = worksheet.getRow(currentRow);
+    headers.forEach((header, i) => {
+      const cell = row.getCell(i + 1);
+      cell.value = item[header] ?? '';
+      cell.alignment = { vertical: 'middle' };
+      cell.border = thinBorder;
+      cell.font = { size: 10, name: 'Calibri' };
+      if (idx % 2 === 0) {
+        cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FFF8F9FA' },
+        };
+      }
+    });
+    currentRow++;
+  });
+
+  // --- Auto-fit column widths ---
+  headers.forEach((header, i) => {
     let maxLen = header.length;
     data.forEach(row => {
       const val = String(row[header] || '');
       if (val.length > maxLen) maxLen = val.length;
     });
-    return { wch: Math.min(Math.max(maxLen + 2, 12), 40) };
+    worksheet.getColumn(i + 1).width = Math.min(Math.max(maxLen + 2, 12), 40);
   });
-  
-  XLSX.utils.book_append_sheet(wb, ws, sheetName);
-  
+
+  // --- Generate and download ---
+  const buffer = await workbook.xlsx.writeBuffer();
+  const blob = new Blob([buffer], {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
   const timestamp = format(new Date(), 'yyyy-MM-dd');
-  XLSX.writeFile(wb, `${filename}_${timestamp}.xlsx`);
-  
-  console.log('✅ Excel export successful (standard without image)');
+  link.download = `${filename}_${timestamp}.xlsx`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+
+  console.log('✅ Excel export successful with logo(s)');
 };
 
 /**
