@@ -36,13 +36,16 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      // Don't redirect to login for check-in or live dashboard routes - they use PIN auth
-      const isCheckinRoute = window.location.pathname.startsWith('/checkin/') || 
-                             window.location.pathname.startsWith('/live/');
+      // Don't interfere with check-in, live dashboard, or login routes
+      const isPublicRoute = window.location.pathname.startsWith('/checkin/') || 
+                            window.location.pathname.startsWith('/live/') ||
+                            window.location.pathname.includes('/login');
       const isPinRequired = error.response?.data?.requires_pin;
       
-      if (!isCheckinRoute && !isPinRequired && !window.location.pathname.includes('/login')) {
-        window.location.href = '/login';
+      if (!isPublicRoute && !isPinRequired) {
+        // Dispatch event for AuthContext to show session expired modal
+        // instead of hard-redirecting (which causes race conditions)
+        window.dispatchEvent(new CustomEvent('auth:session-expired'));
       }
     }
     return Promise.reject(error);

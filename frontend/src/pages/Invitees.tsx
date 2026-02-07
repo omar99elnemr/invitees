@@ -3,7 +3,7 @@
  * Tab 1 (Events): View assigned events and submit contacts for approval
  * Tab 2 (Contacts): Manage the inviter group's contact list
  */
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import Select from 'react-select';
 import {
   Users,
@@ -18,6 +18,9 @@ import {
   UserCheck,
   XCircle,
   History,
+  FileUp,
+  FileSpreadsheet,
+  Trash,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
@@ -128,6 +131,8 @@ export default function Invitees() {
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importing, setImporting] = useState(false);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Form data
   const [formData, setFormData] = useState<InviteeFormData>(initialFormData);
@@ -1969,66 +1974,146 @@ export default function Invitees() {
 
       {/* Import Modal */}
       {showImportModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-lg w-full border border-gray-200 dark:border-gray-700">
             <div className="p-6">
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center justify-between mb-5">
                 <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Bulk Import Contacts</h2>
                 <button
-                  onClick={() => { setShowImportModal(false); setImportFile(null); }}
-                  className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full text-gray-500 dark:text-gray-400"
+                  onClick={() => { setShowImportModal(false); setImportFile(null); setIsDragOver(false); }}
+                  className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-gray-500 dark:text-gray-400 transition-colors"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
-              <div className="space-y-4">
+              <div className="space-y-5">
+                {/* Step 1: Download Template */}
                 <div>
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Step 1: Download the template and fill in your contacts
+                  </p>
                   <button
                     onClick={handleDownloadTemplate}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 border border-dashed border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 transition-colors"
                   >
                     <Download className="w-5 h-5" />
-                    Download Template
+                    Download Template (.xlsx)
                   </button>
                 </div>
 
-                <div className="border-t dark:border-gray-700 pt-4">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Upload File
-                  </label>
+                {/* Step 2: Upload File — Drag & Drop Zone */}
+                <div>
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Step 2: Upload your filled file
+                  </p>
+
+                  {/* Hidden file input */}
                   <input
+                    ref={fileInputRef}
                     type="file"
                     accept=".xlsx,.xls,.csv"
-                    onChange={(e) => setImportFile(e.target.files?.[0] || null)}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-700 dark:text-white"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0] || null;
+                      if (file) setImportFile(file);
+                      e.target.value = '';
+                    }}
                   />
-                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                    Supported formats: Excel (.xlsx, .xls) or CSV
-                  </p>
+
+                  {!importFile ? (
+                    <div
+                      onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setIsDragOver(true); }}
+                      onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); setIsDragOver(true); }}
+                      onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setIsDragOver(false); }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setIsDragOver(false);
+                        const file = e.dataTransfer.files?.[0];
+                        if (file) {
+                          const ext = file.name.split('.').pop()?.toLowerCase();
+                          if (['xlsx', 'xls', 'csv'].includes(ext || '')) {
+                            setImportFile(file);
+                          } else {
+                            toast.error('Unsupported file type. Please use .xlsx, .xls, or .csv');
+                          }
+                        }
+                      }}
+                      onClick={() => fileInputRef.current?.click()}
+                      className={`relative cursor-pointer border-2 border-dashed rounded-xl p-8 text-center transition-all ${
+                        isDragOver
+                          ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20'
+                          : 'border-gray-300 dark:border-gray-600 hover:border-indigo-400 dark:hover:border-indigo-500 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                      }`}
+                    >
+                      <FileUp className={`w-10 h-10 mx-auto mb-3 ${isDragOver ? 'text-indigo-500' : 'text-gray-400 dark:text-gray-500'}`} />
+                      <p className={`text-sm font-medium ${isDragOver ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-700 dark:text-gray-300'}`}>
+                        {isDragOver ? 'Drop your file here' : 'Click to browse or drag & drop'}
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        Supports .xlsx, .xls, and .csv files
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-4 bg-gray-50 dark:bg-gray-700/50">
+                      <div className="flex items-center gap-3">
+                        <div className="flex-shrink-0 p-2.5 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg">
+                          <FileSpreadsheet className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{importFile.name}</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            {(importFile.size / 1024).toFixed(1)} KB
+                          </p>
+                        </div>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setImportFile(null); }}
+                          className="flex-shrink-0 p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                          title="Remove file"
+                        >
+                          <Trash className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
               <div className="mt-6 flex justify-end gap-3">
                 <button
-                  onClick={() => { setShowImportModal(false); setImportFile(null); }}
-                  className="px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600"
+                  onClick={() => { setShowImportModal(false); setImportFile(null); setIsDragOver(false); }}
+                  className="px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
                   disabled={importing}
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleImport}
-                  className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark disabled:opacity-50"
+                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
                   disabled={importing || !importFile}
                 >
-                  {importing ? 'Importing...' : 'Import'}
+                  {importing ? (
+                    <>
+                      <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      </svg>
+                      Importing...
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="w-4 h-4" />
+                      Import Contacts
+                    </>
+                  )}
                 </button>
               </div>
             </div>
           </div>
         </div>
       )}
+
       {/* Category Manager Modal */}
       {showCategoryManager && (
         <CategoryManager
