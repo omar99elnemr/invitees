@@ -118,8 +118,8 @@ export default function Portal() {
           <div className="inline-flex items-center justify-center w-16 h-16 bg-primary rounded-full mb-4">
             <Ticket className="w-8 h-8 text-white" />
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Event Check-in Portal</h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-2">Enter your invitation code to view your details</p>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Event Attendance Confirmation Portal</h1>
+          <p className="text-gray-600 dark:text-gray-400 mt-2">Enter your invitation code to confirm your attendance</p>
         </div>
 
         {!attendeeData ? (
