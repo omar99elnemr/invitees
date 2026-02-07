@@ -15,8 +15,11 @@ import {
   Calendar,
   MapPin,
   Undo2,
+  ExternalLink,
+  Copy,
+  Key,
 } from 'lucide-react';
-import { attendanceAPI, AttendanceStats, AttendanceFilters, settingsAPI } from '../services/api';
+import { attendanceAPI, AttendanceStats, AttendanceFilters, settingsAPI, eventsAPI, CheckinPinInfo } from '../services/api';
 import type { Event, EventInvitee } from '../types';
 import toast from 'react-hot-toast';
 import { exportToExcel, exportToPDF, exportToCSV } from '../utils/exportHelpers';
@@ -32,7 +35,6 @@ export default function Attendance() {
   const [attendees, setAttendees] = useState<EventInvitee[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingAttendees, setLoadingAttendees] = useState(false);
-  const [activeTab, setActiveTab] = useState<'manage' | 'checkin'>('manage');
   
   // Filters
   const [filters, setFilters] = useState<AttendanceFilters>({});
@@ -47,12 +49,9 @@ export default function Attendance() {
   const [codePrefix, setCodePrefix] = useState('');
   const [sendMethod, setSendMethod] = useState<'email' | 'whatsapp' | 'physical' | 'sms'>('physical');
   
-  // Check-in
-  const [checkInCode, setCheckInCode] = useState('');
-  const [checkInGuests, setCheckInGuests] = useState(0);
-  const [checkInNotes, setCheckInNotes] = useState('');
-  const [checkInResult, setCheckInResult] = useState<EventInvitee | null>(null);
-  const [checkInError, setCheckInError] = useState('');
+  // Check-in PIN status bar
+  const [checkinPinInfo, setCheckinPinInfo] = useState<CheckinPinInfo | null>(null);
+  const [loadingCheckinPin, setLoadingCheckinPin] = useState(false);
   
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -89,10 +88,11 @@ export default function Attendance() {
     }
   };
 
-  // Load stats and attendees when event changes
+  // Load stats, attendees, and check-in PIN info when event changes
   useEffect(() => {
     if (selectedEventId) {
       loadEventData();
+      loadCheckinPinInfo(selectedEventId);
     }
   }, [selectedEventId]);
 
@@ -190,32 +190,6 @@ export default function Attendance() {
     }
   };
 
-  const handleCheckIn = async () => {
-    if (!checkInCode.trim()) {
-      setCheckInError('Please enter an attendance code');
-      return;
-    }
-    
-    try {
-      setCheckInError('');
-      const response = await attendanceAPI.checkIn(checkInCode, checkInGuests, checkInNotes || undefined);
-      
-      if (response.data.success && response.data.attendee) {
-        setCheckInResult(response.data.attendee);
-        toast.success('Check-in successful!');
-        setCheckInCode('');
-        setCheckInGuests(0);
-        setCheckInNotes('');
-        loadEventData();
-      } else {
-        setCheckInError(response.data.error || 'Check-in failed');
-      }
-    } catch (error: unknown) {
-      const err = error as { response?: { data?: { error?: string } } };
-      setCheckInError(err.response?.data?.error || 'Check-in failed');
-    }
-  };
-
   const handleUndoCheckIn = async (inviteeId: number) => {
     try {
       await attendanceAPI.undoCheckIn(inviteeId);
@@ -224,6 +198,37 @@ export default function Attendance() {
     } catch (error) {
       toast.error('Failed to undo check-in');
     }
+  };
+
+  // Check-in PIN status bar
+  const loadCheckinPinInfo = async (eventId: number) => {
+    setLoadingCheckinPin(true);
+    setCheckinPinInfo(null);
+    try {
+      const response = await eventsAPI.getCheckinPin(eventId);
+      setCheckinPinInfo(response.data);
+    } catch {
+      // No PIN exists or failed to load — that's ok
+      setCheckinPinInfo(null);
+    } finally {
+      setLoadingCheckinPin(false);
+    }
+  };
+
+  const handleToggleCheckinPin = async () => {
+    if (!selectedEventId || !checkinPinInfo) return;
+    try {
+      const response = await eventsAPI.toggleCheckinPin(selectedEventId, !checkinPinInfo.active);
+      setCheckinPinInfo({ ...checkinPinInfo, active: response.data.checkin_pin_active });
+      toast.success(response.data.checkin_pin_active ? 'Check-in PIN activated' : 'Check-in PIN deactivated');
+    } catch {
+      toast.error('Failed to toggle check-in PIN');
+    }
+  };
+
+  const copyToClipboard = (text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success(`${label} copied to clipboard`);
   };
 
   const handleSelectAll = () => {
@@ -458,37 +463,58 @@ export default function Attendance() {
             </div>
           )}
 
-          {/* Tabs */}
-          <div className="border-b border-gray-200 dark:border-gray-700">
-            <nav className="flex space-x-8">
-              <button
-                onClick={() => setActiveTab('manage')}
-                className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === 'manage'
-                    ? 'border-primary text-primary'
-                    : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
-                }`}
-              >
-                <FileText className="w-4 h-4 inline mr-2" />
-                Manage Invitations
-              </button>
-              <button
-                onClick={() => setActiveTab('checkin')}
-                className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === 'checkin'
-                    ? 'border-primary text-primary'
-                    : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
-                }`}
-              >
-                <UserCheck className="w-4 h-4 inline mr-2" />
-                Check-in Console
-              </button>
-            </nav>
-          </div>
+          {/* Check-in Status Bar */}
+          {checkinPinInfo && (
+            <div className={`flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 rounded-xl border ${
+              checkinPinInfo.active
+                ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
+                : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
+            }`}>
+              <div className="flex items-center gap-3">
+                <Key className={`w-5 h-5 ${checkinPinInfo.active ? 'text-green-600 dark:text-green-400' : 'text-gray-400'}`} />
+                <div>
+                  <span className={`text-sm font-medium ${checkinPinInfo.active ? 'text-green-700 dark:text-green-300' : 'text-gray-600 dark:text-gray-400'}`}>
+                    Check-in: {checkinPinInfo.active ? 'Active' : 'Inactive'}
+                  </span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">
+                    PIN: <code className="font-mono bg-white dark:bg-gray-700 px-1.5 py-0.5 rounded text-xs">{checkinPinInfo.pin}</code>
+                  </span>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => copyToClipboard(`${window.location.origin}/checkin/${checkinPinInfo.code}`, 'Console URL')}
+                  className="px-3 py-1.5 text-xs font-medium border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-white dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 flex items-center gap-1.5"
+                  title="Copy check-in console URL"
+                >
+                  <Copy className="w-3.5 h-3.5" />
+                  Copy URL
+                </button>
+                <a
+                  href={`/checkin/${checkinPinInfo.code}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3 py-1.5 text-xs font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 flex items-center gap-1.5"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  Open Console
+                </a>
+                <button
+                  onClick={handleToggleCheckinPin}
+                  className={`px-3 py-1.5 text-xs font-medium rounded-lg flex items-center gap-1.5 ${
+                    checkinPinInfo.active
+                      ? 'bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400 dark:hover:bg-red-900/50'
+                      : 'bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400 dark:hover:bg-green-900/50'
+                  }`}
+                >
+                  {checkinPinInfo.active ? 'Deactivate' : 'Activate'}
+                </button>
+              </div>
+            </div>
+          )}
 
-          {/* Tab Content */}
-          {activeTab === 'manage' && (
-            <div className="space-y-4">
+          {/* Manage Invitations */}
+          <div className="space-y-4">
               {/* Toolbar */}
               <div className="flex flex-col sm:flex-row gap-4 justify-between">
                 <div className="flex flex-wrap gap-2">
@@ -678,124 +704,6 @@ export default function Attendance() {
                 />
               </div>
             </div>
-          )}
-
-          {activeTab === 'checkin' && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Check-in Form */}
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                  <QrCode className="w-5 h-5 text-primary" />
-                  Check-in Attendee
-                </h3>
-                
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Attendance Code
-                    </label>
-                    <input
-                      type="text"
-                      value={checkInCode}
-                      onChange={(e) => setCheckInCode(e.target.value.toUpperCase())}
-                      placeholder="Enter code (e.g., EVT1-7X9K)"
-                      className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary bg-white dark:bg-gray-800 dark:text-white text-lg font-mono"
-                      onKeyDown={(e) => e.key === 'Enter' && handleCheckIn()}
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Guests Accompanying
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={checkInGuests}
-                      onChange={(e) => setCheckInGuests(parseInt(e.target.value) || 0)}
-                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary bg-white dark:bg-gray-800 dark:text-white"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Notes (optional)
-                    </label>
-                    <input
-                      type="text"
-                      value={checkInNotes}
-                      onChange={(e) => setCheckInNotes(e.target.value)}
-                      placeholder="Any notes..."
-                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary bg-white dark:bg-gray-800 dark:text-white"
-                    />
-                  </div>
-                  
-                  {checkInError && (
-                    <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
-                      {checkInError}
-                    </div>
-                  )}
-                  
-                  <button
-                    onClick={handleCheckIn}
-                    className="w-full py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium flex items-center justify-center gap-2"
-                  >
-                    <CheckCircle className="w-5 h-5" />
-                    Check In
-                  </button>
-                </div>
-              </div>
-              
-              {/* Recent Check-in Result */}
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                  <UserCheck className="w-5 h-5 text-primary" />
-                  Last Check-in
-                </h3>
-                
-                {checkInResult ? (
-                  <div className="space-y-4">
-                    <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                      <p className="text-green-800 font-semibold flex items-center gap-2">
-                        <CheckCircle className="w-5 h-5" />
-                        Successfully Checked In!
-                      </p>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <div className="flex justify-between py-2 border-b border-gray-200 dark:border-gray-700">
-                        <span className="text-gray-500 dark:text-gray-400">Name</span>
-                        <span className="font-medium dark:text-white">{checkInResult.invitee_name}</span>
-                      </div>
-                      <div className="flex justify-between py-2 border-b border-gray-200 dark:border-gray-700">
-                        <span className="text-gray-500 dark:text-gray-400">Code</span>
-                        <code className="font-mono bg-gray-100 dark:bg-gray-700 dark:text-gray-300 px-2 py-0.5 rounded">{checkInResult.attendance_code}</code>
-                      </div>
-                      <div className="flex justify-between py-2 border-b border-gray-200 dark:border-gray-700">
-                        <span className="text-gray-500 dark:text-gray-400">Category</span>
-                        <span className="font-medium dark:text-white">{checkInResult.category || '-'}</span>
-                      </div>
-                      <div className="flex justify-between py-2 border-b border-gray-200 dark:border-gray-700">
-                        <span className="text-gray-500 dark:text-gray-400">Guests</span>
-                        <span className="font-medium dark:text-white">{checkInResult.actual_guests}</span>
-                      </div>
-                      <div className="flex justify-between py-2">
-                        <span className="text-gray-500 dark:text-gray-400">Checked In At</span>
-                        <span className="font-medium dark:text-white">
-                          {checkInResult.checked_in_at ? formatTimeEgypt(checkInResult.checked_in_at) : '-'}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-center py-8 text-gray-400">
-                    <UserCheck className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                    <p>No recent check-ins</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
         </>
       )}
 
