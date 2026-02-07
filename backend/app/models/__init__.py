@@ -11,6 +11,7 @@ from app.models.event_invitee import EventInvitee, EVENT_INVITEE_CATEGORIES
 from app.models.audit_log import AuditLog
 
 from app.models.category import Category
+from app.models.export_setting import ExportSetting
 
 __all__ = [
     'User',
@@ -22,5 +23,6 @@ __all__ = [
     'EventInvitee',
     'EVENT_INVITEE_CATEGORIES',
     'AuditLog',
-    'Category'
+    'Category',
+    'ExportSetting',
 ]

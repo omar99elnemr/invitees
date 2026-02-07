@@ -16,7 +16,7 @@ import {
   MapPin,
   Undo2,
 } from 'lucide-react';
-import { attendanceAPI, AttendanceStats, AttendanceFilters } from '../services/api';
+import { attendanceAPI, AttendanceStats, AttendanceFilters, settingsAPI } from '../services/api';
 import type { Event, EventInvitee } from '../types';
 import toast from 'react-hot-toast';
 import { exportToExcel, exportToPDF, exportToCSV } from '../utils/exportHelpers';
@@ -61,6 +61,11 @@ export default function Attendance() {
   // Sorting
   const [sortField, setSortField] = useState<string | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+
+  // Dynamic logos from admin settings for PDF exports
+  const [exportLogoLeft, setExportLogoLeft] = useState<string | null>(null);
+  const [exportLogoRight, setExportLogoRight] = useState<string | null>(null);
+  const [exportLogosLoaded, setExportLogosLoaded] = useState(false);
   const handleSort = (field: string) => {
     setSortDirection(sortField === field && sortDirection === 'asc' ? 'desc' : 'asc');
     setSortField(field);
@@ -69,7 +74,20 @@ export default function Attendance() {
   // Load events on mount
   useEffect(() => {
     loadEvents();
+    loadExportLogos();
   }, []);
+
+  const loadExportLogos = async () => {
+    try {
+      const res = await settingsAPI.getExportSettings();
+      const settings = res.data.settings || {};
+      setExportLogoLeft(settings.logo_left?.value || null);
+      setExportLogoRight(settings.logo_right?.value || null);
+      setExportLogosLoaded(true);
+    } catch {
+      setExportLogosLoaded(true);
+    }
+  };
 
   // Load stats and attendees when event changes
   useEffect(() => {
@@ -260,7 +278,10 @@ export default function Attendance() {
     if (format === 'excel') {
       exportToExcel(data, filename);
     } else if (format === 'pdf') {
-      exportToPDF(data, filename, `Attendance - ${selectedEvent?.name || 'Event'}`);
+      const logoOptions = exportLogosLoaded
+        ? { logoLeft: exportLogoLeft, logoRight: exportLogoRight }
+        : undefined;
+      exportToPDF(data, filename, `Attendance - ${selectedEvent?.name || 'Event'}`, 'landscape', logoOptions);
     } else {
       exportToCSV(data, filename);
     }

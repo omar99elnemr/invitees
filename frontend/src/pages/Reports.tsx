@@ -19,7 +19,7 @@ import {
   FileSpreadsheet,
   Activity,
 } from 'lucide-react';
-import { reportsAPI, eventsAPI, inviterGroupsAPI } from '../services/api';
+import { reportsAPI, eventsAPI, inviterGroupsAPI, settingsAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import type { Event, InviterGroup, EventInvitee } from '../types';
 import { exportToCSV, exportToExcel, exportToPDF } from '../utils/exportHelpers';
@@ -130,6 +130,10 @@ export default function Reports() {
   
   // Logo data for Excel exports
   const [logoImageData, setLogoImageData] = useState<string>('');
+  // Dynamic logos from admin settings for PDF exports
+  const [exportLogoLeft, setExportLogoLeft] = useState<string | null>(null);
+  const [exportLogoRight, setExportLogoRight] = useState<string | null>(null);
+  const [exportLogosLoaded, setExportLogosLoaded] = useState(false);
 
   const canViewReports = user?.role === 'admin';
 
@@ -188,6 +192,20 @@ export default function Reports() {
     }
   };
 
+  const loadExportLogos = async () => {
+    if (exportLogosLoaded) return;
+    try {
+      const res = await settingsAPI.getExportSettings();
+      const settings = res.data.settings || {};
+      setExportLogoLeft(settings.logo_left?.value || null);
+      setExportLogoRight(settings.logo_right?.value || null);
+      setExportLogosLoaded(true);
+    } catch {
+      // If settings API fails, export will fall back to hardcoded logo
+      setExportLogosLoaded(true);
+    }
+  };
+
   const generateReport = async () => {
     setLoading(true);
     setDataLoaded(false);
@@ -197,8 +215,8 @@ export default function Reports() {
     setActivityPage(1);
     setHistoricalPage(1);
     
-    // Load logo data for Excel exports
-    await loadLogoData();
+    // Load logo data for Excel exports + dynamic export logos
+    await Promise.all([loadLogoData(), loadExportLogos()]);
 
     const filters: any = {};
     if (eventFilter) filters.event_id = eventFilter;
@@ -407,7 +425,11 @@ export default function Reports() {
       } else if (format === 'excel') {
         exportToExcel(exportData, filename, reportName, logoImageData);
       } else if (format === 'pdf') {
-        exportToPDF(exportData, filename, reportName, 'landscape');
+        // Pass dynamic logos if loaded from admin settings; undefined = use hardcoded fallback
+        const logoOptions = exportLogosLoaded
+          ? { logoLeft: exportLogoLeft, logoRight: exportLogoRight }
+          : undefined;
+        exportToPDF(exportData, filename, reportName, 'landscape', logoOptions);
       }
       toast.success(`Exported as ${format.toUpperCase()}`);
     } catch (error) {

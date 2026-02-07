@@ -594,4 +594,31 @@ export interface PortalVerifyResponse {
 
 import { Category } from '../types';
 
+// =========================
+// Settings API (Export Logos)
+// =========================
+export const settingsAPI = {
+  getExportSettings: () =>
+    api.get<{ success: boolean; settings: ExportSettings }>('/settings/export'),
+
+  updateExportSettings: (data: {
+    logo_left?: string | null;
+    logo_right?: string | null;
+    remove_left?: boolean;
+    remove_right?: boolean;
+  }) =>
+    api.put<{ success: boolean; settings: ExportSettings }>('/settings/export', data),
+};
+
+export interface ExportSettingValue {
+  value: string | null;
+  updated_at: string | null;
+  updated_by_name: string | null;
+}
+
+export interface ExportSettings {
+  logo_left?: ExportSettingValue;
+  logo_right?: ExportSettingValue;
+}
+
 export default api;

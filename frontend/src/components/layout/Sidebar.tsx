@@ -15,6 +15,7 @@ import {
   UserCheck,
   X,
   ChevronRight,
+  Settings,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -67,6 +68,12 @@ export function Sidebar({ isOpen, isMobile, onClose }: SidebarProps) {
       name: 'Users',
       path: '/users',
       icon: UserCog,
+      roles: ['admin'],
+    },
+    {
+      name: 'Settings',
+      path: '/settings',
+      icon: Settings,
       roles: ['admin'],
     },
   ];

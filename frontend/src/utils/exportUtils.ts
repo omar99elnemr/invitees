@@ -314,15 +314,18 @@ export const exportToPDF = (
   data: any[],
   filename: string,
   title: string,
-  orientation: 'portrait' | 'landscape' = 'landscape'
+  orientation: 'portrait' | 'landscape' = 'landscape',
+  options?: { logoLeft?: string | null; logoRight?: string | null }
 ): void => {
   try {
     if (!data || data.length === 0) {
       throw new Error('No data to export');
     }
 
-    // Logo is now embedded - check if available
-    console.log('🖼️ Logo embedded:', logoBase64 ? 'Yes' : 'No');
+    // Resolve logos: dynamic from settings → fallback to hardcoded
+    const leftLogo = options?.logoLeft !== undefined ? options.logoLeft : logoBase64;
+    const rightLogo = options?.logoRight !== undefined ? options.logoRight : null;
+    console.log('🖼️ Left logo:', leftLogo ? 'Yes' : 'No', '| Right logo:', rightLogo ? 'Yes' : 'No');
 
     // Detect scripts in data
     const scripts = detectScripts(data);
@@ -470,10 +473,19 @@ export const exportToPDF = (
       }, {} as any),
       margin: { top: 28, right: 14, bottom: 20, left: 14 },
       didDrawPage: (hookData) => {
-        // Add logo to every page (top-left, within margins)
-        if (logoBase64) {
+        // Add left logo to every page (top-left, within margins)
+        if (leftLogo) {
           try {
-            doc.addImage(logoBase64, 'PNG', 14, 8, 25, 12);
+            doc.addImage(leftLogo, 'PNG', 14, 8, 25, 12);
+          } catch (e) {
+            // Silently ignore on subsequent pages
+          }
+        }
+        
+        // Add right logo to every page (top-right, within margins)
+        if (rightLogo) {
+          try {
+            doc.addImage(rightLogo, 'PNG', pageWidth - 39, 8, 25, 12);
           } catch (e) {
             // Silently ignore on subsequent pages
           }
@@ -511,7 +523,8 @@ export const smartExport = (
   data: any[],
   filename: string,
   title: string,
-  preferredFormat: 'pdf' | 'excel' | 'csv' = 'pdf'
+  preferredFormat: 'pdf' | 'excel' | 'csv' = 'pdf',
+  options?: { logoLeft?: string | null; logoRight?: string | null }
 ): Promise<void> => {
   console.log('🚀 Smart export called:', { filename, title, preferredFormat, dataLength: data?.length });
   
@@ -547,7 +560,7 @@ export const smartExport = (
       console.log('🎯 Executing export for format:', preferredFormat);
       switch (preferredFormat) {
         case 'pdf':
-          exportToPDF(data, filename, title);
+          exportToPDF(data, filename, title, 'landscape', options);
           break;
         case 'excel':
           console.log('📊 Calling Excel export...');

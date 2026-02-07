@@ -22,6 +22,7 @@ import Attendance from './pages/Attendance';
 import Portal from './pages/Portal';
 import CheckInConsole from './pages/CheckInConsole';
 import LiveDashboard from './pages/LiveDashboard';
+import ExportSettings from './pages/ExportSettings';
 
 function App() {
   return (
@@ -105,6 +106,14 @@ function App() {
               }
             />
             <Route path="profile" element={<Profile />} />
+            <Route
+              path="settings"
+              element={
+                <ProtectedRoute roles={['admin']}>
+                  <ExportSettings />
+                </ProtectedRoute>
+              }
+            />
             <Route
               path="attendance"
               element={

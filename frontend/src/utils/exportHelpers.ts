@@ -194,11 +194,12 @@ export const exportToPDF = (
   data: any[],
   filename: string,
   title: string,
-  orientation: 'portrait' | 'landscape' = 'landscape'
+  orientation: 'portrait' | 'landscape' = 'landscape',
+  options?: { logoLeft?: string | null; logoRight?: string | null }
 ) => {
   // Import and use the Unicode-aware export function
   import('./exportUtils').then(({ exportToPDF: unicodeExportToPDF }) => {
-    unicodeExportToPDF(data, filename, title, orientation);
+    unicodeExportToPDF(data, filename, title, orientation, options);
   });
 };
 
