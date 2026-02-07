@@ -8,7 +8,13 @@ import { format } from 'date-fns';
 /**
  * Export data to Excel format with logo information
  */
-export const exportToExcel = (data: any[], filename: string, sheetName = 'Report', logoData: string = '') => {
+export const exportToExcel = (
+  data: any[],
+  filename: string,
+  sheetName = 'Report',
+  logoData: string = '',
+  options?: { logoLeft?: string | null; logoRight?: string | null }
+) => {
   try {
     // Validate data
     if (!data || data.length === 0) {
@@ -17,9 +23,13 @@ export const exportToExcel = (data: any[], filename: string, sheetName = 'Report
     
     const headers = Object.keys(data[0] || {});
     
-    // If logo data is available, use HTML approach with actual image
-    if (logoData) {
-      exportToExcelWithImage(data, filename, sheetName, logoData, headers);
+    // Resolve logos: dynamic settings take priority, then legacy logoData fallback
+    const leftLogo = options?.logoLeft !== undefined ? options.logoLeft : (logoData || null);
+    const rightLogo = options?.logoRight !== undefined ? options.logoRight : null;
+    
+    // If any logo data is available, use HTML approach with actual image
+    if (leftLogo || rightLogo) {
+      exportToExcelWithImage(data, filename, sheetName, headers, leftLogo, rightLogo);
     } else {
       // Fallback to standard XLSX without image
       exportToExcelStandard(data, filename, sheetName, headers);
@@ -33,9 +43,21 @@ export const exportToExcel = (data: any[], filename: string, sheetName = 'Report
 /**
  * Export Excel with actual logo image using HTML table approach
  */
-const exportToExcelWithImage = (data: any[], filename: string, sheetName: string, logoData: string, headers: string[]) => {
-  // Extract pure base64 data if it has data: prefix
-  const base64Data = logoData.startsWith('data:') ? logoData.split(',')[1] : logoData;
+const exportToExcelWithImage = (
+  data: any[],
+  filename: string,
+  sheetName: string,
+  headers: string[],
+  leftLogo: string | null,
+  rightLogo: string | null
+) => {
+  // Build logo cells for the header row
+  const leftLogoHtml = leftLogo
+    ? `<img src="${leftLogo}" style="height:40px;max-width:120px;" />`
+    : '';
+  const rightLogoHtml = rightLogo
+    ? `<img src="${rightLogo}" style="height:40px;max-width:120px;" />`
+    : '';
   
   let html = `
     <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
@@ -60,29 +82,17 @@ const exportToExcelWithImage = (data: any[], filename: string, sheetName: string
         th, td { border: 1px solid #ddd; padding: 8px; mso-number-format: \@; }
         .header-bg { background-color: #2980B9; color: white; font-weight: bold; text-align: center; }
         .title-bg { background-color: #2C3E50; color: white; font-weight: bold; text-align: center; }
-        .logo-bg { 
-          background-color: #ECF0F1; 
-          background-image: url('data:image/png;base64,${base64Data}');
-          background-repeat: no-repeat;
-          background-position: 15px center;
-          background-size: 100px 35px;
-        }
+        .logo-bg { background-color: #ECF0F1; }
         .even-row { background-color: #F8F9FA; }
-        .logo-text { font-size: 18px; font-weight: bold; color: #2980B9; vertical-align: middle; font-family: 'Calibri', 'Arial', sans-serif; letter-spacing: 1px; }
         .title-text { font-size: 14px; font-weight: bold; vertical-align: middle; font-family: 'Calibri', 'Arial', sans-serif; }
       </style>
     </head>
     <body>
       <table>
-        <tr>
-          <td colspan="${headers.length}" class="logo-bg" style="height:50px;vertical-align:middle;padding:10px;padding-left:130px;">
-            <span class="logo-text">Hyatt</span>
-          </td>
-        </tr>
-        <tr>
-          <td colspan="${headers.length}" class="title-bg" style="height:35px;vertical-align:middle;padding:10px;">
-            <span class="title-text">${sheetName.toUpperCase()}</span>
-          </td>
+        <tr class="logo-bg">
+          <td style="height:50px;vertical-align:middle;padding:10px;text-align:left;">${leftLogoHtml}</td>
+          <td colspan="${Math.max(headers.length - 2, 1)}" style="height:50px;vertical-align:middle;padding:10px;text-align:center;font-size:16px;font-weight:bold;color:#2980B9;font-family:'Calibri','Arial',sans-serif;">${sheetName.toUpperCase()}</td>
+          <td style="height:50px;vertical-align:middle;padding:10px;text-align:right;">${rightLogoHtml}</td>
         </tr>
         <tr>
           <td colspan="${headers.length}" style="height:5px;"></td>
@@ -123,7 +133,7 @@ const exportToExcelWithImage = (data: any[], filename: string, sheetName: string
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
   
-  console.log('✅ Excel export successful with actual logo image');
+  console.log('✅ Excel export successful with logo(s)');
 };
 
 /**

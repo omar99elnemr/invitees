@@ -419,16 +419,17 @@ export default function Reports() {
     const reportName = reportTypes.find(r => r.id === activeReport)?.name || 'Report';
     const filename = `${reportName.replace(/\s+/g, '_')}`;
 
+    // Build logo options from admin settings (shared by PDF and Excel)
+    const logoOptions = exportLogosLoaded
+      ? { logoLeft: exportLogoLeft, logoRight: exportLogoRight }
+      : undefined;
+
     try {
       if (format === 'csv') {
         exportToCSV(exportData, filename);
       } else if (format === 'excel') {
-        exportToExcel(exportData, filename, reportName, logoImageData);
+        exportToExcel(exportData, filename, reportName, logoImageData, logoOptions);
       } else if (format === 'pdf') {
-        // Pass dynamic logos if loaded from admin settings; undefined = use hardcoded fallback
-        const logoOptions = exportLogosLoaded
-          ? { logoLeft: exportLogoLeft, logoRight: exportLogoRight }
-          : undefined;
         exportToPDF(exportData, filename, reportName, 'landscape', logoOptions);
       }
       toast.success(`Exported as ${format.toUpperCase()}`);
@@ -765,6 +766,14 @@ export default function Reports() {
                 </tr>`
               ).join('');
               
+              // Build print logo HTML from dynamic settings
+              const printLeftLogo = exportLogosLoaded && exportLogoLeft
+                ? `<img src="${exportLogoLeft}" style="height:45px;max-width:130px;" />`
+                : '';
+              const printRightLogo = exportLogosLoaded && exportLogoRight
+                ? `<img src="${exportLogoRight}" style="height:45px;max-width:130px;" />`
+                : '';
+
               const printWindow = window.open('', '_blank');
               if (printWindow) {
                 printWindow.document.write(`
@@ -773,9 +782,11 @@ export default function Reports() {
                       <title>${reportName}</title>
                       <style>
                         body { font-family: 'Segoe UI', Arial, sans-serif; padding: 30px; margin: 0; }
-                        h1 { font-size: 22px; margin-bottom: 5px; color: #1f2937; }
-                        .meta { color: #6b7280; font-size: 11px; margin-bottom: 25px; }
-                        table { width: 100%; border-collapse: collapse; font-size: 11px; }
+                        .print-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+                        .print-header-center { text-align: center; flex: 1; }
+                        .print-header-center h1 { font-size: 22px; margin: 0 0 4px 0; color: #1f2937; }
+                        .print-header-center .meta { color: #6b7280; font-size: 11px; }
+                        table { width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 15px; }
                         th { background-color: #2980b9; color: white; padding: 10px 8px; text-align: left; font-weight: 600; }
                         td { border-bottom: 1px solid #e5e7eb; padding: 8px; }
                         tr:hover { background-color: #f3f4f6; }
@@ -788,8 +799,14 @@ export default function Reports() {
                       </style>
                     </head>
                     <body>
-                      <h1>${reportName}</h1>
-                      <div class="meta">Generated: ${new Date().toLocaleString()}</div>
+                      <div class="print-header">
+                        <div>${printLeftLogo}</div>
+                        <div class="print-header-center">
+                          <h1>${reportName}</h1>
+                          <div class="meta">Generated: ${new Date().toLocaleString()}</div>
+                        </div>
+                        <div>${printRightLogo}</div>
+                      </div>
                       <table>
                         <thead>
                           <tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr>

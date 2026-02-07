@@ -352,13 +352,13 @@ export const exportToPDF = (
     // Add title - centered (original working position)
     doc.setFontSize(18);
     doc.setFont(fontFamily, fontFamily === 'Amiri' || fontFamily === 'NotoSans' ? 'normal' : 'bold');
-    doc.text(title, pageWidth / 2, 18, { align: 'center' });
+    doc.text(title, pageWidth / 2, 16, { align: 'center' });
     
-    // Add generation date - right aligned
+    // Add generation date - centered below title
     doc.setFontSize(9);
     doc.setFont(fontFamily, 'normal');
     doc.setTextColor(100, 100, 100);
-    doc.text(`Generated: ${format(new Date(), 'MMM dd, yyyy h:mm a')}`, pageWidth - 14, 18, { align: 'right' });
+    doc.text(`Generated: ${format(new Date(), 'MMM dd, yyyy h:mm a')}`, pageWidth / 2, 22, { align: 'center' });
     doc.setTextColor(0, 0, 0);
     
     // Prepare table data

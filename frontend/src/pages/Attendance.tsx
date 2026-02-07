@@ -274,14 +274,16 @@ export default function Attendance() {
   const handleExport = (format: 'excel' | 'pdf' | 'csv') => {
     const data = getExportData();
     const filename = `attendance_${selectedEvent?.name || 'export'}_${new Date().toISOString().split('T')[0]}`;
+    const title = `Attendance - ${selectedEvent?.name || 'Event'}`;
     
+    const logoOptions = exportLogosLoaded
+      ? { logoLeft: exportLogoLeft, logoRight: exportLogoRight }
+      : undefined;
+
     if (format === 'excel') {
-      exportToExcel(data, filename);
+      exportToExcel(data, filename, title, '', logoOptions);
     } else if (format === 'pdf') {
-      const logoOptions = exportLogosLoaded
-        ? { logoLeft: exportLogoLeft, logoRight: exportLogoRight }
-        : undefined;
-      exportToPDF(data, filename, `Attendance - ${selectedEvent?.name || 'Event'}`, 'landscape', logoOptions);
+      exportToPDF(data, filename, title, 'landscape', logoOptions);
     } else {
       exportToCSV(data, filename);
     }
