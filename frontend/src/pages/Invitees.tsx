@@ -4,6 +4,7 @@
  * Tab 2 (Contacts): Manage the inviter group's contact list
  */
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 import { InlineTableSkeleton, InlineListSkeleton } from '../components/common/LoadingSkeleton';
 import Select from 'react-select';
 import {
@@ -77,16 +78,25 @@ const initialFormData: InviteeFormData = {
 export default function Invitees() {
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
+  const location = useLocation();
 
-  // Active tab state - persist in sessionStorage
+  // Read URL params for deep-linking from dashboard
+  const urlParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
+  const urlTab = urlParams.get('tab');
+  const urlEvent = urlParams.get('event');
+
+  // Active tab state - URL param > sessionStorage > default
   const [activeTab, setActiveTab] = useState<'events' | 'contacts'>(() => {
+    if (urlTab === 'events' || urlTab === 'contacts') return urlTab;
     const savedTab = sessionStorage.getItem('invitees_activeTab');
     return (savedTab === 'events' || savedTab === 'contacts') ? savedTab : 'events';
   });
 
   // Events tab state
   const [events, setEvents] = useState<Event[]>([]);
-  const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
+  const [selectedEventId, setSelectedEventId] = useState<number | null>(
+    urlEvent ? parseInt(urlEvent, 10) : null
+  );
   const [eventInvitees, setEventInvitees] = useState<EventInvitee[]>([]);
   const [inviters, setInviters] = useState<Inviter[]>([]);
   const [editModalInviters, setEditModalInviters] = useState<Inviter[]>([]); // Inviters for edit modal (group-specific for admin)
@@ -247,6 +257,17 @@ export default function Invitees() {
       console.error('Failed to load inviter groups', error);
     }
   }, [isAdmin]);
+
+  // React to URL param changes (deep-linking from dashboard)
+  useEffect(() => {
+    if (urlTab === 'events' || urlTab === 'contacts') {
+      setActiveTab(urlTab);
+    }
+    if (urlEvent) {
+      const eid = parseInt(urlEvent, 10);
+      if (!isNaN(eid)) setSelectedEventId(eid);
+    }
+  }, [urlTab, urlEvent]);
 
   // Initial load
   useEffect(() => {

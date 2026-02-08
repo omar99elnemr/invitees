@@ -7,10 +7,13 @@ import { Outlet } from 'react-router-dom';
 import { Header } from './Header';
 import { Sidebar } from './Sidebar';
 import { useState, useEffect } from 'react';
+import { useEventToasts } from '../../hooks/useEventToasts';
 
 const SIDEBAR_KEY = 'sidebar_open';
 
 export function Layout() {
+  useEventToasts();
+
   const [sidebarOpen, setSidebarOpen] = useState(() => {
     // On desktop, restore saved preference; default to open
     if (window.innerWidth >= 1024) {

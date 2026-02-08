@@ -372,14 +372,14 @@ function ApproverDashboard({ stats, events, recentActivity, navigate, user }: Da
                 description="Submit new invitation"
                 icon={UserPlus}
                 color="blue"
-                onClick={() => navigate('/invitees')}
+                onClick={() => navigate('/invitees?tab=events')}
               />
               <ActionCard
                 title="View My Invitees"
                 description="Manage submissions"
                 icon={Users}
                 color="purple"
-                onClick={() => navigate('/invitees')}
+                onClick={() => navigate('/invitees?tab=events')}
               />
             </div>
           </div>
@@ -430,7 +430,7 @@ function ApproverDashboard({ stats, events, recentActivity, navigate, user }: Da
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {events.slice(0, 6).map((event) => (
-              <EventCard key={event.id} event={event} onClick={() => navigate('/invitees')} compact />
+              <EventCard key={event.id} event={event} onClick={() => navigate(`/invitees?tab=events&event=${event.id}`)} compact />
             ))}
           </div>
         )}
@@ -525,7 +525,7 @@ function InviterDashboard({ stats, events, recentActivity, navigate, user, showE
                 description="Submit for approval"
                 icon={UserPlus}
                 color="blue"
-                onClick={() => navigate('/invitees')}
+                onClick={() => navigate('/invitees?tab=events')}
                 primary
               />
               <ActionCard
@@ -533,7 +533,7 @@ function InviterDashboard({ stats, events, recentActivity, navigate, user, showE
                 description="Manage your submissions"
                 icon={Users}
                 color="purple"
-                onClick={() => navigate('/invitees')}
+                onClick={() => navigate('/invitees?tab=events')}
               />
               <ActionCard
                 title="My Events"
@@ -573,7 +573,7 @@ function InviterDashboard({ stats, events, recentActivity, navigate, user, showE
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {events.slice(0, 4).map((event) => (
-                  <EventCard key={event.id} event={event} onClick={() => navigate('/invitees')} />
+                  <EventCard key={event.id} event={event} onClick={() => navigate(`/invitees?tab=events&event=${event.id}`)} />
                 ))}
               </div>
             )}
@@ -594,7 +594,7 @@ function InviterDashboard({ stats, events, recentActivity, navigate, user, showE
             <Send className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
             <p className="text-gray-500 dark:text-gray-400">No recent submissions</p>
             <button
-              onClick={() => navigate('/invitees')}
+              onClick={() => navigate('/invitees?tab=events')}
               className="mt-3 text-sm text-indigo-600 hover:text-indigo-700 font-medium"
             >
               Add your first invitee
@@ -853,7 +853,7 @@ function EventsModal({ events, onClose, navigate }: { events: Event[]; onClose: 
               {events.map((event) => (
                 <div
                   key={event.id}
-                  onClick={() => { onClose(); navigate('/invitees'); }}
+                  onClick={() => { onClose(); navigate(`/invitees?tab=events&event=${event.id}`); }}
                   className="p-4 border border-gray-200 dark:border-gray-700 rounded-xl hover:border-indigo-200 dark:hover:border-indigo-700 hover:bg-indigo-50/50 dark:hover:bg-indigo-900/20 cursor-pointer transition-all"
                 >
                   <div className="flex items-start justify-between">
