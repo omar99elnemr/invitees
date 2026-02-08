@@ -11,6 +11,10 @@ import toast from 'react-hot-toast';
 const SESSION_TIMEOUT = 30 * 60 * 1000;
 // Check interval (every minute)
 const CHECK_INTERVAL = 60 * 1000;
+// Heartbeat interval to keep backend session alive (10 minutes)
+const HEARTBEAT_INTERVAL = 10 * 60 * 1000;
+// Throttle activity updates to avoid excessive processing (2 seconds)
+const ACTIVITY_THROTTLE = 2000;
 
 interface AuthContextType {
   user: User | null;
@@ -31,10 +35,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const lastActivityRef = useRef<number>(Date.now());
   const rememberMeRef = useRef<boolean>(localStorage.getItem('rememberMe') === 'true');
   const sessionCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const heartbeatIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const lastHeartbeatActivityRef = useRef<number>(Date.now());
+  const throttleRef = useRef<number>(0);
 
-  // Update last activity timestamp on user interactions
+  // Update last activity timestamp on user interactions (throttled)
   const updateActivity = useCallback(() => {
-    lastActivityRef.current = Date.now();
+    const now = Date.now();
+    if (now - throttleRef.current < ACTIVITY_THROTTLE) return;
+    throttleRef.current = now;
+    lastActivityRef.current = now;
   }, []);
 
   // Show session expired overlay (does NOT clear user to avoid ProtectedRoute redirect)
@@ -61,21 +71,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Set up activity listeners and session check interval
   useEffect(() => {
     if (user && !rememberMeRef.current && !showSessionExpiredModal) {
-      // Add activity listeners
-      const events = ['mousedown', 'keydown', 'scroll', 'touchstart', 'mousemove'];
-      events.forEach(event => {
+      // Add activity listeners — covers mouse, keyboard, scroll, touch, clicks, tab focus, navigation
+      const uiEvents = ['mousedown', 'keydown', 'scroll', 'touchstart', 'mousemove', 'click'];
+      uiEvents.forEach(event => {
         window.addEventListener(event, updateActivity, { passive: true });
       });
+
+      // Track page visibility changes (tab switch back = activity)
+      const handleVisibility = () => { if (!document.hidden) updateActivity(); };
+      document.addEventListener('visibilitychange', handleVisibility);
+
+      // Track SPA navigation (popstate = back/forward buttons)
+      window.addEventListener('popstate', updateActivity);
 
       // Start session check interval
       sessionCheckIntervalRef.current = setInterval(checkSessionTimeout, CHECK_INTERVAL);
 
+      // Heartbeat: periodically ping backend to keep session alive while user is active
+      lastHeartbeatActivityRef.current = lastActivityRef.current;
+      heartbeatIntervalRef.current = setInterval(() => {
+        // Only ping if user has been active since the last heartbeat
+        if (lastActivityRef.current > lastHeartbeatActivityRef.current) {
+          lastHeartbeatActivityRef.current = lastActivityRef.current;
+          authAPI.getCurrentUser().catch(() => {
+            // 401 will be caught by the axios interceptor → session expired event
+          });
+        }
+      }, HEARTBEAT_INTERVAL);
+
       return () => {
-        events.forEach(event => {
+        uiEvents.forEach(event => {
           window.removeEventListener(event, updateActivity);
         });
+        document.removeEventListener('visibilitychange', handleVisibility);
+        window.removeEventListener('popstate', updateActivity);
         if (sessionCheckIntervalRef.current) {
           clearInterval(sessionCheckIntervalRef.current);
+        }
+        if (heartbeatIntervalRef.current) {
+          clearInterval(heartbeatIntervalRef.current);
         }
       };
     }
