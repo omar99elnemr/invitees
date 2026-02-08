@@ -143,13 +143,22 @@ export default function Reports() {
   const [exportLogoRight, setExportLogoRight] = useState<string | null>(null);
   const [exportLogosLoaded, setExportLogosLoaded] = useState(false);
 
-  const canViewReports = user?.role === 'admin';
+  const isAdmin = user?.role === 'admin';
+  const isDirector = user?.role === 'director';
+  const canViewReports = isAdmin || isDirector;
 
   useEffect(() => {
     if (canViewReports) {
       loadFilters();
     }
   }, [canViewReports]);
+
+  // For directors: auto-set group filter to their group and default to a relevant report
+  useEffect(() => {
+    if (isDirector && user?.inviter_group_id) {
+      setGroupFilter(String(user.inviter_group_id));
+    }
+  }, [isDirector, user?.inviter_group_id]);
 
   const loadFilters = async () => {
     try {
@@ -161,27 +170,28 @@ export default function Reports() {
       setEvents(eventsRes.data);
       setInviterGroups(groupsRes.data);
       
-      // Load activity log filters separately (they might fail if no logs exist yet)
-      try {
-        const [actionsRes, usersRes] = await Promise.all([
-          reportsAPI.activityLogActions(),
-          reportsAPI.activityLogUsers(),
-        ]);
-        setActivityActions(actionsRes.data);
-        setActivityUsers(usersRes.data as ActivityUser[]);
-      } catch {
-        // Activity log filters are optional, don't show error
-        console.log('Activity log filters not loaded');
-      }
-      
-      // Load historical data filters
-      try {
-        const historicalFiltersRes = await reportsAPI.historicalFilters();
-        setHistoricalInviters(historicalFiltersRes.data.inviters || []);
-        setHistoricalEvents(historicalFiltersRes.data.events || []);
-        setHistoricalGroups(historicalFiltersRes.data.groups || []);
-      } catch {
-        console.log('Historical filters not loaded');
+      // Load activity log filters separately (admin only)
+      if (isAdmin) {
+        try {
+          const [actionsRes, usersRes] = await Promise.all([
+            reportsAPI.activityLogActions(),
+            reportsAPI.activityLogUsers(),
+          ]);
+          setActivityActions(actionsRes.data);
+          setActivityUsers(usersRes.data as ActivityUser[]);
+        } catch {
+          console.log('Activity log filters not loaded');
+        }
+        
+        // Load historical data filters (admin only)
+        try {
+          const historicalFiltersRes = await reportsAPI.historicalFilters();
+          setHistoricalInviters(historicalFiltersRes.data.inviters || []);
+          setHistoricalEvents(historicalFiltersRes.data.events || []);
+          setHistoricalGroups(historicalFiltersRes.data.groups || []);
+        } catch {
+          console.log('Historical filters not loaded');
+        }
       }
     } catch (error: any) {
       toast.error('Failed to load filter options');
@@ -349,7 +359,7 @@ export default function Reports() {
         'Inviter': item.inviter_name || '—',
         'Group': item.inviter_group_name || '—',
         'Status': item.status || '—',
-        'Date': item.status_date || '—',
+        'Date & Time': item.status_date ? formatDateTimeEgypt(item.status_date) : '—',
       }));
     }
 
@@ -360,41 +370,55 @@ export default function Reports() {
 
     // Transform data based on report type with clean headers and proper column ordering
     if (activeReport === 'detail-approved') {
-      // Full Approved Details: Event, Name, Phone, Email, Inviter, Category, Status, Attendance tracking
-      return (rawData as EventInvitee[]).map(item => ({
-        'Event': item.event_name || '—',
-        'Invitee Name': item.invitee_name || '—',
-        'Phone': item.invitee_phone || '—',
-        'Email': item.invitee_email || '—',
-        'Inviter': item.inviter_name || '—',
-        'Category': item.category || '—',
-        'Inviter Group': item.inviter_group_name || '—',
-        'Status': item.status === 'waiting_for_approval' ? 'Pending' : 
-                  item.status === 'approved' ? 'Approved' : 'Rejected',
-        'Attendance Code': item.attendance_code || '—',
-        'Invitation Sent': item.invitation_sent ? 'Yes' : 'No',
-        'Sent Via': item.invitation_method || '—',
-        'Confirmed': item.attendance_confirmed === true ? 'Yes' : 
-                     item.attendance_confirmed === false ? 'No' : 'Pending',
-        'Confirmed Guests': item.confirmed_guests ?? '—',
-        'Checked In': item.checked_in ? 'Yes' : 'No',
-        'Actual Guests': item.actual_guests ?? 0,
-        'Plus One Allowed': item.plus_one || 0,
-      }));
+      // Full Approved Details: columns vary by role
+      return (rawData as EventInvitee[]).map(item => {
+        const row: Record<string, any> = {
+          'Event': item.event_name || '—',
+          'Invitee Name': item.invitee_name || '—',
+        };
+        if (isAdmin) {
+          row['Phone'] = item.invitee_phone || '—';
+          row['Email'] = item.invitee_email || '—';
+        }
+        row['Inviter'] = item.inviter_name || '—';
+        row['Category'] = item.category || '—';
+        row['Inviter Group'] = item.inviter_group_name || '—';
+        row['Status'] = item.status === 'waiting_for_approval' ? 'Pending' : 
+                  item.status === 'approved' ? 'Approved' : 'Rejected';
+        if (isAdmin) {
+          row['Attendance Code'] = item.attendance_code || '—';
+        }
+        row['Invitation Sent'] = item.invitation_sent ? 'Yes' : 'No';
+        row['Sent Via'] = item.invitation_method || '—';
+        row['Confirmed'] = item.attendance_confirmed === true ? 'Yes' : 
+                     item.attendance_confirmed === false ? 'No' : 'Pending';
+        row['Confirmed Guests'] = item.confirmed_guests ?? '—';
+        row['Checked In'] = item.checked_in ? 'Yes' : 'No';
+        row['Actual Guests'] = item.actual_guests ?? 0;
+        row['Plus One Allowed'] = item.plus_one || 0;
+        row['Date & Time'] = item.created_at ? formatDateTimeEgypt(item.created_at) : '—';
+        return row;
+      });
     } else if (activeReport === 'detail-event') {
-      // Detailed Invitees: Event, Name, Phone, Email, Position, Inviter, Category, Group, Status
-      return (rawData as EventInvitee[]).map(item => ({
-        'Event': item.event_name || '—',
-        'Invitee Name': item.invitee_name || '—',
-        'Phone': item.invitee_phone || '—',
-        'Email': item.invitee_email || '—',
-        'Position': item.invitee_position || '—',
-        'Inviter': item.inviter_name || '—',
-        'Category': item.category || '—',
-        'Inviter Group': item.inviter_group_name || '—',
-        'Status': item.status === 'waiting_for_approval' ? 'Pending' : 
-                  item.status === 'approved' ? 'Approved' : 'Rejected',
-      }));
+      // Detailed Invitees: columns vary by role
+      return (rawData as EventInvitee[]).map(item => {
+        const row: Record<string, any> = {
+          'Event': item.event_name || '—',
+          'Invitee Name': item.invitee_name || '—',
+        };
+        if (isAdmin) {
+          row['Phone'] = item.invitee_phone || '—';
+          row['Email'] = item.invitee_email || '—';
+        }
+        row['Position'] = item.invitee_position || '—';
+        row['Inviter'] = item.inviter_name || '—';
+        row['Category'] = item.category || '—';
+        row['Inviter Group'] = item.inviter_group_name || '—';
+        row['Status'] = item.status === 'waiting_for_approval' ? 'Pending' : 
+                  item.status === 'approved' ? 'Approved' : 'Rejected';
+        row['Date & Time'] = item.created_at ? formatDateTimeEgypt(item.created_at) : '—';
+        return row;
+      });
     } else if (activeReport === 'summary-group') {
       // Summary by Group: Event, Inviter Group, Status, Total
       return (rawData as SummaryData[]).map(item => ({
@@ -480,7 +504,7 @@ export default function Reports() {
     return acc;
   }, {} as Record<number, { event_name: string; items: SummaryData[]; totals: { approved: number; rejected: number; waiting: number; total: number } }>);
 
-  const reportTypes = [
+  const allReportTypes = [
     {
       id: 'summary-group' as ReportType,
       name: 'Invitees by Group',
@@ -502,7 +526,7 @@ export default function Reports() {
     {
       id: 'detail-approved' as ReportType,
       name: 'Full Approved Details',
-      description: 'Approved invitees with phone, email, category, attendance status',
+      description: 'Approved invitees with attendance status',
       icon: Check,
     },
     {
@@ -510,14 +534,18 @@ export default function Reports() {
       name: 'Activity Log',
       description: 'System activity log showing all actions performed',
       icon: Activity,
+      adminOnly: true,
     },
     {
       id: 'historical-data' as ReportType,
       name: 'Historical Data',
       description: 'Historical invitee data from previous records',
       icon: FileText,
+      adminOnly: true,
     },
-  ];
+  ] as const;
+
+  const reportTypes = allReportTypes.filter(r => isAdmin || !(r as any).adminOnly);
 
   if (!canViewReports) {
     return (
@@ -528,7 +556,7 @@ export default function Reports() {
           </div>
           <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Access Denied</h3>
           <p className="mt-2 text-gray-500 dark:text-gray-400">
-            Only Admins can access reports.
+            You do not have permission to access reports.
           </p>
         </div>
       </div>
@@ -546,7 +574,7 @@ export default function Reports() {
       </div>
 
       {/* Report Type Selection */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+      <div className={`grid grid-cols-1 sm:grid-cols-2 ${reportTypes.length <= 4 ? 'lg:grid-cols-4' : 'lg:grid-cols-5'} gap-3`}>
         {reportTypes.map((report) => (
           <button
             key={report.id}
@@ -655,26 +683,28 @@ export default function Reports() {
               )}
             </select>
 
-            <select
-              value={groupFilter}
-              onChange={(e) => setGroupFilter(e.target.value)}
-              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-800 dark:text-white"
-            >
-              <option value="">All Groups</option>
-              {activeReport === 'historical-data' ? (
-                historicalGroups.map((groupName) => (
-                  <option key={groupName} value={groupName}>
-                    {groupName}
-                  </option>
-                ))
-              ) : (
-                inviterGroups.map((group) => (
-                  <option key={group.id} value={group.id}>
-                    {group.name}
-                  </option>
-                ))
-              )}
-            </select>
+            {isAdmin && (
+              <select
+                value={groupFilter}
+                onChange={(e) => setGroupFilter(e.target.value)}
+                className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-800 dark:text-white"
+              >
+                <option value="">All Groups</option>
+                {activeReport === 'historical-data' ? (
+                  historicalGroups.map((groupName) => (
+                    <option key={groupName} value={groupName}>
+                      {groupName}
+                    </option>
+                  ))
+                ) : (
+                  inviterGroups.map((group) => (
+                    <option key={group.id} value={group.id}>
+                      {group.name}
+                    </option>
+                  ))
+                )}
+              </select>
+            )}
 
             {activeReport === 'historical-data' && (
               <select
@@ -797,15 +827,17 @@ export default function Reports() {
                         .print-header-center { text-align: center; flex: 1; }
                         .print-header-center h1 { font-size: 22px; margin: 0 0 4px 0; color: #1f2937; }
                         .print-header-center .meta { color: #6b7280; font-size: 11px; }
-                        table { width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 15px; }
-                        th { background-color: #2980b9; color: white; padding: 10px 8px; text-align: left; font-weight: 600; }
-                        td { border-bottom: 1px solid #e5e7eb; padding: 8px; }
+                        table { width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 15px; table-layout: auto; }
+                        th { background-color: #2980b9; color: white; padding: 10px 8px; text-align: left; font-weight: 600; white-space: nowrap; }
+                        td { border-bottom: 1px solid #e5e7eb; padding: 8px; word-wrap: break-word; max-width: 200px; }
                         tr:hover { background-color: #f3f4f6; }
                         .footer { margin-top: 20px; font-size: 10px; color: #9ca3af; text-align: center; }
                         @media print {
-                          body { padding: 15px; }
-                          table { font-size: 10px; }
-                          th, td { padding: 6px; }
+                          body { padding: 10px; }
+                          @page { size: landscape; margin: 10mm; }
+                          table { width: 100%; font-size: 9px; table-layout: auto; }
+                          th { padding: 4px 6px; font-size: 9px; }
+                          td { padding: 4px 6px; font-size: 9px; max-width: none; }
                         }
                       </style>
                     </head>
@@ -1018,7 +1050,7 @@ export default function Reports() {
                       ))}
                       {activeReport === 'detail-approved' && (
                         <>
-                          <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Code</th>
+                          {isAdmin && <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Code</th>}
                           <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Sent</th>
                           <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Confirmed</th>
                           <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">In</th>
@@ -1037,7 +1069,7 @@ export default function Reports() {
                         className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
                       >
                         <div className="flex items-center gap-1">
-                          Date
+                          Date & Time
                           {detailSortColumn === 'created_at' && (
                             detailSortDirection === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />
                           )}
@@ -1067,7 +1099,7 @@ export default function Reports() {
                         <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                           <td className="px-2 py-2 max-w-[140px]">
                             <div className="truncate text-sm font-medium text-gray-900 dark:text-white" title={item.invitee_name}>{item.invitee_name}</div>
-                            <div className="truncate text-xs text-gray-500 dark:text-gray-400" title={item.invitee_email}>{item.invitee_email}</div>
+                            {isAdmin && <div className="truncate text-xs text-gray-500 dark:text-gray-400" title={item.invitee_email}>{item.invitee_email}</div>}
                           </td>
                           <td className="px-2 py-2 text-sm text-gray-900 dark:text-white max-w-[100px] truncate" title={item.event_name}>
                             {item.event_name}
@@ -1096,15 +1128,17 @@ export default function Reports() {
                           </td>
                           {activeReport === 'detail-approved' && (
                             <>
-                              <td className="px-2 py-2 text-sm">
-                                {item.attendance_code ? (
-                                  <code className="px-1 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-xs font-mono dark:text-gray-300">
-                                    {item.attendance_code}
-                                  </code>
-                                ) : (
-                                  <span className="text-gray-400 dark:text-gray-500">—</span>
-                                )}
-                              </td>
+                              {isAdmin && (
+                                <td className="px-2 py-2 text-sm">
+                                  {item.attendance_code ? (
+                                    <code className="px-1 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-xs font-mono dark:text-gray-300">
+                                      {item.attendance_code}
+                                    </code>
+                                  ) : (
+                                    <span className="text-gray-400 dark:text-gray-500">—</span>
+                                  )}
+                                </td>
+                              )}
                               <td className="px-2 py-2 text-sm">
                                 {item.invitation_sent ? (
                                   <span className="text-green-600">✓</span>
@@ -1136,7 +1170,7 @@ export default function Reports() {
                             </>
                           )}
                           <td className="px-2 py-2 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                            {item.created_at ? formatDateEgypt(item.created_at) : '—'}
+                            {item.created_at ? formatDateTimeEgypt(item.created_at) : '—'}
                           </td>
                         </tr>
                       ));
@@ -1514,7 +1548,7 @@ export default function Reports() {
                             </span>
                           </td>
                           <td className="px-2 py-2 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                            {item.status_date || '—'}
+                            {item.status_date ? formatDateTimeEgypt(item.status_date) : '—'}
                           </td>
                         </tr>
                       ));

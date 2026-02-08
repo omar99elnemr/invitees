@@ -62,7 +62,7 @@ export function Sidebar({ isOpen, isMobile, onClose }: SidebarProps) {
       name: 'Reports',
       path: '/reports',
       icon: FileText,
-      roles: ['admin'],
+      roles: ['admin', 'director'],
     },
     {
       name: 'Users',
