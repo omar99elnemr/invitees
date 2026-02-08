@@ -428,6 +428,15 @@ export const attendanceAPI = {
   undoCheckIn: (inviteeId: number) =>
     api.post<{ success: boolean }>(`/attendance/undo-check-in/${inviteeId}`),
 
+  undoMarkSent: (inviteeIds: number[]) =>
+    api.post<{ success: boolean; updated: number; warnings?: string[] }>('/attendance/undo-mark-sent', { invitee_ids: inviteeIds }),
+
+  confirmAttendance: (inviteeIds: number[], isComing: boolean, guestCount?: number) =>
+    api.post<{ success: boolean; updated: number; warnings?: string[] }>('/attendance/confirm-attendance', { invitee_ids: inviteeIds, is_coming: isComing, guest_count: guestCount }),
+
+  resetConfirmation: (inviteeIds: number[]) =>
+    api.post<{ success: boolean; updated: number; warnings?: string[] }>('/attendance/reset-confirmation', { invitee_ids: inviteeIds }),
+
   search: (query: string, eventId?: number) =>
     api.get<{ success: boolean; results: EventInvitee[] }>('/attendance/search', { params: { q: query, event_id: eventId } }),
 };

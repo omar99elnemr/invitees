@@ -177,6 +177,98 @@ def undo_check_in(invitee_id):
     return jsonify(result)
 
 
+@attendance_bp.route('/undo-mark-sent', methods=['POST'])
+@login_required
+@admin_required
+def undo_mark_invitations_sent():
+    """Undo marking invitations as sent (mistake correction)"""
+    data = request.get_json()
+    
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+    
+    invitee_ids = data.get('invitee_ids', [])
+    
+    if not invitee_ids:
+        return jsonify({'error': 'No invitees specified'}), 400
+    
+    result = AttendanceService.undo_mark_invitations_sent(
+        invitee_ids=invitee_ids,
+        user_id=current_user.id
+    )
+    
+    if result.get('error'):
+        return jsonify(result), 400
+    
+    return jsonify(result)
+
+
+@attendance_bp.route('/confirm-attendance', methods=['POST'])
+@login_required
+@admin_required
+def admin_confirm_attendance():
+    """Admin manually confirms attendance for selected invitees"""
+    data = request.get_json()
+    
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+    
+    invitee_ids = data.get('invitee_ids', [])
+    is_coming = data.get('is_coming')
+    guest_count = data.get('guest_count')
+    
+    if not invitee_ids:
+        return jsonify({'error': 'No invitees specified'}), 400
+    
+    if is_coming is None:
+        return jsonify({'error': 'Confirmation status required'}), 400
+    
+    # Convert guest_count to int if provided
+    if guest_count is not None:
+        try:
+            guest_count = int(guest_count)
+        except (ValueError, TypeError):
+            guest_count = None
+    
+    result = AttendanceService.admin_confirm_attendance(
+        invitee_ids=invitee_ids,
+        is_coming=bool(is_coming),
+        user_id=current_user.id,
+        guest_count=guest_count
+    )
+    
+    if result.get('error'):
+        return jsonify(result), 400
+    
+    return jsonify(result)
+
+
+@attendance_bp.route('/reset-confirmation', methods=['POST'])
+@login_required
+@admin_required
+def reset_attendance_confirmation():
+    """Reset attendance confirmation back to pending (mistake correction)"""
+    data = request.get_json()
+    
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+    
+    invitee_ids = data.get('invitee_ids', [])
+    
+    if not invitee_ids:
+        return jsonify({'error': 'No invitees specified'}), 400
+    
+    result = AttendanceService.reset_attendance_confirmation(
+        invitee_ids=invitee_ids,
+        user_id=current_user.id
+    )
+    
+    if result.get('error'):
+        return jsonify(result), 400
+    
+    return jsonify(result)
+
+
 @attendance_bp.route('/search', methods=['GET'])
 @login_required
 @admin_required

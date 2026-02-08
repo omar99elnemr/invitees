@@ -20,6 +20,11 @@ import {
   Key,
   Printer,
   FileSpreadsheet,
+  ChevronDown,
+  XCircle,
+  RotateCcw,
+  MoreHorizontal,
+  UserX,
 } from 'lucide-react';
 import { attendanceAPI, AttendanceStats, AttendanceFilters, settingsAPI, eventsAPI, CheckinPinInfo } from '../services/api';
 import type { Event, EventInvitee } from '../types';
@@ -27,7 +32,7 @@ import toast from 'react-hot-toast';
 import { exportToExcel, exportToPDF, exportToCSV } from '../utils/exportHelpers';
 import TablePagination from '../components/common/TablePagination';
 import SortableColumnHeader, { applySorting, type SortDirection } from '../components/common/SortableColumnHeader';
-import { formatDateEgypt, formatTimeEgypt } from '../utils/formatters';
+import { formatDateEgypt } from '../utils/formatters';
 
 export default function Attendance() {
   const [events, setEvents] = useState<Event[]>([]);
@@ -74,6 +79,15 @@ export default function Attendance() {
   // Export dropdown
   const [showExportMenu, setShowExportMenu] = useState(false);
   const exportMenuRef = useRef<HTMLDivElement>(null);
+
+  // Bulk actions dropdown
+  const [showBulkActions, setShowBulkActions] = useState(false);
+  const bulkActionsRef = useRef<HTMLDivElement>(null);
+
+
+  // Row action menu
+  const [activeRowMenu, setActiveRowMenu] = useState<number | null>(null);
+  const rowMenuRef = useRef<HTMLDivElement>(null);
   const handleSort = (field: string) => {
     setSortDirection(sortField === field && sortDirection === 'asc' ? 'desc' : 'asc');
     setSortField(field);
@@ -86,11 +100,17 @@ export default function Attendance() {
     loadLogoData();
   }, []);
 
-  // Close export menu on outside click
+  // Close dropdowns on outside click
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (exportMenuRef.current && !exportMenuRef.current.contains(e.target as Node)) {
         setShowExportMenu(false);
+      }
+      if (bulkActionsRef.current && !bulkActionsRef.current.contains(e.target as Node)) {
+        setShowBulkActions(false);
+      }
+      if (rowMenuRef.current && !rowMenuRef.current.contains(e.target as Node)) {
+        setActiveRowMenu(null);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -230,6 +250,112 @@ export default function Attendance() {
     }
   };
 
+  const showWarnings = (warnings?: string[] | null) => {
+    if (warnings) {
+      warnings.forEach(w => toast(w, { icon: '⚠️' }));
+    }
+  };
+
+  const handleUndoMarkSent = async () => {
+    if (selectedIds.size === 0) {
+      toast.error('No attendees selected');
+      return;
+    }
+    try {
+      const response = await attendanceAPI.undoMarkSent(Array.from(selectedIds));
+      if (response.data.success) {
+        toast.success(`Undid "invitation sent" for ${response.data.updated} invitee(s)`);
+        showWarnings(response.data.warnings);
+        setSelectedIds(new Set());
+        loadEventData();
+      }
+    } catch (error) {
+      toast.error('Failed to undo invitation sent');
+    }
+    setShowBulkActions(false);
+  };
+
+  const handleConfirmAttendance = async (isComing: boolean) => {
+    if (selectedIds.size === 0) {
+      toast.error('No attendees selected');
+      return;
+    }
+    try {
+      const response = await attendanceAPI.confirmAttendance(Array.from(selectedIds), isComing);
+      if (response.data.success) {
+        toast.success(`Marked ${response.data.updated} as ${isComing ? 'confirmed coming' : 'not coming'}`);
+        showWarnings(response.data.warnings);
+        setSelectedIds(new Set());
+        loadEventData();
+      }
+    } catch (error) {
+      toast.error('Failed to confirm attendance');
+    }
+    setShowBulkActions(false);
+  };
+
+  const handleResetConfirmation = async () => {
+    if (selectedIds.size === 0) {
+      toast.error('No attendees selected');
+      return;
+    }
+    try {
+      const response = await attendanceAPI.resetConfirmation(Array.from(selectedIds));
+      if (response.data.success) {
+        toast.success(`Reset confirmation for ${response.data.updated} invitee(s)`);
+        showWarnings(response.data.warnings);
+        setSelectedIds(new Set());
+        loadEventData();
+      }
+    } catch (error) {
+      toast.error('Failed to reset confirmation');
+    }
+    setShowBulkActions(false);
+  };
+
+  // Single-row actions
+  const handleSingleUndoMarkSent = async (id: number) => {
+    try {
+      const response = await attendanceAPI.undoMarkSent([id]);
+      if (response.data.success) {
+        toast.success('Invitation sent status undone');
+        showWarnings(response.data.warnings);
+        loadEventData();
+      }
+    } catch (error) {
+      toast.error('Failed to undo');
+    }
+    setActiveRowMenu(null);
+  };
+
+  const handleSingleConfirmAttendance = async (id: number, isComing: boolean) => {
+    try {
+      const response = await attendanceAPI.confirmAttendance([id], isComing);
+      if (response.data.success) {
+        toast.success(isComing ? 'Marked as confirmed coming' : 'Marked as not coming');
+        showWarnings(response.data.warnings);
+        loadEventData();
+      }
+    } catch (error) {
+      toast.error('Failed to update');
+    }
+    setActiveRowMenu(null);
+  };
+
+  const handleSingleResetConfirmation = async (id: number) => {
+    try {
+      const response = await attendanceAPI.resetConfirmation([id]);
+      if (response.data.success) {
+        toast.success('Confirmation reset to pending');
+        showWarnings(response.data.warnings);
+        loadEventData();
+      }
+    } catch (error) {
+      toast.error('Failed to reset');
+    }
+    setActiveRowMenu(null);
+  };
+
   // Check-in PIN status bar
   const loadCheckinPinInfo = async (eventId: number) => {
     setLoadingCheckinPin(true);
@@ -344,7 +470,7 @@ export default function Attendance() {
     const headers = Object.keys(data[0]);
     const tableRows = data.map((row, idx) =>
       `<tr style="${idx % 2 === 0 ? '' : 'background-color: #f9fafb;'}">
-        ${headers.map(h => `<td>${row[h] ?? '—'}</td>`).join('')}
+        ${headers.map(h => `<td>${(row as any)[h] ?? '—'}</td>`).join('')}
       </tr>`
     ).join('');
 
@@ -666,17 +792,77 @@ export default function Attendance() {
                     <option value="true">Sent</option>
                     <option value="false">Not Sent</option>
                   </select>
+                  
+                  <select
+                    value={(filters as any).attendance_confirmed === undefined ? '' : (filters as any).attendance_confirmed}
+                    onChange={(e) => setFilters(prev => {
+                      const val = e.target.value;
+                      if (val === '') {
+                        const { attendance_confirmed, ...rest } = prev as any;
+                        return rest;
+                      }
+                      return { ...prev, attendance_confirmed: val };
+                    })}
+                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary bg-white dark:bg-gray-800 dark:text-white"
+                  >
+                    <option value="">All Confirmation</option>
+                    <option value="yes">Confirmed Coming</option>
+                    <option value="no">Not Coming</option>
+                    <option value="pending">Not Responded</option>
+                  </select>
                 </div>
                 
                 <div className="flex gap-2">
                   {selectedIds.size > 0 && (
-                    <button
-                      onClick={() => setShowMarkSentModal(true)}
-                      className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark flex items-center gap-2"
-                    >
-                      <Send className="w-4 h-4" />
-                      Mark as Sent ({selectedIds.size})
-                    </button>
+                    <div className="relative" ref={bulkActionsRef}>
+                      <button
+                        onClick={() => setShowBulkActions(prev => !prev)}
+                        className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark flex items-center gap-2"
+                      >
+                        Actions ({selectedIds.size})
+                        <ChevronDown className="w-4 h-4" />
+                      </button>
+                      {showBulkActions && (
+                        <div className="absolute right-0 mt-1 w-56 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 z-20 py-1">
+                          <button
+                            onClick={() => { setShowMarkSentModal(true); setShowBulkActions(false); }}
+                            className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 flex items-center gap-2.5"
+                          >
+                            <Send className="w-4 h-4 text-blue-500" />
+                            Mark as Sent
+                          </button>
+                          <button
+                            onClick={handleUndoMarkSent}
+                            className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 flex items-center gap-2.5"
+                          >
+                            <Undo2 className="w-4 h-4 text-orange-500" />
+                            Undo Invitation Sent
+                          </button>
+                          <div className="border-t border-gray-200 dark:border-gray-700 my-1"></div>
+                          <button
+                            onClick={() => handleConfirmAttendance(true)}
+                            className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 flex items-center gap-2.5"
+                          >
+                            <UserCheck className="w-4 h-4 text-green-500" />
+                            Confirm Coming
+                          </button>
+                          <button
+                            onClick={() => handleConfirmAttendance(false)}
+                            className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 flex items-center gap-2.5"
+                          >
+                            <UserX className="w-4 h-4 text-red-500" />
+                            Mark Not Coming
+                          </button>
+                          <button
+                            onClick={handleResetConfirmation}
+                            className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 flex items-center gap-2.5"
+                          >
+                            <RotateCcw className="w-4 h-4 text-amber-500" />
+                            Reset Confirmation
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   )}
                   
                   <div className="relative" ref={exportMenuRef}>
@@ -803,15 +989,79 @@ export default function Attendance() {
                               <span className="text-sm text-gray-700 dark:text-gray-300">{attendee.inviter_name || '-'}</span>
                             </td>
                             <td className="px-4 py-3">
-                              {attendee.checked_in && (
+                              <div className="relative" ref={activeRowMenu === attendee.id ? rowMenuRef : undefined}>
                                 <button
-                                  onClick={() => handleUndoCheckIn(attendee.id)}
-                                  className="p-1 text-gray-400 hover:text-red-600 rounded"
-                                  title="Undo Check-in"
+                                  onClick={() => setActiveRowMenu(activeRowMenu === attendee.id ? null : attendee.id)}
+                                  className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                                  title="Actions"
                                 >
-                                  <Undo2 className="w-4 h-4" />
+                                  <MoreHorizontal className="w-4 h-4" />
                                 </button>
-                              )}
+                                {activeRowMenu === attendee.id && (
+                                  <div className="absolute right-0 mt-1 w-52 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 z-30 py-1">
+                                    {/* Invitation actions */}
+                                    {!attendee.invitation_sent && attendee.attendance_code && (
+                                      <button
+                                        onClick={() => { setSelectedIds(new Set([attendee.id])); setShowMarkSentModal(true); setActiveRowMenu(null); }}
+                                        className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 flex items-center gap-2.5"
+                                      >
+                                        <Send className="w-4 h-4 text-blue-500" />
+                                        Mark as Sent
+                                      </button>
+                                    )}
+                                    {attendee.invitation_sent && !attendee.attendance_confirmed && !attendee.checked_in && (
+                                      <button
+                                        onClick={() => handleSingleUndoMarkSent(attendee.id)}
+                                        className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 flex items-center gap-2.5"
+                                      >
+                                        <Undo2 className="w-4 h-4 text-orange-500" />
+                                        Undo Invitation Sent
+                                      </button>
+                                    )}
+                                    {/* Attendance confirmation actions */}
+                                    {!attendee.checked_in && attendee.attendance_confirmed !== true && (
+                                      <button
+                                        onClick={() => handleSingleConfirmAttendance(attendee.id, true)}
+                                        className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 flex items-center gap-2.5"
+                                      >
+                                        <UserCheck className="w-4 h-4 text-green-500" />
+                                        Confirm Coming
+                                      </button>
+                                    )}
+                                    {!attendee.checked_in && attendee.attendance_confirmed !== false && (
+                                      <button
+                                        onClick={() => handleSingleConfirmAttendance(attendee.id, false)}
+                                        className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 flex items-center gap-2.5"
+                                      >
+                                        <XCircle className="w-4 h-4 text-red-500" />
+                                        Mark Not Coming
+                                      </button>
+                                    )}
+                                    {attendee.attendance_confirmed !== null && attendee.attendance_confirmed !== undefined && !attendee.checked_in && (
+                                      <button
+                                        onClick={() => handleSingleResetConfirmation(attendee.id)}
+                                        className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 flex items-center gap-2.5"
+                                      >
+                                        <RotateCcw className="w-4 h-4 text-amber-500" />
+                                        Reset Confirmation
+                                      </button>
+                                    )}
+                                    {/* Check-in undo */}
+                                    {attendee.checked_in && (
+                                      <>
+                                        <div className="border-t border-gray-200 dark:border-gray-700 my-1"></div>
+                                        <button
+                                          onClick={() => { handleUndoCheckIn(attendee.id); setActiveRowMenu(null); }}
+                                          className="w-full px-4 py-2 text-left text-sm hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 flex items-center gap-2.5"
+                                        >
+                                          <Undo2 className="w-4 h-4" />
+                                          Undo Check-in
+                                        </button>
+                                      </>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
                             </td>
                           </tr>
                         ))

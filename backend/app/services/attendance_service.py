@@ -238,6 +238,139 @@ class AttendanceService:
         return {'success': True}
     
     @staticmethod
+    def undo_mark_invitations_sent(invitee_ids, user_id):
+        """Undo marking invitations as sent (mistake correction)
+        
+        Blocked if any selected invitee has:
+        - Confirmed attendance (attendance_confirmed is not None)
+        - Already checked in (checked_in = True)
+        """
+        if not invitee_ids:
+            return {'error': 'No invitees specified', 'success': False}
+        
+        invitees = EventInvitee.query.filter(EventInvitee.id.in_(invitee_ids)).all()
+        
+        updated_count = 0
+        skipped_confirmed = 0
+        skipped_checked_in = 0
+        
+        for invitee in invitees:
+            if invitee.checked_in:
+                skipped_checked_in += 1
+                continue
+            if invitee.attendance_confirmed is not None:
+                skipped_confirmed += 1
+                continue
+            if invitee.invitation_sent:
+                invitee.undo_mark_invitation_sent()
+                updated_count += 1
+        
+        db.session.commit()
+        
+        AuditLog.log(
+            user_id=user_id,
+            action='undo_mark_invitations_sent',
+            table_name='event_invitees',
+            new_value=f'Undid invitation sent for {updated_count} invitees'
+        )
+        
+        warnings = []
+        if skipped_confirmed > 0:
+            warnings.append(f'{skipped_confirmed} skipped (already confirmed attendance)')
+        if skipped_checked_in > 0:
+            warnings.append(f'{skipped_checked_in} skipped (already checked in)')
+        
+        return {
+            'success': True,
+            'updated': updated_count,
+            'warnings': warnings if warnings else None
+        }
+    
+    @staticmethod
+    def admin_confirm_attendance(invitee_ids, is_coming, user_id, guest_count=None):
+        """Admin manually confirms attendance for selected invitees
+        
+        Blocked if invitee is already checked in.
+        Allowed even if invitation not yet marked as sent (verbal/phone confirmations).
+        """
+        if not invitee_ids:
+            return {'error': 'No invitees specified', 'success': False}
+        
+        invitees = EventInvitee.query.filter(EventInvitee.id.in_(invitee_ids)).all()
+        
+        updated_count = 0
+        skipped_checked_in = 0
+        
+        for invitee in invitees:
+            if invitee.status != 'approved':
+                continue
+            if invitee.checked_in:
+                skipped_checked_in += 1
+                continue
+            invitee.confirm_attendance(is_coming, guest_count)
+            updated_count += 1
+        
+        db.session.commit()
+        
+        AuditLog.log(
+            user_id=user_id,
+            action='admin_confirm_attendance',
+            table_name='event_invitees',
+            new_value=f'Admin confirmed {updated_count} as {"coming" if is_coming else "not coming"}'
+        )
+        
+        warnings = []
+        if skipped_checked_in > 0:
+            warnings.append(f'{skipped_checked_in} skipped (already checked in)')
+        
+        return {
+            'success': True,
+            'updated': updated_count,
+            'warnings': warnings if warnings else None
+        }
+    
+    @staticmethod
+    def reset_attendance_confirmation(invitee_ids, user_id):
+        """Reset attendance confirmation back to pending (mistake correction)
+        
+        Blocked if invitee is already checked in.
+        """
+        if not invitee_ids:
+            return {'error': 'No invitees specified', 'success': False}
+        
+        invitees = EventInvitee.query.filter(EventInvitee.id.in_(invitee_ids)).all()
+        
+        updated_count = 0
+        skipped_checked_in = 0
+        
+        for invitee in invitees:
+            if invitee.checked_in:
+                skipped_checked_in += 1
+                continue
+            if invitee.attendance_confirmed is not None:
+                invitee.reset_attendance_confirmation()
+                updated_count += 1
+        
+        db.session.commit()
+        
+        AuditLog.log(
+            user_id=user_id,
+            action='reset_attendance_confirmation',
+            table_name='event_invitees',
+            new_value=f'Reset attendance confirmation for {updated_count} invitees'
+        )
+        
+        warnings = []
+        if skipped_checked_in > 0:
+            warnings.append(f'{skipped_checked_in} skipped (already checked in)')
+        
+        return {
+            'success': True,
+            'updated': updated_count,
+            'warnings': warnings if warnings else None
+        }
+    
+    @staticmethod
     def verify_attendance_code(code):
         """Verify an attendance code and return attendee details for portal"""
         invitee = EventInvitee.get_by_attendance_code(code)

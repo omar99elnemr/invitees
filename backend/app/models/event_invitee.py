@@ -208,17 +208,29 @@ class EventInvitee(db.Model):
         self.invitation_sent_at = datetime.utcnow()
         self.invitation_method = method
     
+    def undo_mark_invitation_sent(self):
+        """Undo marking invitation as sent (mistake correction)"""
+        self.invitation_sent = False
+        self.invitation_sent_at = None
+        self.invitation_method = None
+    
     def record_portal_access(self):
         """Record when attendee accesses the portal"""
         if not self.portal_accessed_at:
             self.portal_accessed_at = datetime.utcnow()
     
     def confirm_attendance(self, is_coming, guest_count=None):
-        """Record attendee's confirmation from portal"""
+        """Record attendee's confirmation from portal or admin"""
         self.attendance_confirmed = is_coming
         self.confirmed_at = datetime.utcnow()
         if guest_count is not None:
             self.confirmed_guests = min(guest_count, self.plus_one)  # Can't exceed allowed guests
+    
+    def reset_attendance_confirmation(self):
+        """Reset attendance confirmation (mistake correction)"""
+        self.attendance_confirmed = None
+        self.confirmed_at = None
+        self.confirmed_guests = None
     
     def check_in(self, checked_in_by_user_id, actual_guests=0, notes=None):
         """Check in the attendee at the event"""
