@@ -43,6 +43,14 @@ _DIFF_ACTIONS = {
     'update_invitee', 'update_user', 'update_event_invitee', 'update_event',
 }
 
+# Fields used to identify the entity name per table
+_NAME_FIELDS = {
+    'invitees': ['name'],
+    'users': ['full_name', 'username'],
+    'events': ['name'],
+    'event_invitees': ['invitee_name', 'name'],
+}
+
 
 def _format_val(val):
     """Format a single value for human display"""
@@ -55,16 +63,33 @@ def _format_val(val):
     return str(val)
 
 
-def _compute_diff(old_str, new_str):
-    """Parse two Python dict strings and return human-readable diff of changes"""
+def _parse_dict(raw_str):
+    """Safely parse a Python dict string, return dict or None"""
     try:
-        old_dict = ast.literal_eval(old_str)
-        new_dict = ast.literal_eval(new_str)
+        result = ast.literal_eval(raw_str)
+        return result if isinstance(result, dict) else None
     except (ValueError, SyntaxError, TypeError):
         return None
 
-    if not isinstance(old_dict, dict) or not isinstance(new_dict, dict):
+
+def _extract_entity_name(raw_str, table_name):
+    """Extract the entity name from a dict string based on the table"""
+    d = _parse_dict(raw_str)
+    if not d:
         return None
+    for field in _NAME_FIELDS.get(table_name, ['name']):
+        val = d.get(field)
+        if val:
+            return str(val)
+    return None
+
+
+def _compute_diff(old_str, new_str):
+    """Parse two Python dict strings and return (change_lines_list, entity_name_or_None)"""
+    old_dict = _parse_dict(old_str)
+    new_dict = _parse_dict(new_str)
+    if not old_dict or not new_dict:
+        return None, None
 
     changes = []
     all_keys = set(old_dict.keys()) | set(new_dict.keys())
@@ -78,8 +103,8 @@ def _compute_diff(old_str, new_str):
             changes.append(f'{label}: {_format_val(old_val)} → {_format_val(new_val)}')
 
     if not changes:
-        return 'No visible changes'
-    return ' | '.join(changes)
+        changes = ['No visible changes']
+    return changes, None
 
 
 def to_utc_isoformat(dt):
@@ -105,14 +130,27 @@ class AuditLog(db.Model):
     def __repr__(self):
         return f'<AuditLog {self.action} on {self.table_name} by User:{self.user_id}>'
     
-    def _get_formatted_details(self):
-        """Generate human-readable details from old_value and new_value"""
+    def _get_entity_name(self):
+        """Extract entity name from stored dict values based on table"""
+        for raw in (self.new_value, self.old_value):
+            if raw:
+                name = _extract_entity_name(raw, self.table_name)
+                if name:
+                    return name
+        return None
+
+    def _build_formatted(self):
+        """Build formatted details string + detail lines for modal"""
         if self.action in _DIFF_ACTIONS and self.old_value and self.new_value:
-            diff = _compute_diff(self.old_value, self.new_value)
-            if diff:
-                return diff
+            lines, _ = _compute_diff(self.old_value, self.new_value)
+            if lines:
+                entity = self._get_entity_name()
+                prefix = f'[{entity}] ' if entity else ''
+                summary = prefix + ' | '.join(lines)
+                return summary, lines, entity
         # For non-diff actions, new_value is already human-readable
-        return self.new_value
+        val = self.new_value or self.old_value
+        return val, [val] if val else [], None
 
     def to_dict(self):
         """Convert audit log to dictionary"""
@@ -127,6 +165,7 @@ class AuditLog(db.Model):
                 user_role = user.role
                 if user.inviter_group:
                     inviter_group_name = user.inviter_group.name
+        summary, lines, entity = self._build_formatted()
         return {
             'id': self.id,
             'user_id': self.user_id,
@@ -138,7 +177,9 @@ class AuditLog(db.Model):
             'record_id': self.record_id,
             'old_value': self.old_value,
             'new_value': self.new_value,
-            'formatted_details': self._get_formatted_details(),
+            'formatted_details': summary,
+            'detail_lines': lines,
+            'entity_name': entity,
             'ip_address': self.ip_address,
             'timestamp': to_utc_isoformat(self.timestamp),
         }

@@ -18,6 +18,8 @@ import {
   Printer,
   FileSpreadsheet,
   Activity,
+  Eye,
+  Info,
 } from 'lucide-react';
 import { reportsAPI, eventsAPI, inviterGroupsAPI, settingsAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -52,6 +54,8 @@ interface ActivityLogEntry {
   old_value: string | null;
   new_value: string | null;
   formatted_details: string | null;
+  detail_lines: string[];
+  entity_name: string | null;
   ip_address: string | null;
   timestamp: string;
 }
@@ -120,6 +124,9 @@ export default function Reports() {
   const [detailSortColumn, setDetailSortColumn] = useState<string>('');
   const [detailSortDirection, setDetailSortDirection] = useState<'asc' | 'desc'>('asc');
   
+  // Activity detail modal
+  const [selectedActivity, setSelectedActivity] = useState<ActivityLogEntry | null>(null);
+
   // Pagination and sorting for activity log
   const [activityPage, setActivityPage] = useState(1);
   const [activityPageSize, setActivityPageSize] = useState(50);
@@ -1223,7 +1230,7 @@ export default function Reports() {
                       const startIndex = (activityPage - 1) * activityPageSize;
                       const paginated = dataToDisplay.slice(startIndex, startIndex + activityPageSize);
                       return paginated.map((item) => (
-                        <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                        <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer" onClick={() => setSelectedActivity(item)}>
                           <td className="px-2 py-2 text-sm text-gray-500 dark:text-gray-400 truncate" title={item.timestamp ? formatDateTimeEgypt(item.timestamp) : ''}>
                             {item.timestamp ? formatDateTimeEgypt(item.timestamp) : '—'}
                           </td>
@@ -1266,12 +1273,21 @@ export default function Reports() {
                             {item.record_id || '—'}
                           </td>
                           <td className="px-2 py-2 text-sm text-gray-500 dark:text-gray-400">
-                            <div className="max-w-[300px] truncate" title={item.formatted_details || item.new_value || ''}>
-                              {(() => {
-                                const details = item.formatted_details || item.new_value;
-                                if (!details) return '—';
-                                return details.length > 80 ? details.substring(0, 80) + '…' : details;
-                              })()}
+                            <div className="flex items-center gap-1.5">
+                              <div className="max-w-[260px] truncate">
+                                {(() => {
+                                  const details = item.formatted_details || item.new_value;
+                                  if (!details) return '—';
+                                  return details.length > 60 ? details.substring(0, 60) + '…' : details;
+                                })()}
+                              </div>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setSelectedActivity(item); }}
+                                className="flex-shrink-0 p-0.5 text-gray-400 hover:text-primary dark:hover:text-blue-400 rounded"
+                                title="View full details"
+                              >
+                                <Eye className="w-3.5 h-3.5" />
+                              </button>
                             </div>
                           </td>
                         </tr>
@@ -1290,6 +1306,113 @@ export default function Reports() {
               />
             </>
           )}
+        </div>
+      )}
+
+      {/* Activity Log Detail Modal */}
+      {selectedActivity && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => setSelectedActivity(null)}>
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-lg max-h-[85vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
+              <div className="flex items-center gap-2.5">
+                <Info className="w-5 h-5 text-primary" />
+                <h3 className="text-base font-semibold text-gray-900 dark:text-white">Activity Details</h3>
+              </div>
+              <button onClick={() => setSelectedActivity(null)} className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="px-5 py-4 overflow-y-auto max-h-[calc(85vh-130px)] space-y-4">
+              {/* Action Badge + Timestamp */}
+              <div className="flex items-center justify-between">
+                <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-sm font-medium ${
+                  selectedActivity.action.includes('approve') ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
+                  selectedActivity.action.includes('reject') ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' :
+                  selectedActivity.action.includes('delete') ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' :
+                  selectedActivity.action.includes('create') || selectedActivity.action.includes('add') ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400' :
+                  selectedActivity.action.includes('update') ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' :
+                  selectedActivity.action.includes('login') || selectedActivity.action.includes('logout') ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400' :
+                  'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                }`}>
+                  {formatActionName(selectedActivity.action)}
+                </span>
+                <span className="text-xs text-gray-500 dark:text-gray-400">
+                  {selectedActivity.timestamp ? formatDateTimeEgypt(selectedActivity.timestamp) : '—'}
+                </span>
+              </div>
+
+              {/* Entity Name (who/what was affected) */}
+              {selectedActivity.entity_name && (
+                <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-100 dark:border-blue-800/30">
+                  <p className="text-xs font-medium text-blue-600 dark:text-blue-400 uppercase tracking-wide mb-0.5">Target</p>
+                  <p className="text-sm font-semibold text-blue-900 dark:text-blue-200">{selectedActivity.entity_name}</p>
+                </div>
+              )}
+
+              {/* Metadata Grid */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="p-2.5 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Performed By</p>
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">{selectedActivity.username || 'System'}</p>
+                  {selectedActivity.user_role && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400 capitalize">{selectedActivity.user_role}</p>
+                  )}
+                </div>
+                <div className="p-2.5 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Group</p>
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">{selectedActivity.inviter_group_name || '—'}</p>
+                </div>
+                <div className="p-2.5 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Table</p>
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">{selectedActivity.table_name}</p>
+                </div>
+                <div className="p-2.5 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Record ID</p>
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">{selectedActivity.record_id || '—'}</p>
+                </div>
+              </div>
+
+              {/* Details / Changes */}
+              {selectedActivity.detail_lines && selectedActivity.detail_lines.length > 0 && (
+                <div>
+                  <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
+                    {selectedActivity.action.includes('update') ? 'Changes' : 'Details'}
+                  </p>
+                  <div className="space-y-1.5">
+                    {selectedActivity.detail_lines.map((line, idx) => (
+                      <div key={idx} className="flex items-start gap-2 p-2 bg-gray-50 dark:bg-gray-700/50 rounded text-sm">
+                        {selectedActivity.action.includes('update') && line.includes('→') ? (
+                          <>
+                            <span className="text-gray-500 dark:text-gray-400 font-medium whitespace-nowrap">{line.split(':')[0]}:</span>
+                            <span className="text-gray-900 dark:text-white break-all">{line.substring(line.indexOf(':') + 1).trim()}</span>
+                          </>
+                        ) : (
+                          <span className="text-gray-900 dark:text-white break-all">{line}</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* IP Address */}
+              {selectedActivity.ip_address && (
+                <div className="pt-2 border-t dark:border-gray-700">
+                  <p className="text-xs text-gray-400 dark:text-gray-500">IP: {selectedActivity.ip_address}</p>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-5 py-3 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 flex justify-end">
+              <button onClick={() => setSelectedActivity(null)} className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-600 border border-gray-300 dark:border-gray-500 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-500">
+                Close
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
