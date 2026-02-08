@@ -11,6 +11,7 @@ import {
   PartyPopper,
   ArrowLeft,
   Phone,
+  RefreshCw,
 } from 'lucide-react';
 import { portalAPI, PortalVerifyResponse } from '../services/api';
 
@@ -25,6 +26,7 @@ export default function Portal() {
   const [guestCount, setGuestCount] = useState(0);
   const [confirmLoading, setConfirmLoading] = useState(false);
   const [attendeeCode, setAttendeeCode] = useState(''); // Store the code for confirmation
+  const [changingResponse, setChangingResponse] = useState(false);
 
   const handleVerify = async () => {
     if (verifyMode === 'code' && !code.trim()) {
@@ -71,6 +73,7 @@ export default function Portal() {
 
       if (response.data.success) {
         setConfirmed(true);
+        setChangingResponse(false);
         if (attendeeData) {
           setAttendeeData({
             ...attendeeData,
@@ -95,6 +98,7 @@ export default function Portal() {
     setGuestCount(0);
     setAttendeeCode('');
     setVerifyMode('code');
+    setChangingResponse(false);
   };
 
   const formatDate = (dateStr: string) => {
@@ -312,37 +316,50 @@ export default function Portal() {
               <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Confirm Your Attendance</h3>
 
-                {confirmed || attendeeData.attendance_confirmed !== null ? (
-                  <div
-                    className={`p-4 rounded-xl ${
-                      attendeeData.attendance_confirmed
-                        ? 'bg-green-50 border border-green-200'
-                        : 'bg-red-50 border border-red-200'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      {attendeeData.attendance_confirmed ? (
-                        <>
-                          <CheckCircle className="w-6 h-6 text-green-600" />
-                          <div>
-                            <p className="font-medium text-green-800">You're confirmed!</p>
-                            <p className="text-sm text-green-600">
-                              Attending with {attendeeData.confirmed_guests || 0} guest(s)
-                            </p>
-                          </div>
-                        </>
-                      ) : (
-                        <>
-                          <XCircle className="w-6 h-6 text-red-600" />
-                          <div>
-                            <p className="font-medium text-red-800">Not Attending</p>
-                            <p className="text-sm text-red-600">
-                              We're sorry you can't make it
-                            </p>
-                          </div>
-                        </>
-                      )}
+                {(confirmed || attendeeData.attendance_confirmed !== null) && !changingResponse ? (
+                  <div className="space-y-3">
+                    <div
+                      className={`p-4 rounded-xl ${
+                        attendeeData.attendance_confirmed
+                          ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800'
+                          : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        {attendeeData.attendance_confirmed ? (
+                          <>
+                            <CheckCircle className="w-6 h-6 text-green-600 dark:text-green-400" />
+                            <div>
+                              <p className="font-medium text-green-800 dark:text-green-300">You're confirmed!</p>
+                              <p className="text-sm text-green-600 dark:text-green-400">
+                                Attending with {attendeeData.confirmed_guests || 0} guest(s)
+                              </p>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <XCircle className="w-6 h-6 text-red-600 dark:text-red-400" />
+                            <div>
+                              <p className="font-medium text-red-800 dark:text-red-300">Not Attending</p>
+                              <p className="text-sm text-red-600 dark:text-red-400">
+                                We're sorry you can't make it
+                              </p>
+                            </div>
+                          </>
+                        )}
+                      </div>
                     </div>
+                    <button
+                      onClick={() => {
+                        setChangingResponse(true);
+                        setConfirmed(false);
+                        setGuestCount(attendeeData.confirmed_guests ?? 0);
+                      }}
+                      className="w-full py-3 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 font-medium rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition flex items-center justify-center gap-2 text-sm"
+                    >
+                      <RefreshCw className="w-4 h-4" />
+                      Change My Response
+                    </button>
                   </div>
                 ) : (
                   <div className="space-y-4">
@@ -390,14 +407,14 @@ export default function Portal() {
 
             {/* Already Checked In */}
             {attendeeData.checked_in && (
-              <div className="bg-green-50 border border-green-200 rounded-2xl p-6">
+              <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-2xl p-6">
                 <div className="flex items-center gap-4">
-                  <div className="p-3 bg-green-100 rounded-full">
-                    <CheckCircle className="w-8 h-8 text-green-600" />
+                  <div className="p-3 bg-green-100 dark:bg-green-900/30 rounded-full">
+                    <CheckCircle className="w-8 h-8 text-green-600 dark:text-green-400" />
                   </div>
                   <div>
-                    <p className="text-xl font-bold text-green-800">You're Checked In!</p>
-                    <p className="text-green-600">Enjoy the event!</p>
+                    <p className="text-xl font-bold text-green-800 dark:text-green-300">You're Checked In!</p>
+                    <p className="text-green-600 dark:text-green-400">Enjoy the event!</p>
                   </div>
                 </div>
               </div>

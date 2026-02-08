@@ -3,6 +3,11 @@ Helper functions
 """
 from flask import request
 
+
+def to_utc_isoformat(dt):
+    """Convert datetime to ISO format with UTC indicator"""
+    return dt.isoformat() + 'Z' if dt else None
+
 def get_client_ip():
     """Get client IP address"""
     if request.environ.get('HTTP_X_FORWARDED_FOR'):

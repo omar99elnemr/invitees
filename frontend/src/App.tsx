@@ -8,22 +8,23 @@ import { AuthProvider } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { ProtectedRoute } from './components/common/ProtectedRoute';
 import { Layout } from './components/layout/Layout';
+import { lazy, Suspense } from 'react';
 
-// Pages
-import Login from './pages/Login';
-import Dashboard from './pages/Dashboard';
-import Events from './pages/Events';
-import Invitees from './pages/Invitees';
-import Approvals from './pages/Approvals';
-import Reports from './pages/Reports';
-import Users from './pages/Users';
-import Profile from './pages/Profile';
-import Attendance from './pages/Attendance';
-import Portal from './pages/Portal';
-import CheckInConsole from './pages/CheckInConsole';
-import LiveDashboard from './pages/LiveDashboard';
-import ExportSettings from './pages/ExportSettings';
-import NotFound from './pages/NotFound';
+// Lazy-loaded pages (code splitting)
+const Login = lazy(() => import('./pages/Login'));
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Events = lazy(() => import('./pages/Events'));
+const Invitees = lazy(() => import('./pages/Invitees'));
+const Approvals = lazy(() => import('./pages/Approvals'));
+const Reports = lazy(() => import('./pages/Reports'));
+const Users = lazy(() => import('./pages/Users'));
+const Profile = lazy(() => import('./pages/Profile'));
+const Attendance = lazy(() => import('./pages/Attendance'));
+const Portal = lazy(() => import('./pages/Portal'));
+const CheckInConsole = lazy(() => import('./pages/CheckInConsole'));
+const LiveDashboard = lazy(() => import('./pages/LiveDashboard'));
+const ExportSettings = lazy(() => import('./pages/ExportSettings'));
+const NotFound = lazy(() => import('./pages/NotFound'));
 
 function App() {
   return (
@@ -55,6 +56,7 @@ function App() {
           }}
         />
         
+        <Suspense fallback={<div className="min-h-screen" />}>
         <Routes>
           <Route path="/login" element={<Login />} />
           {/* Public Routes - No Auth Required */}
@@ -127,6 +129,7 @@ function App() {
           {/* Catch-all for unknown routes */}
           <Route path="*" element={<NotFound />} />
         </Routes>
+        </Suspense>
       </AuthProvider>
       </ThemeProvider>
     </BrowserRouter>

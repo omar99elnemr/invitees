@@ -5,11 +5,7 @@ Represents application users with role-based access
 from app import db
 from flask_login import UserMixin
 from datetime import datetime
-
-
-def to_utc_isoformat(dt):
-    """Convert datetime to ISO format with UTC indicator"""
-    return dt.isoformat() + 'Z' if dt else None
+from app.utils.helpers import to_utc_isoformat
 
 
 class User(UserMixin, db.Model):

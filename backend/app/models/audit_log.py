@@ -5,6 +5,7 @@ Tracks all critical system actions for security and compliance
 import ast
 from app import db
 from datetime import datetime
+from app.utils.helpers import to_utc_isoformat
 
 
 # Human-readable field labels for audit log formatting
@@ -105,11 +106,6 @@ def _compute_diff(old_str, new_str):
     if not changes:
         changes = ['No visible changes']
     return changes, None
-
-
-def to_utc_isoformat(dt):
-    """Convert datetime to ISO format with UTC indicator"""
-    return dt.isoformat() + 'Z' if dt else None
 
 
 class AuditLog(db.Model):

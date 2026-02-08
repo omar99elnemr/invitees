@@ -4,11 +4,7 @@ Links check-in attendants to specific events they can manage check-ins for
 """
 from app import db
 from datetime import datetime
-
-
-def to_utc_isoformat(dt):
-    """Convert datetime to ISO format with UTC indicator"""
-    return dt.isoformat() + 'Z' if dt else None
+from app.utils.helpers import to_utc_isoformat
 
 
 class UserEventAssignment(db.Model):

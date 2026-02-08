@@ -3,11 +3,12 @@
  * Top navigation bar with user menu
  * Enhanced with mobile responsiveness
  */
-import { Bell, User, LogOut, Key, PanelLeftClose, PanelLeft, Sun, Moon } from 'lucide-react';
+import { Bell, User, LogOut, Key, PanelLeftClose, PanelLeft, Sun, Moon, CheckCircle, XCircle, Clock, UserPlus, Activity } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useNavigate } from 'react-router-dom';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { dashboardAPI } from '../../services/api';
 
 interface HeaderProps {
   onMenuClick: () => void;
@@ -19,18 +20,85 @@ export function Header({ onMenuClick, sidebarOpen }: HeaderProps) {
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const [showMenu, setShowMenu] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [notifLoading, setNotifLoading] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const notifRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
         setShowMenu(false);
       }
+      if (notifRef.current && !notifRef.current.contains(event.target as Node)) {
+        setShowNotifications(false);
+      }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  const loadNotifications = useCallback(async () => {
+    setNotifLoading(true);
+    try {
+      const res = await dashboardAPI.getActivity(8);
+      setNotifications(res.data || []);
+    } catch {
+      setNotifications([]);
+    } finally {
+      setNotifLoading(false);
+    }
+  }, []);
+
+  const handleToggleNotifications = () => {
+    const next = !showNotifications;
+    setShowNotifications(next);
+    if (next) {
+      loadNotifications();
+      setShowMenu(false);
+    }
+  };
+
+  const getNotifIcon = (item: any) => {
+    const status = item.status || item.action || '';
+    if (status.includes('approved') || status === 'approve') return <CheckCircle size={14} className="text-green-500" />;
+    if (status.includes('rejected') || status === 'reject') return <XCircle size={14} className="text-red-500" />;
+    if (status.includes('waiting') || status.includes('pending') || status === 'create') return <Clock size={14} className="text-yellow-500" />;
+    if (status.includes('user') || status.includes('invit')) return <UserPlus size={14} className="text-blue-500" />;
+    return <Activity size={14} className="text-gray-400" />;
+  };
+
+  const getNotifText = (item: any) => {
+    // Audit log entries (admin)
+    if (item.formatted_details) return item.formatted_details;
+    // Event invitee entries (director/organizer)
+    if (item.invitee_name && item.event_name) {
+      const statusLabel = (item.status || '').replace(/_/g, ' ');
+      return `${item.invitee_name} — ${statusLabel} for ${item.event_name}`;
+    }
+    return item.action || 'Activity';
+  };
+
+  const getNotifTime = (item: any) => {
+    const dateStr = item.timestamp || item.status_date || item.updated_at;
+    if (!dateStr) return '';
+    try {
+      const d = new Date(dateStr);
+      const now = new Date();
+      const diffMs = now.getTime() - d.getTime();
+      const diffMin = Math.floor(diffMs / 60000);
+      if (diffMin < 1) return 'Just now';
+      if (diffMin < 60) return `${diffMin}m ago`;
+      const diffHr = Math.floor(diffMin / 60);
+      if (diffHr < 24) return `${diffHr}h ago`;
+      const diffDay = Math.floor(diffHr / 24);
+      return `${diffDay}d ago`;
+    } catch {
+      return '';
+    }
+  };
 
   const handleLogout = async () => {
     await logout();
@@ -95,12 +163,70 @@ export function Header({ onMenuClick, sidebarOpen }: HeaderProps) {
           </button>
 
           {/* Notifications */}
-          <button
-            className="p-2.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl relative transition-colors"
-            aria-label="Notifications"
-          >
-            <Bell size={20} className="text-gray-600 dark:text-gray-300" />
-          </button>
+          <div className="relative" ref={notifRef}>
+            <button
+              onClick={handleToggleNotifications}
+              className="p-2.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl relative transition-colors"
+              aria-label="Notifications"
+            >
+              <Bell size={20} className="text-gray-600 dark:text-gray-300" />
+            </button>
+
+            {showNotifications && (
+              <div className="absolute right-0 mt-2 w-80 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden z-50">
+                <div className="px-4 py-3 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                  <span className="font-medium text-gray-900 dark:text-white text-sm">Recent Activity</span>
+                  <button
+                    onClick={() => { navigate('/dashboard'); setShowNotifications(false); }}
+                    className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline"
+                  >
+                    View All
+                  </button>
+                </div>
+
+                <div className="max-h-80 overflow-y-auto">
+                  {notifLoading ? (
+                    <div className="p-4 space-y-3">
+                      {[1, 2, 3].map(i => (
+                        <div key={i} className="animate-pulse flex gap-3">
+                          <div className="w-8 h-8 bg-gray-200 dark:bg-gray-700 rounded-lg" />
+                          <div className="flex-1 space-y-1.5">
+                            <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-3/4" />
+                            <div className="h-2.5 bg-gray-200 dark:bg-gray-700 rounded w-1/3" />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : notifications.length === 0 ? (
+                    <div className="p-6 text-center text-gray-500 dark:text-gray-400 text-sm">
+                      No recent activity
+                    </div>
+                  ) : (
+                    notifications.map((item, idx) => (
+                      <div
+                        key={item.id || idx}
+                        className="px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors border-b border-gray-100 dark:border-gray-700/50 last:border-0 cursor-default"
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="mt-0.5 w-7 h-7 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center flex-shrink-0">
+                            {getNotifIcon(item)}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm text-gray-800 dark:text-gray-200 line-clamp-2 leading-snug">
+                              {getNotifText(item)}
+                            </p>
+                            <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+                              {getNotifTime(item)}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* User Menu */}
           <div className="relative" ref={menuRef}>

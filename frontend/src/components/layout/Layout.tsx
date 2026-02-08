@@ -8,8 +8,17 @@ import { Header } from './Header';
 import { Sidebar } from './Sidebar';
 import { useState, useEffect } from 'react';
 
+const SIDEBAR_KEY = 'sidebar_open';
+
 export function Layout() {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(() => {
+    // On desktop, restore saved preference; default to open
+    if (window.innerWidth >= 1024) {
+      const saved = localStorage.getItem(SIDEBAR_KEY);
+      return saved !== null ? saved === 'true' : true;
+    }
+    return false; // mobile starts closed
+  });
   const [isMobile, setIsMobile] = useState(false);
 
   // Handle responsive sidebar
@@ -19,6 +28,10 @@ export function Layout() {
       setIsMobile(mobile);
       if (mobile) {
         setSidebarOpen(false);
+      } else {
+        // Restore saved preference when switching to desktop
+        const saved = localStorage.getItem(SIDEBAR_KEY);
+        setSidebarOpen(saved !== null ? saved === 'true' : true);
       }
     };
 
@@ -28,7 +41,12 @@ export function Layout() {
   }, []);
 
   const handleSidebarToggle = () => {
-    setSidebarOpen(!sidebarOpen);
+    const next = !sidebarOpen;
+    setSidebarOpen(next);
+    // Persist preference only on desktop
+    if (!isMobile) {
+      localStorage.setItem(SIDEBAR_KEY, String(next));
+    }
   };
 
   const handleSidebarClose = () => {

@@ -3,7 +3,6 @@
  * Client-side image editing for export logos:
  * - Interactive crop with zoom
  * - Remove white/light background → transparent
- * - Resize (max dimension control)
  * - Live preview
  */
 import { useState, useCallback, useRef, useEffect } from 'react';
@@ -15,7 +14,6 @@ import {
   ZoomIn,
   ZoomOut,
   Eraser,
-  Maximize2,
   RotateCcw,
   Check,
   Eye,
@@ -27,7 +25,7 @@ interface ImageEditorProps {
   onClose: () => void;
 }
 
-type EditorTab = 'crop' | 'background' | 'resize';
+type EditorTab = 'crop' | 'background';
 
 // ─── Canvas helpers ──────────────────────────────────────────────
 
@@ -86,34 +84,6 @@ function removeWhiteBackground(
   });
 }
 
-/** Resize image to fit within maxDim, preserving aspect ratio */
-async function resizeImage(
-  imageSrc: string,
-  maxWidth: number,
-  maxHeight: number
-): Promise<string> {
-  const img = await loadImage(imageSrc);
-  let { width, height } = img;
-
-  if (width <= maxWidth && height <= maxHeight) {
-    // Already within bounds
-    return imageSrc;
-  }
-
-  const ratio = Math.min(maxWidth / width, maxHeight / height);
-  width = Math.round(width * ratio);
-  height = Math.round(height * ratio);
-
-  const canvas = document.createElement('canvas');
-  canvas.width = width;
-  canvas.height = height;
-  const ctx = canvas.getContext('2d')!;
-  ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = 'high';
-  ctx.drawImage(img, 0, 0, width, height);
-  return canvas.toDataURL('image/png');
-}
-
 // ─── Editor Component ────────────────────────────────────────────
 
 export default function ImageEditor({ imageSrc, onApply, onClose }: ImageEditorProps) {
@@ -132,26 +102,12 @@ export default function ImageEditor({ imageSrc, onApply, onClose }: ImageEditorP
   const [bgTolerance, setBgTolerance] = useState(30);
   const [bgPreview, setBgPreview] = useState<string | null>(null);
 
-  // Resize state
-  const [imgDimensions, setImgDimensions] = useState({ width: 0, height: 0 });
-  const [maxWidth, setMaxWidth] = useState(300);
-  const [maxHeight, setMaxHeight] = useState(300);
-  const [resizePreview, setResizePreview] = useState<string | null>(null);
-
   // History for undo
   const historyRef = useRef<string[]>([imageSrc]);
-
-  // Load dimensions when working image changes
-  useEffect(() => {
-    loadImage(workingImage).then((img) => {
-      setImgDimensions({ width: img.width, height: img.height });
-    });
-  }, [workingImage]);
 
   // Reset sub-tool state when switching tabs
   useEffect(() => {
     setBgPreview(null);
-    setResizePreview(null);
     setCrop({ x: 0, y: 0 });
     setZoom(1);
     setCroppedAreaPixels(null);
@@ -195,29 +151,11 @@ export default function ImageEditor({ imageSrc, onApply, onClose }: ImageEditorP
     setBgPreview(null);
   };
 
-  const previewResize = async () => {
-    setProcessing(true);
-    try {
-      const result = await resizeImage(workingImage, maxWidth, maxHeight);
-      setResizePreview(result);
-    } finally {
-      setProcessing(false);
-    }
-  };
-
-  const applyResize = () => {
-    if (!resizePreview) return;
-    historyRef.current.push(workingImage);
-    setWorkingImage(resizePreview);
-    setResizePreview(null);
-  };
-
   const handleUndo = () => {
     if (historyRef.current.length > 0) {
       const prev = historyRef.current.pop()!;
       setWorkingImage(prev);
       setBgPreview(null);
-      setResizePreview(null);
     }
   };
 
@@ -231,7 +169,6 @@ export default function ImageEditor({ imageSrc, onApply, onClose }: ImageEditorP
   const tabs: { id: EditorTab; label: string; icon: React.ReactNode }[] = [
     { id: 'crop', label: 'Crop', icon: <Crop className="w-4 h-4" /> },
     { id: 'background', label: 'Background', icon: <Eraser className="w-4 h-4" /> },
-    { id: 'resize', label: 'Resize', icon: <Maximize2 className="w-4 h-4" /> },
   ];
 
   return (
@@ -391,78 +328,6 @@ export default function ImageEditor({ imageSrc, onApply, onClose }: ImageEditorP
             </div>
           )}
 
-          {/* ── RESIZE TAB ── */}
-          {activeTab === 'resize' && (
-            <div className="space-y-4">
-              {/* Current dimensions */}
-              <div className="flex items-center gap-4 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                <div className="text-sm text-gray-600 dark:text-gray-300">
-                  <span className="font-medium">Current:</span> {imgDimensions.width} × {imgDimensions.height} px
-                </div>
-              </div>
-
-              {/* Max dimension controls */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Max Width (px)</label>
-                  <input
-                    type="number"
-                    min={16}
-                    max={2000}
-                    value={maxWidth}
-                    onChange={(e) => { setMaxWidth(Number(e.target.value)); setResizePreview(null); }}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Max Height (px)</label>
-                  <input
-                    type="number"
-                    min={16}
-                    max={2000}
-                    value={maxHeight}
-                    onChange={(e) => { setMaxHeight(Number(e.target.value)); setResizePreview(null); }}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                  />
-                </div>
-              </div>
-
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                The image will be scaled down to fit within these bounds while preserving its aspect ratio. Images already smaller will not be enlarged.
-              </p>
-
-              {/* Preview */}
-              {resizePreview && (
-                <div className="rounded-xl border border-gray-200 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-900 flex flex-col items-center gap-2">
-                  <img
-                    src={resizePreview}
-                    alt="Resize preview"
-                    className="max-h-[160px] max-w-full object-contain"
-                  />
-                  <ResizeDimensions src={resizePreview} />
-                </div>
-              )}
-
-              <div className="flex gap-3">
-                <button
-                  onClick={previewResize}
-                  disabled={processing}
-                  className="flex-1 px-4 py-2.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 font-medium transition-colors flex items-center justify-center gap-2"
-                >
-                  <Eye className="w-4 h-4" />
-                  {processing ? 'Processing...' : 'Preview'}
-                </button>
-                <button
-                  onClick={applyResize}
-                  disabled={!resizePreview || processing}
-                  className="flex-1 px-4 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 font-medium transition-colors flex items-center justify-center gap-2"
-                >
-                  <Maximize2 className="w-4 h-4" />
-                  Apply
-                </button>
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Full preview toggle */}
@@ -509,19 +374,5 @@ export default function ImageEditor({ imageSrc, onApply, onClose }: ImageEditorP
         </div>
       </div>
     </div>
-  );
-}
-
-/** Tiny helper to show dimensions of the resized preview */
-function ResizeDimensions({ src }: { src: string }) {
-  const [dims, setDims] = useState({ w: 0, h: 0 });
-  useEffect(() => {
-    loadImage(src).then((img) => setDims({ w: img.width, h: img.height }));
-  }, [src]);
-  if (!dims.w) return null;
-  return (
-    <span className="text-xs text-gray-500 dark:text-gray-400">
-      Result: {dims.w} × {dims.h} px
-    </span>
   );
 }

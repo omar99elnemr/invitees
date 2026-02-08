@@ -4,11 +4,7 @@ Represents individuals who can be invited to events
 """
 from app import db
 from datetime import datetime
-
-
-def to_utc_isoformat(dt):
-    """Convert datetime to ISO format with UTC indicator"""
-    return dt.isoformat() + 'Z' if dt else None
+from app.utils.helpers import to_utc_isoformat
 
 
 # Category choices

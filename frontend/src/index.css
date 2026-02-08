@@ -178,3 +178,18 @@ html:not(.dark) select:focus,
 html:not(.dark) textarea:focus {
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
 }
+
+/* Fade-in animation (used by Login page) */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-fade-in {
+  animation: fade-in 0.5s ease-out;
+}

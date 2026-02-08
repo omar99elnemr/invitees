@@ -4,6 +4,7 @@ Represents events that can have invitees
 """
 from app import db
 from datetime import datetime, timezone, timedelta
+from app.utils.helpers import to_utc_isoformat
 
 # Egypt timezone is UTC+2
 EGYPT_TZ_OFFSET = timedelta(hours=2)
@@ -14,11 +15,6 @@ def get_egypt_time():
     egypt_now = utc_now + EGYPT_TZ_OFFSET
     # Return naive datetime for comparison with database timestamps
     return egypt_now.replace(tzinfo=None)
-
-
-def to_utc_isoformat(dt):
-    """Convert datetime to ISO format with UTC indicator"""
-    return dt.isoformat() + 'Z' if dt else None
 
 
 # Association table for Event-InviterGroup many-to-many relationship
