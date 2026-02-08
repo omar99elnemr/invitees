@@ -4,6 +4,7 @@
  * Tab 2 (Contacts): Manage the inviter group's contact list
  */
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { InlineTableSkeleton, InlineListSkeleton } from '../components/common/LoadingSkeleton';
 import Select from 'react-select';
 import {
   Users,
@@ -872,9 +873,7 @@ export default function Invitees() {
               Select Event
             </label>
             {loadingEvents ? (
-              <div className="flex items-center justify-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
-              </div>
+              <InlineListSkeleton rows={3} />
             ) : events.length === 0 ? (
               <div className="text-center py-8">
                 <div className="w-12 h-12 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-3">
@@ -1101,9 +1100,7 @@ export default function Invitees() {
 
                 {/* Contacts Table */}
                 {loadingEventInvitees ? (
-                  <div className="flex items-center justify-center py-12">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                  </div>
+                  <InlineTableSkeleton rows={5} cols={4} />
                 ) : filteredAvailableContacts.length === 0 ? (
                   <div className="text-center py-12 text-gray-500 dark:text-gray-400">
                     <Users className="w-12 h-12 mx-auto mb-3 text-gray-300" />
@@ -1348,9 +1345,7 @@ export default function Invitees() {
           {/* Contacts Table */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border dark:border-gray-700 overflow-hidden">
             {loadingContacts ? (
-              <div className="flex items-center justify-center py-12">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-              </div>
+              <InlineTableSkeleton rows={8} cols={5} />
             ) : paginatedContacts.length === 0 ? (
               <div className="text-center py-12 text-gray-500 dark:text-gray-400">
                 <Users className="w-12 h-12 mx-auto mb-3 text-gray-300 dark:text-gray-600" />
@@ -1975,9 +1970,7 @@ export default function Invitees() {
               <h4 className="font-medium mb-3 text-gray-900 dark:text-white">Event History ({selectedContact.total_events} events)</h4>
 
               {loadingHistory ? (
-                <div className="flex items-center justify-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                </div>
+                <InlineListSkeleton rows={3} />
               ) : contactHistory.length === 0 ? (
                 <div className="text-center py-8 text-gray-500 dark:text-gray-400">
                   <Calendar className="w-12 h-12 mx-auto mb-2 text-gray-300 dark:text-gray-600" />

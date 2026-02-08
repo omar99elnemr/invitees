@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
+import { LiveDashboardSkeleton } from '../components/common/LoadingSkeleton';
 import {
   Users,
   UserCheck,
@@ -79,11 +80,7 @@ export default function LiveDashboard() {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-16 w-16 border-4 border-primary border-t-transparent"></div>
-      </div>
-    );
+    return <LiveDashboardSkeleton />;
   }
 
   if (error) {

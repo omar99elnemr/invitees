@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { TableSkeleton } from '../components/common/LoadingSkeleton';
 import {
   Users,
   QrCode,
@@ -552,11 +553,7 @@ export default function Attendance() {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <RefreshCw className="w-8 h-8 animate-spin text-indigo-600" />
-      </div>
-    );
+    return <TableSkeleton rows={8} cols={6} />;
   }
 
   return (

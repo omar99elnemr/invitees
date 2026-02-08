@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { TableSkeleton } from '../components/common/LoadingSkeleton';
 import {
   UserPlus,
   Search,
@@ -478,11 +479,7 @@ export default function Users() {
   }
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
-      </div>
-    );
+    return <TableSkeleton rows={6} cols={5} />;
   }
 
   // Compute filtered inviters for the Inviters tab

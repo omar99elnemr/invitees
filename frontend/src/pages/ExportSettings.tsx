@@ -3,6 +3,7 @@
  * Admin-only page for managing export logos (left and right) for PDF, Excel, and Print reports
  */
 import { useState, useEffect, useRef } from 'react';
+import { FormSkeleton } from '../components/common/LoadingSkeleton';
 import { Settings, Upload, Trash2, Image, Save, RefreshCw, AlertCircle, CheckCircle } from 'lucide-react';
 import { settingsAPI } from '../services/api';
 import type { ExportSettings as ExportSettingsType } from '../services/api';
@@ -163,11 +164,7 @@ export default function ExportSettings() {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <RefreshCw className="w-8 h-8 animate-spin text-primary" />
-      </div>
-    );
+    return <FormSkeleton />;
   }
 
   return (

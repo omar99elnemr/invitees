@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { CardGridSkeleton, InlineListSkeleton } from '../components/common/LoadingSkeleton';
 import { 
   Calendar, 
   MapPin, 
@@ -371,11 +372,7 @@ export default function Events() {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
-      </div>
-    );
+    return <CardGridSkeleton />;
   }
 
   return (
@@ -1026,9 +1023,7 @@ export default function Events() {
               </div>
 
               {loadingPin ? (
-                <div className="flex items-center justify-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                </div>
+                <InlineListSkeleton rows={3} />
               ) : pinInfo ? (
                 <div className="space-y-4">
                   {/* PIN Status */}

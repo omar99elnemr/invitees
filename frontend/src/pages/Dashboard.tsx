@@ -8,6 +8,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { DashboardSkeleton } from '../components/common/LoadingSkeleton';
 import { dashboardAPI, eventsAPI } from '../services/api';
 import type { DashboardStats, Event } from '../types';
 import {
@@ -69,11 +70,7 @@ export default function Dashboard() {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
-      </div>
-    );
+    return <DashboardSkeleton />;
   }
 
   // Render role-specific dashboard
