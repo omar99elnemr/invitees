@@ -6,6 +6,7 @@ from flask import Blueprint, request, jsonify, send_file
 from flask_login import login_required, current_user
 from werkzeug.utils import secure_filename
 from app.services.import_service import ImportService
+from app.utils.decorators import admin_required
 import os
 
 import_bp = Blueprint('import', __name__, url_prefix='/api/import')
@@ -75,6 +76,73 @@ def import_contacts():
         
         return jsonify({
             'message': 'Import completed',
+            'total_rows': result['total_rows'],
+            'successful': result['successful'],
+            'skipped': result['skipped'],
+            'failed': result['failed'],
+            'errors': result['errors']
+        }), 200
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': f'Import failed: {str(e)}'}), 500
+
+
+@import_bp.route('/admin/template', methods=['GET'])
+@login_required
+@admin_required
+def download_admin_template():
+    """Download Excel template for admin-wide bulk import"""
+    try:
+        template_path = ImportService.generate_admin_template()
+        return send_file(
+            template_path,
+            as_attachment=True,
+            download_name='admin_invitees_import_template.xlsx',
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@import_bp.route('/admin/contacts', methods=['POST'])
+@login_required
+@admin_required
+def admin_import_contacts():
+    """
+    Admin bulk import contacts from Excel/CSV file.
+    Application-wide: each row specifies its inviter group.
+    """
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file provided'}), 400
+    
+    file = request.files['file']
+    
+    if file.filename == '':
+        return jsonify({'error': 'No file selected'}), 400
+    
+    if not allowed_file(file.filename):
+        return jsonify({'error': 'Invalid file type. Only .xlsx, .xls, and .csv are allowed'}), 400
+    
+    try:
+        os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+        filename = secure_filename(file.filename)
+        filepath = os.path.join(UPLOAD_FOLDER, f'admin_{current_user.id}_{filename}')
+        file.save(filepath)
+        
+        result = ImportService.admin_import_contacts_from_file(
+            filepath,
+            current_user.id
+        )
+        
+        try:
+            os.remove(filepath)
+        except:
+            pass
+        
+        return jsonify({
+            'message': 'Admin import completed',
             'total_rows': result['total_rows'],
             'successful': result['successful'],
             'skipped': result['skipped'],

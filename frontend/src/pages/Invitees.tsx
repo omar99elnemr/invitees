@@ -127,6 +127,7 @@ export default function Invitees() {
   const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [showAdminImportModal, setShowAdminImportModal] = useState(false);
   const [selectedContact, setSelectedContact] = useState<InviteeWithStats | null>(null);
   const [contactHistory, setContactHistory] = useState<EventInvitee[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
@@ -134,6 +135,10 @@ export default function Invitees() {
   const [importing, setImporting] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [adminImportFile, setAdminImportFile] = useState<File | null>(null);
+  const [adminImporting, setAdminImporting] = useState(false);
+  const [adminIsDragOver, setAdminIsDragOver] = useState(false);
+  const adminFileInputRef = useRef<HTMLInputElement>(null);
 
   // Form data
   const [formData, setFormData] = useState<InviteeFormData>(initialFormData);
@@ -600,6 +605,88 @@ export default function Invitees() {
       toast.success('Template downloaded');
     } catch (error: any) {
       toast.error('Failed to download template');
+    }
+  };
+
+  const handleDownloadAdminTemplate = async () => {
+    try {
+      await importAPI.downloadAdminTemplate();
+      toast.success('Admin template downloaded');
+    } catch (error: any) {
+      toast.error('Failed to download admin template');
+    }
+  };
+
+  const handleAdminImport = async () => {
+    if (!adminImportFile) {
+      toast.error('Please select a file');
+      return;
+    }
+    try {
+      setAdminImporting(true);
+      const response = await importAPI.adminUploadContacts(adminImportFile);
+      const { successful, skipped, failed, errors } = response.data;
+
+      if (successful > 0) {
+        toast.success(`${successful} contact(s) imported successfully`);
+      }
+
+      if (errors && errors.length > 0) {
+        const duplicatePhones: string[] = [];
+        const invalidPhones: string[] = [];
+        const missingFields: string[] = [];
+        const updated: string[] = [];
+        const groupNotFound: string[] = [];
+        const otherErrors: string[] = [];
+
+        errors.forEach((err: string) => {
+          if (err.includes('already exists (no changes)')) {
+            duplicatePhones.push(err);
+          } else if (err.includes('Updated existing contact')) {
+            updated.push(err);
+          } else if (err.includes('Invalid phone format')) {
+            invalidPhones.push(err);
+          } else if (err.includes('Missing required field')) {
+            missingFields.push(err);
+          } else if (err.includes('not found. Please create it first')) {
+            groupNotFound.push(err);
+          } else {
+            otherErrors.push(err);
+          }
+        });
+
+        if (updated.length > 0) {
+          toast.success(`${updated.length} existing contact(s) updated`);
+        }
+        if (duplicatePhones.length > 0) {
+          toast(`${duplicatePhones.length} contact(s) already exist (no changes)`, { icon: 'ℹ️' });
+        }
+        if (invalidPhones.length > 0) {
+          toast.error(`${invalidPhones.length} skipped: Invalid phone format`);
+        }
+        if (missingFields.length > 0) {
+          toast.error(`${missingFields.length} skipped: Missing required fields`);
+        }
+        if (groupNotFound.length > 0) {
+          toast.error(`${groupNotFound.length} skipped: Inviter group not found`);
+        }
+        if (otherErrors.length > 0) {
+          console.log('Other admin import errors:', otherErrors);
+        }
+        console.log('Admin import details:', errors);
+      } else {
+        if (skipped > 0) toast(`${skipped} contact(s) skipped`, { icon: 'ℹ️' });
+        if (failed > 0) toast.error(`${failed} row(s) failed to import`);
+      }
+
+      setShowAdminImportModal(false);
+      setAdminImportFile(null);
+      fetchContacts();
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Admin import failed');
+      console.error(error);
+    } finally {
+      setAdminImporting(false);
     }
   };
 
@@ -1227,6 +1314,13 @@ export default function Invitees() {
                   >
                     <Edit2 className="w-4 h-4" />
                     Manage Categories
+                  </button>
+                  <button
+                    onClick={() => setShowAdminImportModal(true)}
+                    className="px-4 py-2 border border-purple-300 dark:border-purple-600 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-900/30 text-purple-700 dark:text-purple-300 flex items-center gap-2"
+                  >
+                    <Upload className="w-4 h-4" />
+                    Admin Import
                   </button>
                 </>
               )}
@@ -2093,6 +2187,154 @@ export default function Invitees() {
                   disabled={importing || !importFile}
                 >
                   {importing ? (
+                    <>
+                      <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      </svg>
+                      Importing...
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="w-4 h-4" />
+                      Import Contacts
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Admin Import Modal */}
+      {showAdminImportModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-lg w-full border border-purple-200 dark:border-purple-700">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-5">
+                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Admin Bulk Import</h2>
+                <button
+                  onClick={() => { setShowAdminImportModal(false); setAdminImportFile(null); setAdminIsDragOver(false); }}
+                  className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-gray-500 dark:text-gray-400 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="mb-4 p-3 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-700 rounded-lg">
+                <p className="text-sm text-purple-800 dark:text-purple-300">
+                  <strong>Application-wide import.</strong> Each row must specify an <strong>Inviter_Group</strong> column.
+                  Groups must already exist. New inviters are auto-created within their group.
+                </p>
+              </div>
+
+              <div className="space-y-5">
+                {/* Step 1: Download Admin Template */}
+                <div>
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Step 1: Download the admin template and fill in contacts
+                  </p>
+                  <button
+                    onClick={handleDownloadAdminTemplate}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 border border-dashed border-purple-300 dark:border-purple-600 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-900/20 text-purple-600 dark:text-purple-300 transition-colors"
+                  >
+                    <Download className="w-5 h-5" />
+                    Download Admin Template (.xlsx)
+                  </button>
+                </div>
+
+                {/* Step 2: Upload File */}
+                <div>
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Step 2: Upload your filled file
+                  </p>
+
+                  <input
+                    ref={adminFileInputRef}
+                    type="file"
+                    accept=".xlsx,.xls,.csv"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0] || null;
+                      if (file) setAdminImportFile(file);
+                      e.target.value = '';
+                    }}
+                  />
+
+                  {!adminImportFile ? (
+                    <div
+                      onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setAdminIsDragOver(true); }}
+                      onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); setAdminIsDragOver(true); }}
+                      onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setAdminIsDragOver(false); }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setAdminIsDragOver(false);
+                        const file = e.dataTransfer.files?.[0];
+                        if (file) {
+                          const ext = file.name.split('.').pop()?.toLowerCase();
+                          if (['xlsx', 'xls', 'csv'].includes(ext || '')) {
+                            setAdminImportFile(file);
+                          } else {
+                            toast.error('Unsupported file type. Please use .xlsx, .xls, or .csv');
+                          }
+                        }
+                      }}
+                      onClick={() => adminFileInputRef.current?.click()}
+                      className={`relative cursor-pointer border-2 border-dashed rounded-xl p-8 text-center transition-all ${
+                        adminIsDragOver
+                          ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20'
+                          : 'border-gray-300 dark:border-gray-600 hover:border-purple-400 dark:hover:border-purple-500 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                      }`}
+                    >
+                      <FileUp className={`w-10 h-10 mx-auto mb-3 ${adminIsDragOver ? 'text-purple-500' : 'text-gray-400 dark:text-gray-500'}`} />
+                      <p className={`text-sm font-medium ${adminIsDragOver ? 'text-purple-600 dark:text-purple-400' : 'text-gray-700 dark:text-gray-300'}`}>
+                        {adminIsDragOver ? 'Drop your file here' : 'Click to browse or drag & drop'}
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        Supports .xlsx, .xls, and .csv files
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-4 bg-gray-50 dark:bg-gray-700/50">
+                      <div className="flex items-center gap-3">
+                        <div className="flex-shrink-0 p-2.5 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
+                          <FileSpreadsheet className="w-6 h-6 text-purple-600 dark:text-purple-400" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{adminImportFile.name}</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            {(adminImportFile.size / 1024).toFixed(1)} KB
+                          </p>
+                        </div>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setAdminImportFile(null); }}
+                          className="flex-shrink-0 p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                          title="Remove file"
+                        >
+                          <Trash className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="mt-6 flex justify-end gap-3">
+                <button
+                  onClick={() => { setShowAdminImportModal(false); setAdminImportFile(null); setAdminIsDragOver(false); }}
+                  className="px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                  disabled={adminImporting}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleAdminImport}
+                  className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
+                  disabled={adminImporting || !adminImportFile}
+                >
+                  {adminImporting ? (
                     <>
                       <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />

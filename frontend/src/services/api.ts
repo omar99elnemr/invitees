@@ -378,6 +378,30 @@ export const importAPI = {
       },
     });
   },
+
+  downloadAdminTemplate: async () => {
+    const response = await api.get('/import/admin/template', {
+      responseType: 'blob',
+    });
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'admin_contacts_import_template.xlsx');
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  },
+
+  adminUploadContacts: (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    return api.post<ImportResult>('/import/admin/contacts', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+  },
 };
 
 // =========================
