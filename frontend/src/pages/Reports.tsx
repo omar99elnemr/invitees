@@ -51,6 +51,7 @@ interface ActivityLogEntry {
   record_id: number | null;
   old_value: string | null;
   new_value: string | null;
+  formatted_details: string | null;
   ip_address: string | null;
   timestamp: string;
 }
@@ -308,6 +309,9 @@ export default function Reports() {
       'toggle_checkin_pin': 'Check-in PIN Toggled',
       'update_checkin_settings': 'Check-in Settings Updated',
       'portal_confirm_attendance': 'Attendance Confirmed (Portal)',
+      'undo_mark_invitations_sent': 'Invitation Sent Undone',
+      'admin_confirm_attendance': 'Attendance Confirmed (Admin)',
+      'reset_attendance_confirmation': 'Confirmation Reset',
       'checkin_portal_login': 'Check-in Portal Login',
       'checkin_portal_login_failed': 'Check-in Portal Login Failed',
       'checkin_portal_logout': 'Check-in Portal Logout',
@@ -326,7 +330,7 @@ export default function Reports() {
         'Group': item.inviter_group_name || '—',
         'Table': item.table_name,
         'Record ID': item.record_id || '—',
-        'Details': item.new_value || '—',
+        'Details': item.formatted_details || item.new_value || '—',
       }));
     }
 
@@ -1261,8 +1265,14 @@ export default function Reports() {
                           <td className="px-2 py-2 text-sm text-gray-500 dark:text-gray-400">
                             {item.record_id || '—'}
                           </td>
-                          <td className="px-2 py-2 text-sm text-gray-500 dark:text-gray-400 truncate" title={item.new_value || ''}>
-                            {item.new_value ? (item.new_value.length > 30 ? item.new_value.substring(0, 30) + '...' : item.new_value) : '—'}
+                          <td className="px-2 py-2 text-sm text-gray-500 dark:text-gray-400">
+                            <div className="max-w-[300px] truncate" title={item.formatted_details || item.new_value || ''}>
+                              {(() => {
+                                const details = item.formatted_details || item.new_value;
+                                if (!details) return '—';
+                                return details.length > 80 ? details.substring(0, 80) + '…' : details;
+                              })()}
+                            </div>
                           </td>
                         </tr>
                       ));
