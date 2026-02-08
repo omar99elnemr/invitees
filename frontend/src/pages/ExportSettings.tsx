@@ -4,7 +4,8 @@
  */
 import { useState, useEffect, useRef } from 'react';
 import { FormSkeleton } from '../components/common/LoadingSkeleton';
-import { Settings, Upload, Trash2, Image, Save, RefreshCw, AlertCircle, CheckCircle } from 'lucide-react';
+import { Settings, Upload, Trash2, Image, Save, RefreshCw, AlertCircle, CheckCircle, Pencil } from 'lucide-react';
+import ImageEditor from '../components/common/ImageEditor';
 import { settingsAPI } from '../services/api';
 import type { ExportSettings as ExportSettingsType } from '../services/api';
 import toast from 'react-hot-toast';
@@ -25,6 +26,10 @@ export default function ExportSettings() {
 
   const leftInputRef = useRef<HTMLInputElement>(null);
   const rightInputRef = useRef<HTMLInputElement>(null);
+
+  // Image editor state
+  const [editingSide, setEditingSide] = useState<'left' | 'right' | null>(null);
+  const [editorImage, setEditorImage] = useState<string | null>(null);
 
   // Fetch current settings
   useEffect(() => {
@@ -96,6 +101,30 @@ export default function ExportSettings() {
   };
 
   const hasChanges = pendingLeft !== undefined || pendingRight !== undefined || removeLeft || removeRight;
+
+  const handleOpenEditor = (side: 'left' | 'right') => {
+    const img = getDisplayImage(side);
+    if (!img) return;
+    setEditingSide(side);
+    setEditorImage(img);
+  };
+
+  const handleEditorApply = (editedImage: string) => {
+    if (editingSide === 'left') {
+      setPendingLeft(editedImage);
+      setRemoveLeft(false);
+    } else if (editingSide === 'right') {
+      setPendingRight(editedImage);
+      setRemoveRight(false);
+    }
+    setEditingSide(null);
+    setEditorImage(null);
+  };
+
+  const handleEditorClose = () => {
+    setEditingSide(null);
+    setEditorImage(null);
+  };
 
   const handleSave = async () => {
     if (!hasChanges) return;
@@ -251,6 +280,7 @@ export default function ExportSettings() {
           onFileSelect={(file) => handleFileSelect('left', file)}
           onRemove={() => handleRemove('left')}
           onCancel={() => handleCancelPending('left')}
+          onEdit={() => handleOpenEditor('left')}
         />
 
         {/* Right Logo Card */}
@@ -265,10 +295,20 @@ export default function ExportSettings() {
           onFileSelect={(file) => handleFileSelect('right', file)}
           onRemove={() => handleRemove('right')}
           onCancel={() => handleCancelPending('right')}
+          onEdit={() => handleOpenEditor('right')}
         />
       </div>
 
       {/* Save Bar */}
+      {/* Image Editor Modal */}
+      {editingSide && editorImage && (
+        <ImageEditor
+          imageSrc={editorImage}
+          onApply={handleEditorApply}
+          onClose={handleEditorClose}
+        />
+      )}
+
       {hasChanges && (
         <div className="sticky bottom-4 z-10">
           <div className="bg-indigo-600 dark:bg-indigo-700 text-white rounded-xl shadow-2xl p-4 flex items-center justify-between">
@@ -320,9 +360,10 @@ interface LogoCardProps {
   onFileSelect: (file: File | null) => void;
   onRemove: () => void;
   onCancel: () => void;
+  onEdit: () => void;
 }
 
-function LogoCard({ side, title, description, image, status, meta, inputRef, onFileSelect, onRemove, onCancel }: LogoCardProps) {
+function LogoCard({ side, title, description, image, status, meta, inputRef, onFileSelect, onRemove, onCancel, onEdit }: LogoCardProps) {
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     const file = e.dataTransfer.files[0];
@@ -368,7 +409,14 @@ function LogoCard({ side, title, description, image, status, meta, inputRef, onF
                 className="max-h-[100px] max-w-full object-contain"
               />
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                onClick={onEdit}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-900/40 transition-colors"
+              >
+                <Pencil className="w-4 h-4" />
+                Edit
+              </button>
               <button
                 onClick={() => inputRef.current?.click()}
                 className="flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors"
