@@ -32,6 +32,12 @@ def get_filters_from_request():
         except ValueError:
             pass
     
+    if request.args.get('inviter_id'):
+        try:
+            filters['inviter_id'] = int(request.args.get('inviter_id'))
+        except ValueError:
+            pass
+    
     if request.args.get('inviter_user_id'):
         try:
             filters['inviter_user_id'] = int(request.args.get('inviter_user_id'))

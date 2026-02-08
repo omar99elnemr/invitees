@@ -50,6 +50,9 @@ class ReportService:
             
             if 'inviter_group_id' in filters and filters['inviter_group_id']:
                 query = query.filter(InviterGroup.id == filters['inviter_group_id'])
+            
+            if 'inviter_id' in filters and filters['inviter_id']:
+                query = query.filter(Inviter.id == filters['inviter_id'])
         
         query = query.group_by(
             Event.id,
@@ -106,6 +109,9 @@ class ReportService:
             
             if 'inviter_group_id' in filters and filters['inviter_group_id']:
                 query = query.filter(InviterGroup.id == filters['inviter_group_id'])
+            
+            if 'inviter_id' in filters and filters['inviter_id']:
+                query = query.filter(Inviter.id == filters['inviter_id'])
         
         query = query.group_by(
             Event.id,
@@ -139,6 +145,7 @@ class ReportService:
         Complete list of all invitees with all details, grouped by inviter
         """
         query = EventInvitee.query
+        inviter_joined = False
         
         # Apply filters
         if filters:
@@ -152,6 +159,13 @@ class ReportService:
                 query = query.join(Inviter, EventInvitee.inviter_id == Inviter.id).filter(
                     Inviter.inviter_group_id == filters['inviter_group_id']
                 )
+                inviter_joined = True
+            
+            if 'inviter_id' in filters and filters['inviter_id']:
+                if not inviter_joined:
+                    query = query.join(Inviter, EventInvitee.inviter_id == Inviter.id)
+                    inviter_joined = True
+                query = query.filter(Inviter.id == filters['inviter_id'])
             
             if 'search' in filters and filters['search']:
                 from app.models.invitee import Invitee
@@ -165,10 +179,11 @@ class ReportService:
                     )
                 )
         
-        # Order by inviter, then by created_at
-        results = query.outerjoin(
-            Inviter, EventInvitee.inviter_id == Inviter.id
-        ).order_by(
+        # Only outerjoin Inviter if not already joined via filter
+        if not inviter_joined:
+            query = query.outerjoin(Inviter, EventInvitee.inviter_id == Inviter.id)
+        
+        results = query.order_by(
             Inviter.name,
             EventInvitee.created_at.desc()
         ).all()
@@ -182,6 +197,7 @@ class ReportService:
         Final attendee list for approved invitees, grouped by inviter
         """
         query = EventInvitee.query.filter(EventInvitee.status == 'approved')
+        inviter_joined = False
         
         # Apply filters
         if filters:
@@ -192,6 +208,13 @@ class ReportService:
                 query = query.join(Inviter, EventInvitee.inviter_id == Inviter.id).filter(
                     Inviter.inviter_group_id == filters['inviter_group_id']
                 )
+                inviter_joined = True
+            
+            if 'inviter_id' in filters and filters['inviter_id']:
+                if not inviter_joined:
+                    query = query.join(Inviter, EventInvitee.inviter_id == Inviter.id)
+                    inviter_joined = True
+                query = query.filter(Inviter.id == filters['inviter_id'])
             
             if 'is_going' in filters and filters['is_going']:
                 query = query.filter(EventInvitee.is_going == filters['is_going'])
@@ -199,10 +222,11 @@ class ReportService:
             if 'plus_one' in filters and filters['plus_one'] is not None:
                 query = query.filter(EventInvitee.plus_one == filters['plus_one'])
         
-        # Order by inviter, then by status_date
-        results = query.outerjoin(
-            Inviter, EventInvitee.inviter_id == Inviter.id
-        ).order_by(
+        # Only outerjoin Inviter if not already joined via filter
+        if not inviter_joined:
+            query = query.outerjoin(Inviter, EventInvitee.inviter_id == Inviter.id)
+        
+        results = query.order_by(
             Inviter.name,
             EventInvitee.status_date.desc()
         ).all()

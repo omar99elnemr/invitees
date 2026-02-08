@@ -382,35 +382,21 @@ export const exportToPDF = (
       })
     );
     
-    // Calculate column widths based on content with Unicode consideration
-    const columnWidths = columns.map((col) => {
-      // Get max width for this column
-      const headerWidth = col.length * 4; // Approximate width for header
-      const dataWidths = data.map(item => {
+    // Calculate column widths: always fill full page width
+    const availableWidth = pageWidth - 28; // margins: 14 left + 14 right
+    const columnWeights = columns.map((col) => {
+      const headerLen = col.length;
+      const maxDataLen = Math.max(...data.slice(0, 50).map(item => {
         const val = String(item[col] || '');
-        
-        // Calculate character width based on script
-        let charWidth = 4; // Default for Latin
-        if (/[\u0600-\u06FF]/.test(val)) charWidth = 5; // Arabic
-        else if (/[\u4E00-\u9FFF]/.test(val)) charWidth = 6; // Chinese/Japanese/Korean
-        else if (/[\u0400-\u04FF]/.test(val)) charWidth = 4.5; // Cyrillic
-        else if (/[^\x00-\x7F]/.test(val)) charWidth = 4.5; // Other Unicode
-        
-        return Math.min(val.length * charWidth, 60); // Cap individual column width
-      });
-      const maxWidth = Math.max(headerWidth, ...dataWidths);
-      
-      // Set minimum and maximum widths
-      const minWidth = 15;
-      const maxWidthLimit = 50; // Much smaller max width
-      return Math.min(Math.max(maxWidth, minWidth), maxWidthLimit);
+        return val.length;
+      }), 1);
+      // Weight based on content length, with minimum floor
+      return Math.max(Math.max(headerLen, maxDataLen), 3);
     });
-    
-    // Adjust widths to fit page
-    const totalWidth = columnWidths.reduce((sum, w) => sum + w, 0);
-    const availableWidth = pageWidth - 30; // Increased margin
-    const scaleFactor = totalWidth > availableWidth ? availableWidth / totalWidth : 1;
-    const adjustedWidths = columnWidths.map(w => w * scaleFactor);
+    const totalWeight = columnWeights.reduce((sum, w) => sum + w, 0);
+    const adjustedWidths = columnWeights.map(w => 
+      Math.max((w / totalWeight) * availableWidth, 12)
+    );
     
     // Determine font sizes and spacing based on content
     const baseFontSize = scripts.hasChinese ? 6 : (scripts.hasArabic || scripts.hasCyrillic ? 7 : 7); // Reduced all sizes
@@ -465,10 +451,7 @@ export const exportToPDF = (
         fillColor: [248, 250, 252],
       },
       columnStyles: adjustedWidths.reduce((acc, width, index) => {
-        acc[index] = { 
-          cellWidth: width,
-          minCellWidth: 15
-        };
+        acc[index] = { cellWidth: width };
         return acc;
       }, {} as any),
       margin: { top: 28, right: 14, bottom: 20, left: 14 },

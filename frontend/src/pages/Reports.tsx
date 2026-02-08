@@ -21,9 +21,9 @@ import {
   Eye,
   Info,
 } from 'lucide-react';
-import { reportsAPI, eventsAPI, inviterGroupsAPI, settingsAPI } from '../services/api';
+import { reportsAPI, eventsAPI, inviterGroupsAPI, invitersAPI, settingsAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import type { Event, InviterGroup, EventInvitee } from '../types';
+import type { Event, InviterGroup, Inviter, EventInvitee } from '../types';
 import { exportToCSV, exportToExcel, exportToPDF } from '../utils/exportHelpers';
 import TablePagination from '../components/common/TablePagination';
 import { formatDateTimeEgypt, formatDateEgypt } from '../utils/formatters';
@@ -84,6 +84,7 @@ export default function Reports() {
   const [activeReport, setActiveReport] = useState<ReportType>('summary-group');
   const [events, setEvents] = useState<Event[]>([]);
   const [inviterGroups, setInviterGroups] = useState<InviterGroup[]>([]);
+  const [inviters, setInviters] = useState<Inviter[]>([]);
   const [loading, setLoading] = useState(false);
   const [dataLoaded, setDataLoaded] = useState(false);
 
@@ -163,12 +164,14 @@ export default function Reports() {
   const loadFilters = async () => {
     try {
       // Load basic filters first
-      const [eventsRes, groupsRes] = await Promise.all([
+      const [eventsRes, groupsRes, invitersRes] = await Promise.all([
         eventsAPI.getAll(),
         inviterGroupsAPI.getAll(),
+        invitersAPI.getAll(true),
       ]);
       setEvents(eventsRes.data);
       setInviterGroups(groupsRes.data);
+      setInviters(invitersRes.data);
       
       // Load activity log filters separately (admin only)
       if (isAdmin) {
@@ -241,6 +244,7 @@ export default function Reports() {
     if (groupFilter) filters.inviter_group_id = groupFilter;
     if (statusFilter) filters.status = statusFilter;
     if (searchQuery) filters.search = searchQuery;
+    if (inviterFilter && activeReport !== 'historical-data') filters.inviter_id = inviterFilter;
 
     try {
       let response;
@@ -583,6 +587,7 @@ export default function Reports() {
               setDataLoaded(false);
               setSummaryData([]);
               setDetailData([]);
+              setInviterFilter('');
             }}
             className={`group p-4 rounded-xl border text-left transition-all hover:-translate-y-0.5 ${
               activeReport === report.id
@@ -703,6 +708,23 @@ export default function Reports() {
                     </option>
                   ))
                 )}
+              </select>
+            )}
+
+            {(activeReport === 'summary-inviter' || activeReport === 'detail-event' || activeReport === 'detail-approved') && (
+              <select
+                value={inviterFilter}
+                onChange={(e) => setInviterFilter(e.target.value)}
+                className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-800 dark:text-white"
+              >
+                <option value="">All Inviters</option>
+                {inviters
+                  .filter(inv => !isDirector || !user?.inviter_group_id || inv.inviter_group_id === user.inviter_group_id)
+                  .map((inv) => (
+                  <option key={inv.id} value={inv.id}>
+                    {inv.name}{inv.inviter_group_name ? ` (${inv.inviter_group_name})` : ''}
+                  </option>
+                ))}
               </select>
             )}
 
@@ -1018,7 +1040,7 @@ export default function Reports() {
               </div>
 
               <div className="overflow-x-auto">
-                <table className="w-full table-fixed divide-y divide-gray-200 dark:divide-gray-700">
+                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                   <thead className="bg-gray-50 dark:bg-gray-700">
                     <tr>
                       {[
