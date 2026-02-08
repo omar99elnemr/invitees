@@ -167,7 +167,7 @@ export default function Reports() {
       const [eventsRes, groupsRes, invitersRes] = await Promise.all([
         eventsAPI.getAll(),
         inviterGroupsAPI.getAll(),
-        invitersAPI.getAll(true),
+        isAdmin ? invitersAPI.getAll(true) : invitersAPI.getMyGroupInviters(true),
       ]);
       setEvents(eventsRes.data);
       setInviterGroups(groupsRes.data);
