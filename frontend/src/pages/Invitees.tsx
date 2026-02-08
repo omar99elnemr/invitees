@@ -98,6 +98,7 @@ export default function Invitees() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [inviterGroups, setInviterGroups] = useState<InviterGroup[]>([]);
   const [showCategoryManager, setShowCategoryManager] = useState(false);
+  const [showGroupsModal, setShowGroupsModal] = useState(false);
 
   // Shared state
   const [searchQuery, setSearchQuery] = useState('');
@@ -837,16 +838,14 @@ export default function Invitees() {
                     {selectedEvent.inviter_group_names && selectedEvent.inviter_group_names.length > 0 && (
                       <div className="flex items-center gap-2 mt-2">
                         <span className="text-xs text-gray-500 dark:text-gray-400">Assigned Groups:</span>
-                        <div className="flex flex-wrap gap-1">
-                          {selectedEvent.inviter_group_names.map((groupName, idx) => (
-                            <span
-                              key={idx}
-                              className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400"
-                            >
-                              {groupName}
-                            </span>
-                          ))}
-                        </div>
+                        <button
+                          onClick={() => setShowGroupsModal(true)}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40 border border-blue-200 dark:border-blue-800/40 transition-colors cursor-pointer"
+                          title="Click to view assigned groups"
+                        >
+                          <Users className="w-3.5 h-3.5" />
+                          {selectedEvent.inviter_group_names.length} {selectedEvent.inviter_group_names.length === 1 ? 'Group' : 'Groups'}
+                        </button>
                       </div>
                     )}
                   </div>
@@ -2109,6 +2108,54 @@ export default function Invitees() {
                   )}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Assigned Groups Modal */}
+      {showGroupsModal && selectedEvent && selectedEvent.inviter_group_names && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => setShowGroupsModal(false)}>
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-md max-h-[70vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
+              <div className="flex items-center gap-2.5">
+                <Users className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                <div>
+                  <h3 className="text-base font-semibold text-gray-900 dark:text-white">Assigned Groups</h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{selectedEvent.name}</p>
+                </div>
+              </div>
+              <button onClick={() => setShowGroupsModal(false)} className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Group List */}
+            <div className="px-5 py-4 overflow-y-auto max-h-[calc(70vh-130px)]">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                {selectedEvent.inviter_group_names.length} {selectedEvent.inviter_group_names.length === 1 ? 'group' : 'groups'} assigned to this event
+              </p>
+              <div className="space-y-2">
+                {selectedEvent.inviter_group_names.map((groupName, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-100 dark:border-gray-600/50"
+                  >
+                    <div className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 text-sm font-semibold flex-shrink-0">
+                      {idx + 1}
+                    </div>
+                    <span className="text-sm font-medium text-gray-900 dark:text-white">{groupName}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-5 py-3 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 flex justify-end">
+              <button onClick={() => setShowGroupsModal(false)} className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-600 border border-gray-300 dark:border-gray-500 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-500">
+                Close
+              </button>
             </div>
           </div>
         </div>
