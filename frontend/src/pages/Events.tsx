@@ -917,9 +917,16 @@ export default function Events() {
                 <Trash2 className="w-6 h-6 text-red-600 dark:text-red-400" />
               </div>
               <h3 className="text-lg font-semibold text-center mb-2 text-gray-900 dark:text-white">Delete Event</h3>
-              <p className="text-gray-600 dark:text-gray-400 text-center mb-6">
-                Are you sure you want to delete "{selectedEvent.name}"? This action cannot be undone.
+              <p className="text-gray-600 dark:text-gray-400 text-center mb-4">
+                Are you sure you want to delete "<strong className="text-gray-900 dark:text-white">{selectedEvent.name}</strong>"? This action cannot be undone.
               </p>
+              {(selectedEvent.invitee_count || 0) > 0 && (
+                <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3 mb-4">
+                  <p className="text-sm text-amber-800 dark:text-amber-300 text-center">
+                    <strong>{selectedEvent.invitee_count}</strong> invitee(s) and all related data (codes, invitations, etc.) will be permanently removed.
+                  </p>
+                </div>
+              )}
               <div className="flex gap-3">
                 <button
                   onClick={() => {

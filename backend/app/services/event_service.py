@@ -176,24 +176,41 @@ class EventService:
         """
         Delete an event
         Returns (success, error_message)
+        
+        Deletion is blocked only if the event has invitees who:
+        - Confirmed attendance (attendance_confirmed = True), OR
+        - Already checked in (checked_in = True)
+        
+        All other invitee statuses (pending approval, approved, rejected,
+        invitation sent but not confirmed, etc.) allow deletion.
         """
+        from app.models.event_invitee import EventInvitee
+        
         event = Event.query.get(event_id)
         if not event:
             return False, 'Event not found'
         
-        # Check if event has invitees
-        if event.event_invitees.count() > 0:
-            return False, 'Cannot delete event with invitees'
+        # Count invitees who confirmed attendance or already checked in
+        confirmed_count = event.event_invitees.filter(
+            db.or_(
+                EventInvitee.attendance_confirmed == True,
+                EventInvitee.checked_in == True
+            )
+        ).count()
+        
+        if confirmed_count > 0:
+            return False, f'Cannot delete event with {confirmed_count} confirmed or checked-in attendee(s). Please handle them first.'
         
         event_name = event.name
+        total_invitees = event.event_invitees.count()
         
-        # Log deletion before deleting
+        # Log deletion before deleting (include invitee count for audit trail)
         AuditLog.log(
             user_id=deleted_by_user_id,
             action='delete_event',
             table_name='events',
             record_id=event.id,
-            old_value=f'Deleted event {event_name}',
+            old_value=f'Deleted event "{event_name}" with {total_invitees} invitee(s)',
             ip_address=request.remote_addr
         )
         
