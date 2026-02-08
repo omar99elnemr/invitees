@@ -7,6 +7,15 @@ import { authAPI } from '../services/api';
 import type { User } from '../types';
 import toast from 'react-hot-toast';
 
+// Public routes where session timeout should never trigger
+const isPublicRoute = () => {
+  const path = window.location.pathname;
+  return path.startsWith('/portal') ||
+         path.startsWith('/checkin/') ||
+         path.startsWith('/live/') ||
+         path === '/login';
+};
+
 // Session timeout in milliseconds (30 minutes)
 const SESSION_TIMEOUT = 30 * 60 * 1000;
 // Check interval (every minute)
@@ -59,8 +68,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Check if session has expired due to inactivity
   const checkSessionTimeout = useCallback(() => {
-    // Skip timeout check if user checked "remember me", not logged in, or modal already showing
-    if (!user || rememberMeRef.current || showSessionExpiredModal) return;
+    // Skip timeout check if user checked "remember me", not logged in, modal already showing, or on public route
+    if (!user || rememberMeRef.current || showSessionExpiredModal || isPublicRoute()) return;
 
     const inactiveTime = Date.now() - lastActivityRef.current;
     if (inactiveTime >= SESSION_TIMEOUT) {
@@ -70,7 +79,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Set up activity listeners and session check interval
   useEffect(() => {
-    if (user && !rememberMeRef.current && !showSessionExpiredModal) {
+    if (user && !rememberMeRef.current && !showSessionExpiredModal && !isPublicRoute()) {
       // Add activity listeners — covers mouse, keyboard, scroll, touch, clicks, tab focus, navigation
       const uiEvents = ['mousedown', 'keydown', 'scroll', 'touchstart', 'mousemove', 'click'];
       uiEvents.forEach(event => {
@@ -118,8 +127,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Listen for server-side 401 session expired events (from axios interceptor)
   useEffect(() => {
     const handleServerSessionExpired = () => {
-      // Only trigger if user is currently logged in and modal not already showing
-      if (user && !showSessionExpiredModal) {
+      // Only trigger if user is logged in, modal not already showing, and not on a public route
+      if (user && !showSessionExpiredModal && !isPublicRoute()) {
         triggerSessionExpired();
       }
     };

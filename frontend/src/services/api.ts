@@ -39,6 +39,7 @@ api.interceptors.response.use(
       // Don't interfere with check-in, live dashboard, or login routes
       const isPublicRoute = window.location.pathname.startsWith('/checkin/') || 
                             window.location.pathname.startsWith('/live/') ||
+                            window.location.pathname.startsWith('/portal') ||
                             window.location.pathname.includes('/login');
       const isPinRequired = error.response?.data?.requires_pin;
       
