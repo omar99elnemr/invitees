@@ -31,8 +31,17 @@ function showOnce(key: string, message: string, icon: string) {
 
 export function useEventToasts() {
   const prevStatusMap = useRef<Record<number, string>>({});
+  const sessionExpiredRef = useRef(false);
+
+  // Stop polling once session expires (avoid keeping backend session alive)
+  useEffect(() => {
+    const handler = () => { sessionExpiredRef.current = true; };
+    window.addEventListener('auth:session-expired', handler);
+    return () => window.removeEventListener('auth:session-expired', handler);
+  }, []);
 
   const check = useCallback(async () => {
+    if (sessionExpiredRef.current) return;
     try {
       const res = await eventsAPI.getAll();
       const events: Event[] = res.data || [];

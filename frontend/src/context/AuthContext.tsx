@@ -202,8 +202,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // Handle "Login Again" button - NOW we clear user and redirect
-  const handleSessionExpiredClose = () => {
+  // Handle "Login Again" button - destroy backend session then redirect
+  const handleSessionExpiredClose = async () => {
+    try {
+      await authAPI.logout();
+    } catch {
+      // Session may already be expired on the server — that's fine
+    }
     setShowSessionExpiredModal(false);
     setUser(null);
     rememberMeRef.current = false;
