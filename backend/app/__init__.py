@@ -1,7 +1,7 @@
 """
 Flask application factory
 """
-from flask import Flask
+from flask import Flask, session
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_login import LoginManager
@@ -39,12 +39,20 @@ def create_app(config_class=Config):
     
     # Configure login manager
     login_manager.login_view = 'auth.login'
-    login_manager.session_protection = 'strong'
+    login_manager.session_protection = 'basic'
     
     @login_manager.user_loader
     def load_user(user_id):
         from app.models.user import User
         return User.query.get(int(user_id))
+    
+    @app.before_request
+    def refresh_session():
+        """Mark every session as permanent so Flask re-stamps the cookie
+        on each response (via SESSION_REFRESH_EACH_REQUEST, default True).
+        This turns PERMANENT_SESSION_LIFETIME into a *sliding* window —
+        30 min from the last request, not 30 min from login."""
+        session.permanent = True
     
     # Register blueprints
     from app.routes.auth import auth_bp
