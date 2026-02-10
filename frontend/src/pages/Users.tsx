@@ -500,7 +500,7 @@ export default function Users() {
   const allInvitersSelected = filteredInviters.length > 0 && filteredInviterIds.every(id => selectedInviterIds.includes(id));
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6 overflow-hidden min-w-0">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -513,7 +513,7 @@ export default function Users() {
         {activeTab === 'users' ? (
           <button
             onClick={() => setShowCreateModal(true)}
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all shadow-md hover:shadow-lg font-medium"
+            className="self-start inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all shadow-md hover:shadow-lg font-medium text-sm sm:text-base"
           >
             <UserPlus className="w-5 h-5" />
             Add User
@@ -521,7 +521,7 @@ export default function Users() {
         ) : activeTab === 'groups' ? (
           <button
             onClick={() => openGroupModal()}
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all shadow-md hover:shadow-lg font-medium"
+            className="self-start inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all shadow-md hover:shadow-lg font-medium text-sm sm:text-base"
           >
             <FolderPlus className="w-5 h-5" />
             Add Group
@@ -529,7 +529,7 @@ export default function Users() {
         ) : (
           <button
             onClick={() => { setShowInviterModal(true); setSelectedInviter(null); setInviterFormData({ name: '', email: '', phone: '', position: '', inviter_group_id: undefined }); }}
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all shadow-md hover:shadow-lg font-medium"
+            className="self-start inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all shadow-md hover:shadow-lg font-medium text-sm sm:text-base"
           >
             <Plus className="w-5 h-5" />
             Add Inviter
@@ -592,10 +592,10 @@ export default function Users() {
       {activeTab === 'users' && (
         <>
           {/* Stats - Clickable Filters */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4">
             <button
               onClick={() => { setRoleFilter('all'); setCurrentPage(1); }}
-              className={`bg-white dark:bg-gray-800 rounded-xl shadow-sm border p-4 flex items-center gap-3 text-left transition-all hover:shadow-md hover:-translate-y-0.5 ${
+              className={`bg-white dark:bg-gray-800 rounded-xl shadow-sm border p-3 sm:p-4 flex items-center gap-2 sm:gap-3 text-left transition-all hover:shadow-md hover:-translate-y-0.5 ${
                 roleFilter === 'all' ? 'ring-2 ring-indigo-500 border-indigo-200 dark:border-indigo-700' : 'border-gray-200 dark:border-gray-700'
               }`}
             >
@@ -609,7 +609,7 @@ export default function Users() {
             </button>
             <button
               onClick={() => { setRoleFilter('admin'); setCurrentPage(1); }}
-              className={`bg-white dark:bg-gray-800 rounded-xl shadow-sm border p-4 flex items-center gap-3 text-left transition-all hover:shadow-md hover:-translate-y-0.5 ${
+              className={`bg-white dark:bg-gray-800 rounded-xl shadow-sm border p-3 sm:p-4 flex items-center gap-2 sm:gap-3 text-left transition-all hover:shadow-md hover:-translate-y-0.5 ${
                 roleFilter === 'admin' ? 'ring-2 ring-purple-500 border-purple-200 dark:border-purple-700' : 'border-gray-200 dark:border-gray-700'
               }`}
             >
@@ -623,7 +623,7 @@ export default function Users() {
             </button>
             <button
               onClick={() => { setRoleFilter('director'); setCurrentPage(1); }}
-              className={`bg-white dark:bg-gray-800 rounded-xl shadow-sm border p-4 flex items-center gap-3 text-left transition-all hover:shadow-md hover:-translate-y-0.5 ${
+              className={`bg-white dark:bg-gray-800 rounded-xl shadow-sm border p-3 sm:p-4 flex items-center gap-2 sm:gap-3 text-left transition-all hover:shadow-md hover:-translate-y-0.5 ${
                 roleFilter === 'director' ? 'ring-2 ring-blue-500 border-blue-200 dark:border-blue-700' : 'border-gray-200 dark:border-gray-700'
               }`}
             >
@@ -637,7 +637,7 @@ export default function Users() {
             </button>
             <button
               onClick={() => { setRoleFilter('organizer'); setCurrentPage(1); }}
-              className={`bg-white dark:bg-gray-800 rounded-xl shadow-sm border p-4 flex items-center gap-3 text-left transition-all hover:shadow-md hover:-translate-y-0.5 ${
+              className={`bg-white dark:bg-gray-800 rounded-xl shadow-sm border p-3 sm:p-4 flex items-center gap-2 sm:gap-3 text-left transition-all hover:shadow-md hover:-translate-y-0.5 ${
                 roleFilter === 'organizer' ? 'ring-2 ring-emerald-500 border-emerald-200 dark:border-emerald-700' : 'border-gray-200 dark:border-gray-700'
               }`}
             >
@@ -681,45 +681,51 @@ export default function Users() {
       {/* Users Table */}
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+          <table className="w-full divide-y divide-gray-200 dark:divide-gray-700">
             <thead className="bg-gray-50 dark:bg-gray-700">
               <tr>
                 <SortableColumnHeader field="full_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>User</SortableColumnHeader>
                 <SortableColumnHeader field="role" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Role</SortableColumnHeader>
-                <SortableColumnHeader field="inviter_group_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Group</SortableColumnHeader>
-                <SortableColumnHeader field="is_active" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Status</SortableColumnHeader>
-                <SortableColumnHeader field="last_login" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Last Login</SortableColumnHeader>
-                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
+                <SortableColumnHeader field="inviter_group_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden sm:table-cell">Group</SortableColumnHeader>
+                <SortableColumnHeader field="is_active" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden md:table-cell">Status</SortableColumnHeader>
+                <SortableColumnHeader field="last_login" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden lg:table-cell">Last Login</SortableColumnHeader>
+                <th className="px-2 sm:px-4 py-2 sm:py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
               {paginatedUsers.map((user) => (
                 <tr key={user.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-2 sm:px-4 py-2 sm:py-3">
                     <div className="flex items-center">
-                      <div className="flex-shrink-0 h-10 w-10 bg-primary/10 rounded-full flex items-center justify-center">
+                      <div className="hidden sm:flex flex-shrink-0 h-10 w-10 bg-primary/10 rounded-full items-center justify-center">
                         <span className="text-primary font-medium">
                           {user.full_name?.charAt(0).toUpperCase() || user.username.charAt(0).toUpperCase()}
                         </span>
                       </div>
-                      <div className="ml-4">
-                        <div className="text-sm font-medium text-gray-900 dark:text-white">{user.full_name || user.username}</div>
-                        <div className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                      <div className="sm:ml-4 min-w-0">
+                        <div className="text-xs sm:text-sm font-medium text-gray-900 dark:text-white truncate max-w-[100px] sm:max-w-none">{user.full_name || user.username}</div>
+                        <div className="hidden sm:flex text-xs sm:text-sm text-gray-500 dark:text-gray-400 items-center gap-1">
                           <Mail className="w-3 h-3" />
                           {user.email}
                         </div>
                         <div className="text-xs text-gray-400">@{user.username}</div>
+                        {/* Mobile-only: show group tag when column is hidden */}
+                        {user.inviter_group_name && (
+                          <div className="sm:hidden mt-0.5">
+                            <span className="text-[10px] px-1.5 py-0 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 rounded">{user.inviter_group_name}</span>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-2 sm:px-4 py-2 sm:py-3">
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getRoleBadge(user.role)}`}>
                       {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="hidden sm:table-cell px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap">
                     {user.inviter_group_name ? (
-                      <div className="flex items-center gap-1 text-sm text-gray-600 dark:text-gray-400">
+                      <div className="flex items-center gap-1 text-xs sm:text-sm text-gray-600 dark:text-gray-400">
                         <Building className="w-4 h-4" />
                         {user.inviter_group_name}
                       </div>
@@ -727,7 +733,7 @@ export default function Users() {
                       <span className="text-gray-400">—</span>
                     )}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="hidden md:table-cell px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap">
                     {user.is_active ? (
                       <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
                         <ShieldCheck className="w-3 h-3" />
@@ -740,12 +746,12 @@ export default function Users() {
                       </span>
                     )}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                  <td className="hidden lg:table-cell px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap text-xs sm:text-sm text-gray-500 dark:text-gray-400">
                     {user.last_login
                       ? formatDateTimeEgypt(user.last_login)
                       : 'Never'}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                  <td className="px-2 sm:px-4 py-2 sm:py-3 text-right text-sm font-medium">
                     {user.id !== currentUser?.id && (
                       <ActionMenu disabled={user.id === currentUser?.id}>
                         <ActionMenuItem
@@ -816,15 +822,15 @@ export default function Users() {
             {/* Groups result count */}
             <p className="px-4 py-2 text-sm text-gray-500 dark:text-gray-400 border-b dark:border-gray-700">{inviterGroups.length} group{inviterGroups.length !== 1 ? 's' : ''} found</p>
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+              <table className="w-full divide-y divide-gray-200 dark:divide-gray-700">
                 <thead className="bg-gray-50 dark:bg-gray-700">
                   <tr>
                     <SortableColumnHeader field="name" sortField={groupsSortField} sortDirection={groupsSortDirection} onSort={handleGroupsSort}>Group Name</SortableColumnHeader>
-                    <SortableColumnHeader field="description" sortField={groupsSortField} sortDirection={groupsSortDirection} onSort={handleGroupsSort}>Description</SortableColumnHeader>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Inviters</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Members</th>
-                    <SortableColumnHeader field="created_at" sortField={groupsSortField} sortDirection={groupsSortDirection} onSort={handleGroupsSort}>Created</SortableColumnHeader>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
+                    <SortableColumnHeader field="description" sortField={groupsSortField} sortDirection={groupsSortDirection} onSort={handleGroupsSort} className="hidden md:table-cell">Description</SortableColumnHeader>
+                    <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Inviters</th>
+                    <th className="hidden sm:table-cell px-2 sm:px-4 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Members</th>
+                    <SortableColumnHeader field="created_at" sortField={groupsSortField} sortDirection={groupsSortDirection} onSort={handleGroupsSort} className="hidden lg:table-cell">Created</SortableColumnHeader>
+                    <th className="px-2 sm:px-4 py-2 sm:py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
@@ -833,22 +839,22 @@ export default function Users() {
                     const inviterCount = inviters.filter(i => i.inviter_group_id === group.id).length;
                     return (
                       <tr key={group.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-2 sm:px-4 py-2 sm:py-3">
                           <div className="flex items-center">
-                            <div className="flex-shrink-0 h-10 w-10 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
+                            <div className="hidden sm:flex flex-shrink-0 h-10 w-10 bg-blue-100 dark:bg-blue-900/30 rounded-full items-center justify-center">
                               <Building className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                             </div>
-                            <div className="ml-4">
-                              <div className="text-sm font-medium text-gray-900 dark:text-white">{group.name}</div>
+                            <div className="sm:ml-4 min-w-0">
+                              <div className="text-xs sm:text-sm font-medium text-gray-900 dark:text-white truncate max-w-[100px] sm:max-w-none">{group.name}</div>
                             </div>
                           </div>
                         </td>
-                        <td className="px-6 py-4">
-                          <div className="text-sm text-gray-500 dark:text-gray-400 max-w-xs truncate">
+                        <td className="hidden md:table-cell px-2 sm:px-4 py-2 sm:py-3">
+                          <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 max-w-xs truncate">
                             {group.description || '-'}
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-2 sm:px-4 py-2 sm:py-3">
                           <button
                             onClick={() => {
                               setSelectedGroupForDetail(group);
@@ -860,7 +866,7 @@ export default function Users() {
                             {inviterCount} {inviterCount === 1 ? 'inviter' : 'inviters'}
                           </button>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="hidden sm:table-cell px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap">
                           <button
                             onClick={() => {
                               setSelectedGroupForDetail(group);
@@ -872,17 +878,17 @@ export default function Users() {
                             {memberCount} {memberCount === 1 ? 'member' : 'members'}
                           </button>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                        <td className="hidden lg:table-cell px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap text-xs sm:text-sm text-gray-500 dark:text-gray-400">
                           {formatDateEgypt(group.created_at)}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                          <div className="flex items-center justify-end gap-2">
+                        <td className="px-2 sm:px-4 py-2 sm:py-3 text-right text-sm font-medium">
+                          <div className="flex items-center justify-end gap-1 sm:gap-2">
                             <button
                               onClick={() => openGroupModal(group)}
                               className="p-1 text-gray-400 hover:text-primary rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
                               title="Edit"
                             >
-                              <Edit2 className="w-5 h-5" />
+                              <Edit2 className="w-4 h-4 sm:w-5 sm:h-5" />
                             </button>
                             <button
                               onClick={() => {
@@ -892,7 +898,7 @@ export default function Users() {
                               className="p-1 text-gray-400 hover:text-red-600 rounded-full hover:bg-red-50 dark:hover:bg-red-900/30"
                               title="Delete"
                             >
-                              <Trash2 className="w-5 h-5" />
+                              <Trash2 className="w-4 h-4 sm:w-5 sm:h-5" />
                             </button>
                           </div>
                         </td>
@@ -983,7 +989,7 @@ export default function Users() {
               <table className="w-full">
                 <thead className="bg-gray-50 dark:bg-gray-700">
                   <tr>
-                    <th className="px-4 py-3 text-left">
+                    <th className="px-2 sm:px-4 py-2 sm:py-3 text-left">
                       <input
                         type="checkbox"
                         checked={allInvitersSelected}
@@ -992,12 +998,12 @@ export default function Users() {
                       />
                     </th>
                     <SortableColumnHeader field="name" sortField={invitersSortField} sortDirection={invitersSortDirection} onSort={handleInvitersSort}>Name</SortableColumnHeader>
-                    <SortableColumnHeader field="email" sortField={invitersSortField} sortDirection={invitersSortDirection} onSort={handleInvitersSort}>Email</SortableColumnHeader>
-                    <SortableColumnHeader field="phone" sortField={invitersSortField} sortDirection={invitersSortDirection} onSort={handleInvitersSort}>Phone</SortableColumnHeader>
-                    <SortableColumnHeader field="position" sortField={invitersSortField} sortDirection={invitersSortDirection} onSort={handleInvitersSort}>Position</SortableColumnHeader>
-                    <SortableColumnHeader field="inviter_group_id" sortField={invitersSortField} sortDirection={invitersSortDirection} onSort={handleInvitersSort}>Group</SortableColumnHeader>
-                    <SortableColumnHeader field="is_active" sortField={invitersSortField} sortDirection={invitersSortDirection} onSort={handleInvitersSort}>Status</SortableColumnHeader>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Actions</th>
+                    <SortableColumnHeader field="email" sortField={invitersSortField} sortDirection={invitersSortDirection} onSort={handleInvitersSort} className="hidden sm:table-cell">Email</SortableColumnHeader>
+                    <SortableColumnHeader field="phone" sortField={invitersSortField} sortDirection={invitersSortDirection} onSort={handleInvitersSort} className="hidden md:table-cell">Phone</SortableColumnHeader>
+                    <SortableColumnHeader field="position" sortField={invitersSortField} sortDirection={invitersSortDirection} onSort={handleInvitersSort} className="hidden lg:table-cell">Position</SortableColumnHeader>
+                    <SortableColumnHeader field="inviter_group_id" sortField={invitersSortField} sortDirection={invitersSortDirection} onSort={handleInvitersSort} className="hidden sm:table-cell">Group</SortableColumnHeader>
+                    <SortableColumnHeader field="is_active" sortField={invitersSortField} sortDirection={invitersSortDirection} onSort={handleInvitersSort} className="hidden md:table-cell">Status</SortableColumnHeader>
+                    <th className="px-2 sm:px-4 py-2 sm:py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -1005,7 +1011,7 @@ export default function Users() {
                       const group = inviterGroups.find(g => g.id === inviter.inviter_group_id);
                       return (
                         <tr key={inviter.id} className={`hover:bg-gray-50 dark:hover:bg-gray-700 ${selectedInviterIds.includes(inviter.id) ? 'bg-red-50 dark:bg-red-900/20' : ''}`}>
-                          <td className="px-4 py-4 whitespace-nowrap">
+                          <td className="px-2 sm:px-4 py-2 sm:py-3">
                             <input
                               type="checkbox"
                               checked={selectedInviterIds.includes(inviter.id)}
@@ -1013,24 +1019,26 @@ export default function Users() {
                               className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
                             />
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-900 dark:text-white">{inviter.name}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-gray-600 dark:text-gray-400">{inviter.email || '-'}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-gray-600 dark:text-gray-400">{inviter.phone || '-'}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-gray-600 dark:text-gray-400">{inviter.position || '-'}</td>
-                          <td className="px-6 py-4 whitespace-nowrap">
+                          <td className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-medium text-gray-900 dark:text-white">
+                            <span className="truncate block max-w-[100px] sm:max-w-none">{inviter.name}</span>
+                          </td>
+                          <td className="hidden sm:table-cell px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap text-xs sm:text-sm text-gray-600 dark:text-gray-400">{inviter.email || '-'}</td>
+                          <td className="hidden md:table-cell px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap text-xs sm:text-sm text-gray-600 dark:text-gray-400">{inviter.phone || '-'}</td>
+                          <td className="hidden lg:table-cell px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap text-xs sm:text-sm text-gray-600 dark:text-gray-400">{inviter.position || '-'}</td>
+                          <td className="hidden sm:table-cell px-2 sm:px-4 py-2 sm:py-3">
                             {group ? (
                               <span className="px-2 py-1 text-xs bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 rounded">{group.name}</span>
                             ) : (
                               <span className="text-gray-400 dark:text-gray-500">Unassigned</span>
                             )}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
+                          <td className="hidden md:table-cell px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap">
                             <span className={`px-2 py-1 text-xs rounded ${inviter.is_active ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'}`}>
                               {inviter.is_active ? 'Active' : 'Inactive'}
                             </span>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-right">
-                            <div className="flex justify-end gap-2">
+                          <td className="px-2 sm:px-4 py-2 sm:py-3 text-right">
+                            <div className="flex justify-end gap-1 sm:gap-2">
                               <button
                                 onClick={() => {
                                   setSelectedInviter(inviter);
@@ -1046,7 +1054,7 @@ export default function Users() {
                                 className="p-1 text-gray-400 hover:text-primary rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
                                 title="Edit"
                               >
-                                <Edit2 className="w-5 h-5" />
+                                <Edit2 className="w-4 h-4 sm:w-5 sm:h-5" />
                               </button>
                               <button
                                 onClick={() => {
@@ -1056,7 +1064,7 @@ export default function Users() {
                                 className="p-1 text-gray-400 hover:text-red-600 rounded-full hover:bg-red-50 dark:hover:bg-red-900/30"
                                 title="Delete"
                               >
-                                <Trash2 className="w-5 h-5" />
+                                <Trash2 className="w-4 h-4 sm:w-5 sm:h-5" />
                               </button>
                             </div>
                           </td>

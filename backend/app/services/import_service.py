@@ -98,6 +98,7 @@ class ImportService:
         skipped = 0
         failed = 0
         errors = []
+        rejected_rows = []  # [{row_data_dict, reason}]
 
         from app.models.inviter import Inviter
         for index, row in df.iterrows():
@@ -128,13 +129,17 @@ class ImportService:
                 # Validate mandatory fields
                 if not name or not email or not phone or not inviter_name:
                     skipped += 1
-                    errors.append(f"Row {index + 2}: Missing required field (name, email, phone, or inviter)")
+                    reason = "Missing required field (name, email, phone, or inviter)"
+                    errors.append(f"Row {index + 2}: {reason}")
+                    rejected_rows.append({**{col: (str(row[col]) if pd.notna(row[col]) else '') for col in df.columns}, 'reason': reason})
                     continue
 
                 # Validate phone format
                 if not ImportService.validate_phone(phone):
                     skipped += 1
-                    errors.append(f"Row {index + 2}: Invalid phone format (must start with 201 and be 12 digits)")
+                    reason = "Invalid phone format (must start with 201 and be 12 digits)"
+                    errors.append(f"Row {index + 2}: {reason}")
+                    rejected_rows.append({**{col: (str(row[col]) if pd.notna(row[col]) else '') for col in df.columns}, 'reason': reason})
                     continue
 
                 # Email validation commented out - no need to validate email
@@ -206,7 +211,9 @@ class ImportService:
                         errors.append(f"Row {index + 2}: Updated existing contact '{phone}' ({', '.join(updated_fields)})")
                     else:
                         skipped += 1
-                        errors.append(f"Row {index + 2}: Contact with phone '{phone}' already exists (no changes)")
+                        reason = f"Contact with phone '{phone}' already exists (no changes)"
+                        errors.append(f"Row {index + 2}: {reason}")
+                        rejected_rows.append({**{col: (str(row[col]) if pd.notna(row[col]) else '') for col in df.columns}, 'reason': reason})
                     continue
 
                 # Create new contact
@@ -226,7 +233,12 @@ class ImportService:
 
             except Exception as e:
                 failed += 1
-                errors.append(f"Row {index + 2}: {str(e)}")
+                reason = str(e)
+                errors.append(f"Row {index + 2}: {reason}")
+                try:
+                    rejected_rows.append({**{col: (str(row[col]) if pd.notna(row[col]) else '') for col in df.columns}, 'reason': reason})
+                except:
+                    pass
 
         # Commit all successful changes
         try:
@@ -249,7 +261,8 @@ class ImportService:
             'successful': successful,
             'skipped': skipped,
             'failed': failed,
-            'errors': errors
+            'errors': errors,
+            'rejected_rows': rejected_rows
         }
     
     @staticmethod
@@ -305,6 +318,7 @@ class ImportService:
         skipped = 0
         failed = 0
         errors = []
+        rejected_rows = []  # [{row_data_dict, reason}]
 
         # Cache lookups to avoid repeated DB queries
         group_cache = {}  # name -> InviterGroup or None
@@ -334,13 +348,17 @@ class ImportService:
                 # Validate mandatory fields
                 if not group_name or not name or not email or not phone or not inviter_name:
                     skipped += 1
-                    errors.append(f"Row {index + 2}: Missing required field (inviter_group, name, email, phone, or inviter)")
+                    reason = "Missing required field (inviter_group, name, email, phone, or inviter)"
+                    errors.append(f"Row {index + 2}: {reason}")
+                    rejected_rows.append({**{col: (str(row[col]) if pd.notna(row[col]) else '') for col in df.columns}, 'reason': reason})
                     continue
 
                 # Validate phone format
                 if not ImportService.validate_phone(phone):
                     skipped += 1
-                    errors.append(f"Row {index + 2}: Invalid phone format (must start with 201 and be 12 digits)")
+                    reason = "Invalid phone format (must start with 201 and be 12 digits)"
+                    errors.append(f"Row {index + 2}: {reason}")
+                    rejected_rows.append({**{col: (str(row[col]) if pd.notna(row[col]) else '') for col in df.columns}, 'reason': reason})
                     continue
 
                 # Look up inviter group by name (must already exist)
@@ -350,7 +368,9 @@ class ImportService:
 
                 if not group_obj:
                     skipped += 1
-                    errors.append(f"Row {index + 2}: Inviter group '{group_name}' not found. Please create it first.")
+                    reason = f"Inviter group '{group_name}' not found. Please create it first."
+                    errors.append(f"Row {index + 2}: {reason}")
+                    rejected_rows.append({**{col: (str(row[col]) if pd.notna(row[col]) else '') for col in df.columns}, 'reason': reason})
                     continue
 
                 group_id = group_obj.id
@@ -406,7 +426,9 @@ class ImportService:
                         errors.append(f"Row {index + 2}: Updated existing contact '{phone}' ({', '.join(updated_fields)})")
                     else:
                         skipped += 1
-                        errors.append(f"Row {index + 2}: Contact with phone '{phone}' already exists (no changes)")
+                        reason = f"Contact with phone '{phone}' already exists (no changes)"
+                        errors.append(f"Row {index + 2}: {reason}")
+                        rejected_rows.append({**{col: (str(row[col]) if pd.notna(row[col]) else '') for col in df.columns}, 'reason': reason})
                     continue
 
                 # Create new contact
@@ -426,7 +448,12 @@ class ImportService:
 
             except Exception as e:
                 failed += 1
-                errors.append(f"Row {index + 2}: {str(e)}")
+                reason = str(e)
+                errors.append(f"Row {index + 2}: {reason}")
+                try:
+                    rejected_rows.append({**{col: (str(row[col]) if pd.notna(row[col]) else '') for col in df.columns}, 'reason': reason})
+                except:
+                    pass
 
         try:
             db.session.commit()
@@ -447,7 +474,8 @@ class ImportService:
             'successful': successful,
             'skipped': skipped,
             'failed': failed,
-            'errors': errors
+            'errors': errors,
+            'rejected_rows': rejected_rows
         }
 
     @staticmethod

@@ -26,7 +26,7 @@ import { useAuth } from '../context/AuthContext';
 import type { Event, InviterGroup, Inviter, EventInvitee } from '../types';
 import { exportToCSV, exportToExcel, exportToPDF } from '../utils/exportHelpers';
 import TablePagination from '../components/common/TablePagination';
-import { formatDateTimeEgypt, formatDateEgypt } from '../utils/formatters';
+import { formatDateTimeEgypt } from '../utils/formatters';
 import toast from 'react-hot-toast';
 
 type ReportType = 'summary-group' | 'summary-inviter' | 'detail-event' | 'detail-approved' | 'activity-log' | 'historical-data';
@@ -926,19 +926,19 @@ export default function Reports() {
                   onClick={() => toggleEventExpand(Number(eventId))}
                   className="w-full flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
                 >
-                  <div className="flex items-center gap-3">
-                    <Calendar className="w-5 h-5 text-primary" />
-                    <span className="font-medium text-gray-900 dark:text-white">{group.event_name}</span>
+                  <div className="flex items-center gap-3 min-w-0">
+                    <Calendar className="w-5 h-5 text-primary shrink-0" />
+                    <span className="font-medium text-gray-900 dark:text-white truncate">{group.event_name}</span>
                   </div>
-                  <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-2">
-                      <span className="px-2 py-1 bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 rounded text-xs font-medium">
+                  <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+                    <div className="flex items-center gap-1 sm:gap-2 flex-wrap justify-end">
+                      <span className="hidden sm:inline-flex px-2 py-1 bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 rounded text-xs font-medium">
                         {group.totals.approved} Approved
                       </span>
-                      <span className="px-2 py-1 bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400 rounded text-xs font-medium">
+                      <span className="hidden sm:inline-flex px-2 py-1 bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400 rounded text-xs font-medium">
                         {group.totals.waiting} Pending
                       </span>
-                      <span className="px-2 py-1 bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 rounded text-xs font-medium">
+                      <span className="hidden sm:inline-flex px-2 py-1 bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 rounded text-xs font-medium">
                         {group.totals.rejected} Rejected
                       </span>
                       <span className="px-2 py-1 bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300 rounded text-xs font-medium">
@@ -955,16 +955,16 @@ export default function Reports() {
 
                 {expandedEvents.has(Number(eventId)) && (
                   <div className="p-4 bg-white dark:bg-gray-800">
-                    <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                    <table className="w-full divide-y divide-gray-200 dark:divide-gray-700">
                       <thead className="bg-gray-50 dark:bg-gray-700">
                         <tr>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                          <th className="px-2 sm:px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
                             {activeReport === 'summary-inviter' ? 'Inviter' : 'Group'}
                           </th>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                          <th className="px-2 sm:px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
                             Status
                           </th>
-                          <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                          <th className="px-2 sm:px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
                             Count
                           </th>
                         </tr>
@@ -972,25 +972,25 @@ export default function Reports() {
                       <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                         {group.items.map((item, idx) => (
                           <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                            <td className="px-4 py-2 whitespace-nowrap">
-                              <div className="flex items-center gap-2">
+                            <td className="px-2 sm:px-4 py-2">
+                              <div className="flex items-center gap-1 sm:gap-2 min-w-0">
                                 {activeReport === 'summary-inviter' ? (
                                   <>
-                                    <User className="w-4 h-4 text-gray-400" />
-                                    <span className="text-sm text-gray-900 dark:text-white">{item.inviter_name}</span>
+                                    <User className="w-3 h-3 sm:w-4 sm:h-4 text-gray-400 flex-shrink-0" />
+                                    <span className="text-xs sm:text-sm text-gray-900 dark:text-white truncate">{item.inviter_name}</span>
                                     {item.inviter_group_name && (
-                                      <span className="text-xs text-gray-500 dark:text-gray-400">({item.inviter_group_name})</span>
+                                      <span className="hidden sm:inline text-xs text-gray-500 dark:text-gray-400">({item.inviter_group_name})</span>
                                     )}
                                   </>
                                 ) : (
                                   <>
-                                    <Building className="w-4 h-4 text-gray-400" />
-                                    <span className="text-sm text-gray-900 dark:text-white">{item.inviter_group_name}</span>
+                                    <Building className="w-3 h-3 sm:w-4 sm:h-4 text-gray-400 flex-shrink-0" />
+                                    <span className="text-xs sm:text-sm text-gray-900 dark:text-white truncate">{item.inviter_group_name}</span>
                                   </>
                                 )}
                               </div>
                             </td>
-                            <td className="px-4 py-2 whitespace-nowrap">
+                            <td className="px-2 sm:px-4 py-2">
                               <span
                                 className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium ${
                                   item.status === 'approved'
@@ -1006,8 +1006,8 @@ export default function Reports() {
                                 {item.status}
                               </span>
                             </td>
-                            <td className="px-4 py-2 whitespace-nowrap text-right">
-                              <span className="text-sm font-medium text-gray-900 dark:text-white">
+                            <td className="px-2 sm:px-4 py-2 text-right">
+                              <span className="text-xs sm:text-sm font-medium text-gray-900 dark:text-white">
                                 {item.total_invitees}
                               </span>
                             </td>
@@ -1040,7 +1040,7 @@ export default function Reports() {
               </div>
 
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <table className="w-full divide-y divide-gray-200 dark:divide-gray-700">
                   <thead className="bg-gray-50 dark:bg-gray-700">
                     <tr>
                       {[

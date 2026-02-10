@@ -54,19 +54,19 @@ export default function TablePagination({
   if (totalItems === 0) return null;
 
   return (
-    <div className="bg-gray-50/80 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 px-4 py-3">
+    <div className="bg-gray-50/80 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 px-3 sm:px-4 py-3">
       {/* Top row: result count + per-page selector */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
         <p className="text-sm text-gray-600 dark:text-gray-400">
           Showing <span className="font-semibold text-gray-900 dark:text-white">{startItem}</span> to{' '}
           <span className="font-semibold text-gray-900 dark:text-white">{endItem}</span> of{' '}
           <span className="font-semibold text-gray-900 dark:text-white">{totalItems}</span> results
         </p>
 
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center justify-center sm:justify-end gap-3 sm:gap-4">
           {/* Per-page selector */}
           <div className="flex items-center gap-2">
-            <label className="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">Rows per page:</label>
+            <label className="hidden sm:inline text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">Rows per page:</label>
             <select
               value={itemsPerPage}
               onChange={(e) => onItemsPerPageChange(Number(e.target.value))}

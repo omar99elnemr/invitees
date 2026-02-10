@@ -100,27 +100,27 @@ function AdminDashboard({ stats, events, recentActivity, navigate, user }: Dashb
   return (
     <div className="space-y-6">
       {/* Welcome Header with Gradient */}
-      <div className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-indigo-900 to-purple-900 rounded-2xl p-8 text-white">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-500/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
-        <div className="absolute bottom-0 left-0 w-64 h-64 bg-purple-500/20 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2"></div>
+      <div className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-indigo-900 to-purple-900 rounded-2xl p-4 sm:p-6 lg:p-8 text-white">
+        <div className="absolute top-0 right-0 w-64 sm:w-96 h-64 sm:h-96 bg-indigo-500/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
+        <div className="absolute bottom-0 left-0 w-48 sm:w-64 h-48 sm:h-64 bg-purple-500/20 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2"></div>
         <div className="relative z-10">
           <div className="flex items-center gap-3 mb-2">
             <div className="p-2 bg-white/10 backdrop-blur rounded-lg">
-              <Shield className="w-6 h-6" />
+              <Shield className="w-5 h-5 sm:w-6 sm:h-6" />
             </div>
             <span className="text-indigo-200 text-sm font-medium">System Administrator</span>
           </div>
-          <h1 className="text-3xl font-bold mb-2">
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold mb-2">
             Welcome back, {user?.full_name || user?.username}!
           </h1>
-          <p className="text-indigo-200 max-w-xl">
+          <p className="text-indigo-200 max-w-xl text-sm sm:text-base">
             Monitor system health, manage users, and oversee all events from your central command dashboard.
           </p>
         </div>
       </div>
 
       {/* Stats Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <MetricCard
           title="Total Users"
           value={stats?.total_users || 0}
@@ -275,19 +275,19 @@ function ApproverDashboard({ stats, events, recentActivity, navigate, user }: Da
   return (
     <div className="space-y-6">
       {/* Welcome Header */}
-      <div className="relative overflow-hidden bg-gradient-to-br from-emerald-600 via-teal-600 to-cyan-700 rounded-2xl p-8 text-white">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
+      <div className="relative overflow-hidden bg-gradient-to-br from-emerald-600 via-teal-600 to-cyan-700 rounded-2xl p-4 sm:p-6 lg:p-8 text-white">
+        <div className="absolute top-0 right-0 w-64 sm:w-96 h-64 sm:h-96 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
         <div className="relative z-10">
           <div className="flex items-center gap-3 mb-2">
             <div className="p-2 bg-white/10 backdrop-blur rounded-lg">
-              <ClipboardCheck className="w-6 h-6" />
+              <ClipboardCheck className="w-5 h-5 sm:w-6 sm:h-6" />
             </div>
             <span className="text-emerald-100 text-sm font-medium">Approval Manager</span>
           </div>
-          <h1 className="text-3xl font-bold mb-2">
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold mb-2">
             Welcome back, {user?.full_name || user?.username}!
           </h1>
-          <p className="text-emerald-100 max-w-xl">
+          <p className="text-emerald-100 max-w-xl text-sm sm:text-base">
             Review pending invitations, manage approvals, and keep your events on track.
           </p>
         </div>
@@ -295,19 +295,21 @@ function ApproverDashboard({ stats, events, recentActivity, navigate, user }: Da
 
       {/* Priority Alert */}
       {pendingCount > 0 && (
-        <div className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/30 dark:to-orange-900/30 border border-amber-200 dark:border-amber-700 rounded-xl p-4 flex items-center gap-4">
-          <div className="p-3 bg-amber-100 dark:bg-amber-800/50 rounded-full">
-            <AlertCircle className="w-6 h-6 text-amber-600 dark:text-amber-400" />
-          </div>
-          <div className="flex-1">
-            <h3 className="font-semibold text-amber-900 dark:text-amber-200">Pending Approvals</h3>
-            <p className="text-amber-700 dark:text-amber-300 text-sm">
-              You have <span className="font-bold">{pendingCount}</span> invitation{pendingCount !== 1 ? 's' : ''} waiting for your review
-            </p>
+        <div className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/30 dark:to-orange-900/30 border border-amber-200 dark:border-amber-700 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
+          <div className="flex items-center gap-3 flex-1">
+            <div className="p-2.5 sm:p-3 bg-amber-100 dark:bg-amber-800/50 rounded-full shrink-0">
+              <AlertCircle className="w-5 h-5 sm:w-6 sm:h-6 text-amber-600 dark:text-amber-400" />
+            </div>
+            <div className="flex-1">
+              <h3 className="font-semibold text-amber-900 dark:text-amber-200">Pending Approvals</h3>
+              <p className="text-amber-700 dark:text-amber-300 text-sm">
+                You have <span className="font-bold">{pendingCount}</span> invitation{pendingCount !== 1 ? 's' : ''} waiting for your review
+              </p>
+            </div>
           </div>
           <button
             onClick={() => navigate('/approvals')}
-            className="px-4 py-2 bg-amber-500 hover:bg-amber-600 dark:bg-amber-600 dark:hover:bg-amber-500 text-white rounded-lg font-medium transition-colors"
+            className="w-full sm:w-auto px-4 py-2 bg-amber-500 hover:bg-amber-600 dark:bg-amber-600 dark:hover:bg-amber-500 text-white rounded-lg font-medium transition-colors text-center"
           >
             Review Now
           </button>
@@ -315,7 +317,7 @@ function ApproverDashboard({ stats, events, recentActivity, navigate, user }: Da
       )}
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <MetricCard
           title="Pending Approvals"
           value={pendingCount}
@@ -458,26 +460,26 @@ function InviterDashboard({ stats, events, recentActivity, navigate, user, showE
   return (
     <div className="space-y-6">
       {/* Welcome Header */}
-      <div className="relative overflow-hidden bg-gradient-to-br from-blue-600 via-indigo-600 to-violet-700 rounded-2xl p-8 text-white">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
+      <div className="relative overflow-hidden bg-gradient-to-br from-blue-600 via-indigo-600 to-violet-700 rounded-2xl p-4 sm:p-6 lg:p-8 text-white">
+        <div className="absolute top-0 right-0 w-64 sm:w-96 h-64 sm:h-96 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
         <div className="relative z-10">
           <div className="flex items-center gap-3 mb-2">
             <div className="p-2 bg-white/10 backdrop-blur rounded-lg">
-              <Send className="w-6 h-6" />
+              <Send className="w-5 h-5 sm:w-6 sm:h-6" />
             </div>
             <span className="text-blue-100 text-sm font-medium">Invitation Manager</span>
           </div>
-          <h1 className="text-3xl font-bold mb-2">
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold mb-2">
             Welcome back, {user?.full_name || user?.username}!
           </h1>
-          <p className="text-blue-100 max-w-xl">
+          <p className="text-blue-100 max-w-xl text-sm sm:text-base">
             Manage your invitations, track approvals, and submit new guests for upcoming events.
           </p>
         </div>
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <MetricCard
           title="Pending Submissions"
           value={pendingSubmissions}
@@ -635,19 +637,21 @@ interface MetricCardProps {
 function MetricCard({ title, value, subtitle, icon: Icon, gradient, onClick, alert, suffix }: MetricCardProps) {
   return (
     <div
-      className={`relative overflow-hidden bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-5 ${onClick ? 'cursor-pointer hover:shadow-md transition-all hover:-translate-y-0.5' : ''}`}
+      className={`group relative overflow-hidden bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200/80 dark:border-gray-700/60 p-5 transition-all duration-300 ${onClick ? 'cursor-pointer hover:shadow-card-hover hover:-translate-y-1' : ''}`}
       onClick={onClick}
     >
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{title}</p>
-          <p className="text-3xl font-bold text-gray-900 dark:text-white mt-1">
+      {/* Subtle gradient overlay on hover */}
+      <div className={`absolute inset-0 bg-gradient-to-br ${gradient} opacity-0 group-hover:opacity-[0.03] transition-opacity duration-300`} />
+      <div className="relative flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400 truncate">{title}</p>
+          <p className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mt-1">
             {value.toLocaleString()}{suffix}
           </p>
-          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{subtitle}</p>
+          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1 truncate">{subtitle}</p>
         </div>
-        <div className={`p-3 rounded-xl bg-gradient-to-br ${gradient} text-white shadow-lg`}>
-          <Icon className="w-6 h-6" />
+        <div className={`p-2.5 sm:p-3 rounded-xl bg-gradient-to-br ${gradient} text-white shadow-lg ring-1 ring-white/20 shrink-0 transition-transform duration-300 group-hover:scale-105`}>
+          <Icon className="w-5 h-5 sm:w-6 sm:h-6" />
         </div>
       </div>
       {alert && (
@@ -685,10 +689,10 @@ function ActionCard({ title, description, icon: Icon, color, onClick, badge, pri
   return (
     <button
       onClick={onClick}
-      className={`group w-full flex items-center gap-3 p-3 rounded-xl transition-all ${
+      className={`group w-full flex items-center gap-3 p-3 rounded-xl transition-all duration-200 ${
         primary 
-          ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white hover:from-indigo-600 hover:to-purple-600 shadow-md hover:shadow-lg'
-          : 'hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700'
+          ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white hover:from-indigo-600 hover:to-purple-600 shadow-md hover:shadow-lg hover:-translate-y-0.5'
+          : 'hover:bg-gray-50 dark:hover:bg-gray-700/70 border border-gray-200/80 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600'
       }`}
     >
       <div className={`p-2.5 rounded-lg transition-colors ${primary ? 'bg-white/20' : colorClasses[color]}`}>
@@ -714,7 +718,7 @@ function EventCard({ event, onClick, compact }: { event: Event; onClick: () => v
   return (
     <div
       onClick={onClick}
-      className="group p-4 border border-gray-200 dark:border-gray-700 rounded-xl hover:border-indigo-200 dark:hover:border-indigo-700 hover:bg-indigo-50/30 dark:hover:bg-indigo-900/20 cursor-pointer transition-all"
+      className="group p-4 border border-gray-200/80 dark:border-gray-700/60 rounded-xl hover:border-indigo-300 dark:hover:border-indigo-600 hover:bg-indigo-50/40 dark:hover:bg-indigo-900/20 cursor-pointer transition-all duration-200 hover:shadow-sm"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">

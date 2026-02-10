@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import { attendanceAPI, AttendanceStats, AttendanceFilters, settingsAPI, eventsAPI, CheckinPinInfo } from '../services/api';
 import type { Event, EventInvitee } from '../types';
+import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 import { exportToExcel, exportToPDF, exportToCSV } from '../utils/exportHelpers';
 import TablePagination from '../components/common/TablePagination';
@@ -36,6 +37,9 @@ import SortableColumnHeader, { applySorting, type SortDirection } from '../compo
 import { formatDateEgypt } from '../utils/formatters';
 
 export default function Attendance() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
+
   const [events, setEvents] = useState<Event[]>([]);
   const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
@@ -59,7 +63,7 @@ export default function Attendance() {
   
   // Check-in PIN status bar
   const [checkinPinInfo, setCheckinPinInfo] = useState<CheckinPinInfo | null>(null);
-  const [loadingCheckinPin, setLoadingCheckinPin] = useState(false);
+  const [_loadingCheckinPin, setLoadingCheckinPin] = useState(false);
   
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -760,7 +764,7 @@ export default function Attendance() {
                       placeholder="Search by name, code, phone..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      className="pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary bg-white dark:bg-gray-800 dark:text-white w-64"
+                      className="pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary bg-white dark:bg-gray-800 dark:text-white w-full sm:w-64"
                     />
                   </div>
                   
@@ -910,10 +914,10 @@ export default function Attendance() {
               {/* Attendees Table */}
               <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
                 <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                  <table className="w-full divide-y divide-gray-200 dark:divide-gray-700">
                     <thead className="bg-gray-50 dark:bg-gray-700">
                       <tr>
-                        <th className="px-4 py-3 text-left">
+                        <th className="px-2 sm:px-4 py-2 sm:py-3 text-left">
                           <input
                             type="checkbox"
                             checked={selectedIds.size === paginatedAttendees.length && paginatedAttendees.length > 0}
@@ -922,31 +926,34 @@ export default function Attendance() {
                           />
                         </th>
                         <SortableColumnHeader field="invitee_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Name</SortableColumnHeader>
-                        <SortableColumnHeader field="attendance_code" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Code</SortableColumnHeader>
-                        <SortableColumnHeader field="category" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Category</SortableColumnHeader>
+                        <SortableColumnHeader field="attendance_code" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden sm:table-cell">Code</SortableColumnHeader>
+                        <SortableColumnHeader field="category" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden md:table-cell">Category</SortableColumnHeader>
                         <SortableColumnHeader field="status" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Status</SortableColumnHeader>
-                        <SortableColumnHeader field="plus_one" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Guests</SortableColumnHeader>
-                        <SortableColumnHeader field="inviter_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Inviter</SortableColumnHeader>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Actions</th>
+                        <SortableColumnHeader field="plus_one" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden md:table-cell">Guests</SortableColumnHeader>
+                        <SortableColumnHeader field="inviter_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden lg:table-cell">Inviter</SortableColumnHeader>
+                        {isAdmin && (
+                          <SortableColumnHeader field="inviter_group_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden lg:table-cell">Group</SortableColumnHeader>
+                        )}
+                        <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                       {loadingAttendees ? (
                         <tr>
-                          <td colSpan={8} className="px-4 py-8 text-center">
+                          <td colSpan={isAdmin ? 9 : 8} className="px-4 py-8 text-center">
                             <RefreshCw className="w-6 h-6 animate-spin text-primary mx-auto" />
                           </td>
                         </tr>
                       ) : paginatedAttendees.length === 0 ? (
                         <tr>
-                          <td colSpan={8} className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
+                          <td colSpan={isAdmin ? 9 : 8} className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
                             No attendees found
                           </td>
                         </tr>
                       ) : (
                         paginatedAttendees.map((attendee) => (
                           <tr key={attendee.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                            <td className="px-4 py-3">
+                            <td className="px-2 sm:px-4 py-2 sm:py-3">
                               <input
                                 type="checkbox"
                                 checked={selectedIds.has(attendee.id)}
@@ -954,38 +961,51 @@ export default function Attendance() {
                                 className="rounded border-gray-300 text-primary focus:ring-primary"
                               />
                             </td>
-                            <td className="px-4 py-3">
+                            <td className="px-2 sm:px-4 py-2 sm:py-3">
                               <div>
-                                <p className="font-medium text-gray-900 dark:text-white">{attendee.invitee_name}</p>
-                                <p className="text-sm text-gray-500 dark:text-gray-400">{attendee.invitee_phone}</p>
+                                <p className="font-medium text-xs sm:text-sm text-gray-900 dark:text-white">{attendee.invitee_name}</p>
+                                <p className="text-xs text-gray-500 dark:text-gray-400">{attendee.invitee_phone}</p>
+                                {/* Mobile-only summary tags for hidden columns */}
+                                <div className="flex flex-wrap gap-1 mt-0.5 sm:hidden">
+                                  {attendee.category && <span className="text-[10px] px-1.5 py-0 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-400 rounded">{attendee.category}</span>}
+                                  {attendee.inviter_name && <span className="text-[10px] px-1.5 py-0 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded">{attendee.inviter_name}</span>}
+                                  {isAdmin && attendee.inviter_group_name && <span className="text-[10px] px-1.5 py-0 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 rounded">{attendee.inviter_group_name}</span>}
+                                </div>
                               </div>
                             </td>
-                            <td className="px-4 py-3">
+                            <td className="hidden sm:table-cell px-2 sm:px-4 py-2 sm:py-3">
                               {attendee.attendance_code ? (
-                                <code className="px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded text-sm font-mono dark:text-gray-300">
+                                <code className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-xs sm:text-sm font-mono dark:text-gray-300">
                                   {attendee.attendance_code}
                                 </code>
                               ) : (
                                 <span className="text-gray-400">-</span>
                               )}
                             </td>
-                            <td className="px-4 py-3">
-                              <span className="text-sm text-gray-700 dark:text-gray-300">{attendee.category || '-'}</span>
+                            <td className="hidden md:table-cell px-2 sm:px-4 py-2 sm:py-3">
+                              <span className="text-xs sm:text-sm text-gray-700 dark:text-gray-300">{attendee.category || '-'}</span>
                             </td>
-                            <td className="px-4 py-3">
+                            <td className="px-2 sm:px-4 py-2 sm:py-3">
                               {getStatusBadge(attendee)}
                             </td>
-                            <td className="px-4 py-3">
-                              <span className="text-sm">
+                            <td className="hidden md:table-cell px-2 sm:px-4 py-2 sm:py-3">
+                              <span className="text-xs sm:text-sm">
                                 {attendee.checked_in ? attendee.actual_guests : attendee.confirmed_guests ?? attendee.plus_one}
                                 {' / '}
                                 {attendee.plus_one}
                               </span>
                             </td>
-                            <td className="px-4 py-3">
-                              <span className="text-sm text-gray-700 dark:text-gray-300">{attendee.inviter_name || '-'}</span>
+                            <td className="hidden lg:table-cell px-2 sm:px-4 py-2 sm:py-3">
+                              <span className="text-xs sm:text-sm text-gray-700 dark:text-gray-300">{attendee.inviter_name || '-'}</span>
                             </td>
-                            <td className="px-4 py-3">
+                            {isAdmin && (
+                              <td className="hidden lg:table-cell px-2 sm:px-4 py-2 sm:py-3">
+                                {attendee.inviter_group_name ? (
+                                  <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 rounded">{attendee.inviter_group_name}</span>
+                                ) : <span className="text-xs text-gray-400">-</span>}
+                              </td>
+                            )}
+                            <td className="px-2 sm:px-4 py-2 sm:py-3">
                               <div className="relative" ref={activeRowMenu === attendee.id ? rowMenuRef : undefined}>
                                 <button
                                   onClick={() => setActiveRowMenu(activeRowMenu === attendee.id ? null : attendee.id)}

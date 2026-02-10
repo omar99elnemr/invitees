@@ -91,7 +91,7 @@ export function Sidebar({ isOpen, isMobile, onClose }: SidebarProps) {
 
   return (
     <aside 
-      className={`fixed left-0 top-16 h-[calc(100vh-4rem)] w-64 bg-gradient-to-b from-white to-gray-50/80 dark:from-gray-800 dark:to-gray-800 border-r border-gray-200 dark:border-gray-700/80 overflow-y-auto shadow-xl lg:shadow-md dark:lg:shadow-none z-40 transition-transform duration-300 ease-in-out ${
+      className={`fixed left-0 top-16 h-[calc(100vh-4rem)] w-64 bg-gradient-to-b from-white via-white to-gray-50/80 dark:from-gray-800 dark:via-gray-800 dark:to-gray-850 border-r border-gray-200/80 dark:border-gray-700/60 overflow-y-auto shadow-xl lg:shadow-lg dark:lg:shadow-none z-40 transition-transform duration-300 ease-bounce-in ${
         isOpen ? 'translate-x-0' : '-translate-x-full'
       }`}
     >
@@ -117,16 +117,16 @@ export function Sidebar({ isOpen, isMobile, onClose }: SidebarProps) {
             className={({ isActive }) =>
               `group flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
                 isActive
-                  ? `bg-gradient-to-r ${getRoleGradient()} text-white shadow-md`
-                  : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white'
+                  ? `bg-gradient-to-r ${getRoleGradient()} text-white shadow-md shadow-indigo-500/20 dark:shadow-indigo-900/30`
+                  : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100/80 dark:hover:bg-gray-700/70 hover:text-gray-900 dark:hover:text-white'
               }`
             }
           >
             {({ isActive }) => (
               <>
-                <item.icon size={20} className={isActive ? '' : 'text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300'} />
+                <item.icon size={20} className={`transition-transform duration-200 ${isActive ? 'scale-110' : 'text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300 group-hover:scale-105'}`} />
                 <span className="font-medium flex-1">{item.name}</span>
-                {isActive && <ChevronRight size={16} className="opacity-70" />}
+                {isActive && <ChevronRight size={16} className="opacity-70 animate-slide-up" />}
               </>
             )}
           </NavLink>
@@ -134,9 +134,9 @@ export function Sidebar({ isOpen, isMobile, onClose }: SidebarProps) {
       </nav>
 
       {/* User Info at Bottom */}
-      <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200 dark:border-gray-700 bg-gradient-to-t from-gray-50 to-white dark:from-gray-800 dark:to-gray-800">
+      <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200/80 dark:border-gray-700/60 bg-gradient-to-t from-gray-50 via-white to-white dark:from-gray-800 dark:via-gray-800 dark:to-gray-800">
         <div className="flex items-center gap-3">
-          <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${getRoleGradient()} text-white flex items-center justify-center font-semibold text-sm shadow-md`}>
+          <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${getRoleGradient()} text-white flex items-center justify-center font-semibold text-sm shadow-md ring-2 ring-white/20`}>
             {user?.username?.charAt(0).toUpperCase()}
           </div>
           <div className="flex-1 min-w-0">
@@ -148,6 +148,9 @@ export function Sidebar({ isOpen, isMobile, onClose }: SidebarProps) {
               </div>
             )}
           </div>
+        </div>
+        <div className="mt-3 pt-2 border-t border-gray-100 dark:border-gray-700/40">
+          <p className="text-[10px] text-gray-300 dark:text-gray-600 text-center tracking-wider">EIMS v2.0</p>
         </div>
       </div>
     </aside>

@@ -80,7 +80,8 @@ def import_contacts():
             'successful': result['successful'],
             'skipped': result['skipped'],
             'failed': result['failed'],
-            'errors': result['errors']
+            'errors': result['errors'],
+            'rejected_rows': result.get('rejected_rows', [])
         }), 200
         
     except ValueError as e:
@@ -147,7 +148,8 @@ def admin_import_contacts():
             'successful': result['successful'],
             'skipped': result['skipped'],
             'failed': result['failed'],
-            'errors': result['errors']
+            'errors': result['errors'],
+            'rejected_rows': result.get('rejected_rows', [])
         }), 200
         
     except ValueError as e:

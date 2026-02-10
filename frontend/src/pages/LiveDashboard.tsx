@@ -100,14 +100,14 @@ export default function LiveDashboard() {
       {/* Header */}
       <div className="bg-black/30 backdrop-blur-sm border-b border-white/10">
         <div className="max-w-7xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="bg-primary p-3 rounded-xl">
-                <Activity className="w-8 h-8 text-white" />
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3 sm:gap-4">
+              <div className="bg-primary p-2 sm:p-3 rounded-xl">
+                <Activity className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold">Live Event Dashboard</h1>
-                <p className="text-gray-400 text-sm">Real-time attendance tracking</p>
+                <h1 className="text-xl sm:text-2xl font-bold">Live Event Dashboard</h1>
+                <p className="text-gray-400 text-xs sm:text-sm">Real-time attendance tracking</p>
               </div>
             </div>
 
@@ -131,17 +131,17 @@ export default function LiveDashboard() {
         <div className="max-w-7xl mx-auto px-4 py-8">
           {/* Event Info */}
           <div className="bg-white/5 backdrop-blur-sm rounded-2xl p-6 mb-8 border border-white/10">
-            <div className="flex items-start justify-between">
-              <div>
-                <div className="flex items-center gap-3 mb-2">
-                  <h2 className="text-3xl font-bold">{eventInfo.name}</h2>
-                  <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+            <div className="flex flex-col sm:flex-row items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
+                  <h2 className="text-xl sm:text-3xl font-bold truncate">{eventInfo.name}</h2>
+                  <span className={`px-3 py-1 rounded-full text-xs sm:text-sm font-medium shrink-0 ${
                     eventInfo.status === 'ongoing' ? 'bg-green-500/20 text-green-400' : 'bg-blue-500/20 text-blue-400'
                   }`}>
                     {eventInfo.status === 'ongoing' ? 'In Progress' : 'Upcoming'}
                   </span>
                 </div>
-                <div className="flex items-center gap-6 text-gray-400">
+                <div className="flex flex-wrap items-center gap-3 sm:gap-6 text-sm sm:text-base text-gray-400">
                   <span className="flex items-center gap-2">
                     <Calendar className="w-4 h-4" />
                     {formatDateTimeEgypt(eventInfo.start_date)}
@@ -154,7 +154,7 @@ export default function LiveDashboard() {
                   )}
                 </div>
               </div>
-              <div className="text-right text-sm text-gray-400">
+              <div className="text-left sm:text-right text-sm text-gray-400 shrink-0">
                 <div>Last updated</div>
                 <div>{formatTimeEgypt(lastUpdated.toISOString())}</div>
               </div>
@@ -171,7 +171,7 @@ export default function LiveDashboard() {
                 </div>
                 <span className="text-green-400 font-medium">Total Arrived</span>
               </div>
-              <div className="text-5xl font-bold text-white mb-2">{stats.stats.total_arrived}</div>
+              <div className="text-3xl sm:text-5xl font-bold text-white mb-2">{stats.stats.total_arrived}</div>
               <div className="text-sm text-gray-400">
                 {stats.stats.checked_in} invitees + {stats.stats.actual_guests} guests
               </div>
@@ -185,7 +185,7 @@ export default function LiveDashboard() {
                 </div>
                 <span className="text-blue-400 font-medium">Invitees Checked In</span>
               </div>
-              <div className="text-5xl font-bold text-white mb-2">{stats.stats.checked_in}</div>
+              <div className="text-3xl sm:text-5xl font-bold text-white mb-2">{stats.stats.checked_in}</div>
               <div className="text-sm text-gray-400">
                 of {stats.stats.expected_attendees} expected ({stats.stats.attendance_rate}%)
               </div>
@@ -199,7 +199,7 @@ export default function LiveDashboard() {
                 </div>
                 <span className="text-yellow-400 font-medium">Not Yet Arrived</span>
               </div>
-              <div className="text-5xl font-bold text-white mb-2">{stats.stats.not_yet_arrived}</div>
+              <div className="text-3xl sm:text-5xl font-bold text-white mb-2">{stats.stats.not_yet_arrived}</div>
               <div className="text-sm text-gray-400">
                 Confirmed but not checked in
               </div>
@@ -213,7 +213,7 @@ export default function LiveDashboard() {
                 </div>
                 <span className="text-purple-400 font-medium">Expected Total</span>
               </div>
-              <div className="text-5xl font-bold text-white mb-2">{stats.stats.expected_total}</div>
+              <div className="text-3xl sm:text-5xl font-bold text-white mb-2">{stats.stats.expected_total}</div>
               <div className="text-sm text-gray-400">
                 {stats.stats.expected_attendees} invitees + {stats.stats.expected_guests} guests
               </div>

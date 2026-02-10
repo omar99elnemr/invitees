@@ -368,21 +368,21 @@ export default function CheckInConsole() {
       {/* Header */}
       <div className="bg-white dark:bg-gray-800 shadow">
         <div className="max-w-7xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="bg-primary p-2 rounded-lg">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+              <div className="bg-primary p-2 rounded-lg shrink-0">
                 <UserCheck className="w-6 h-6 text-white" />
               </div>
-              <div>
-                <h1 className="text-xl font-bold text-gray-900 dark:text-white">{eventInfo.name}</h1>
-                <p className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-2">
-                  {eventInfo.venue && <><MapPin className="w-3 h-3" /> {eventInfo.venue}</>}
+              <div className="min-w-0">
+                <h1 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white truncate">{eventInfo.name}</h1>
+                <p className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-2 truncate">
+                  {eventInfo.venue && <><MapPin className="w-3 h-3 shrink-0" /> {eventInfo.venue}</>}
                 </p>
               </div>
             </div>
             
             {/* Theme Toggle & Logout */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 shrink-0">
               <button
                 onClick={toggleTheme}
                 className="p-2.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors"
@@ -409,7 +409,7 @@ export default function CheckInConsole() {
       {
         <div className="max-w-7xl mx-auto px-4 py-6">
           {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-6">
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-4">
               <div className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-2">
                 <Calendar className="w-4 h-4" />
@@ -442,7 +442,7 @@ export default function CheckInConsole() {
 
           {/* Search Section */}
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-6 mb-6">
-            <div className="flex items-center gap-4">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
               <div className="flex-1 relative">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <input
@@ -455,7 +455,7 @@ export default function CheckInConsole() {
                   autoFocus
                 />
               </div>
-              <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
+              <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap shrink-0">
                 <input
                   type="checkbox"
                   checked={showCheckedIn}

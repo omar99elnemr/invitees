@@ -525,10 +525,10 @@ export default function Approvals() {
           ) : (
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <table className="w-full divide-y divide-gray-200 dark:divide-gray-700">
                   <thead className="bg-gray-50 dark:bg-gray-700">
                     <tr>
-                      <th className="px-6 py-3 text-left">
+                      <th className="px-2 sm:px-4 py-2 sm:py-3 text-left">
                         <input
                           type="checkbox"
                           checked={selectedIds.size === filteredApprovals.length && filteredApprovals.length > 0}
@@ -538,10 +538,13 @@ export default function Approvals() {
                       </th>
                       <SortableColumnHeader field="invitee_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Invitee</SortableColumnHeader>
                       <SortableColumnHeader field="event_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Event</SortableColumnHeader>
-                      <SortableColumnHeader field="inviter_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Invited By</SortableColumnHeader>
-                      <SortableColumnHeader field="created_at" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Date</SortableColumnHeader>
+                      <SortableColumnHeader field="inviter_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden md:table-cell">Invited By</SortableColumnHeader>
+                      {isAdmin && (
+                        <SortableColumnHeader field="inviter_group_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden sm:table-cell">Group</SortableColumnHeader>
+                      )}
+                      <SortableColumnHeader field="created_at" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden lg:table-cell">Date</SortableColumnHeader>
                       {!isAdmin && (
-                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        <th className="px-2 sm:px-4 py-2 sm:py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                           Actions
                         </th>
                       )}
@@ -554,7 +557,7 @@ export default function Approvals() {
                         className={`hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer ${selectedIds.has(approval.id) ? 'bg-primary/5' : ''}`}
                         onClick={() => toggleSelect(approval.id)}
                       >
-                        <td className="px-6 py-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                        <td className="px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                           <input
                             type="checkbox"
                             checked={selectedIds.has(approval.id)}
@@ -562,55 +565,66 @@ export default function Approvals() {
                             className="rounded border-gray-300 text-primary focus:ring-primary"
                           />
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-2 sm:px-4 py-2 sm:py-3">
                           <div className="flex items-center">
-                            <div className="flex-shrink-0 h-10 w-10 bg-primary/10 rounded-full flex items-center justify-center">
+                            <div className="hidden sm:flex flex-shrink-0 h-10 w-10 bg-primary/10 rounded-full items-center justify-center">
                               <span className="text-primary font-medium">
                                 {approval.invitee_name?.charAt(0).toUpperCase()}
                               </span>
                             </div>
-                            <div className="ml-4">
-                              <div className="text-sm font-medium text-gray-900 dark:text-white">
+                            <div className="sm:ml-4 min-w-0">
+                              <div className="text-xs sm:text-sm font-medium text-gray-900 dark:text-white truncate max-w-[100px] sm:max-w-none">
                                 {approval.invitee_name}
                               </div>
-                              {/* Email and Phone hidden for privacy */}
+                              {/* Mobile-only summary tags for hidden columns */}
+                              <div className="flex flex-wrap gap-1 mt-0.5 md:hidden">
+                                {approval.inviter_name && <span className="text-[10px] px-1.5 py-0 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded">{approval.inviter_name}</span>}
+                                {approval.inviter_group_name && <span className="text-[10px] px-1.5 py-0 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 rounded">{approval.inviter_group_name}</span>}
+                              </div>
                             </div>
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900 dark:text-white">{approval.event_name}</div>
+                        <td className="px-2 sm:px-4 py-2 sm:py-3">
+                          <div className="text-xs sm:text-sm text-gray-900 dark:text-white truncate max-w-[100px] sm:max-w-none">{approval.event_name}</div>
                           {approval.category && (
-                            <div className="text-sm text-gray-500 dark:text-gray-400">{approval.category}</div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400">{approval.category}</div>
                           )}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900 dark:text-white flex items-center gap-1">
+                        <td className="hidden md:table-cell px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap">
+                          <div className="text-xs sm:text-sm text-gray-900 dark:text-white flex items-center gap-1">
                             <User className="w-3 h-3" />
                             {approval.inviter_name}
                           </div>
                           {approval.inviter_group_name && (
-                            <div className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                            <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
                               <Building className="w-3 h-3" />
                               {approval.inviter_group_name}
                             </div>
                           )}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                        {isAdmin && (
+                          <td className="hidden sm:table-cell px-2 sm:px-4 py-2 sm:py-3">
+                            {approval.inviter_group_name ? (
+                              <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 rounded">{approval.inviter_group_name}</span>
+                            ) : <span className="text-xs text-gray-400">-</span>}
+                          </td>
+                        )}
+                        <td className="hidden lg:table-cell px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap">
+                          <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1">
                             <Calendar className="w-3 h-3" />
                             {formatDateEgypt(approval.created_at)}
                           </div>
                         </td>
                         {!isAdmin && (
-                          <td className="px-6 py-4 whitespace-nowrap text-right">
-                            <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
+                          <td className="px-2 sm:px-4 py-2 sm:py-3 text-right">
+                            <div className="flex items-center justify-end gap-1 sm:gap-2" onClick={(e) => e.stopPropagation()}>
                               <button
                                 onClick={() => openQuickRejectModal(approval)}
                                 disabled={submitting}
                                 className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-full transition-colors"
                                 title="Reject"
                               >
-                                <XCircle className="w-5 h-5" />
+                                <XCircle className="w-4 h-4 sm:w-5 sm:h-5" />
                               </button>
                               <button
                                 onClick={() => quickApprove(approval.id)}
@@ -618,7 +632,7 @@ export default function Approvals() {
                                 className="p-1 text-gray-400 hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30 rounded-full transition-colors"
                                 title="Approve"
                               >
-                                <CheckCircle className="w-5 h-5" />
+                                <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5" />
                               </button>
                             </div>
                           </td>
@@ -655,10 +669,10 @@ export default function Approvals() {
           ) : (
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <table className="w-full divide-y divide-gray-200 dark:divide-gray-700">
                   <thead className="bg-gray-50 dark:bg-gray-700">
                     <tr>
-                      <th className="px-6 py-3 text-left">
+                      <th className="px-2 sm:px-4 py-2 sm:py-3 text-left">
                         <input
                           type="checkbox"
                           checked={selectedIds.size === filteredApproved.length && filteredApproved.length > 0}
@@ -668,11 +682,14 @@ export default function Approvals() {
                       </th>
                       <SortableColumnHeader field="invitee_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Invitee</SortableColumnHeader>
                       <SortableColumnHeader field="event_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Event</SortableColumnHeader>
-                      <SortableColumnHeader field="inviter_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Inviter</SortableColumnHeader>
-                      <SortableColumnHeader field="category" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Category</SortableColumnHeader>
-                      <SortableColumnHeader field="approved_by_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Approved By</SortableColumnHeader>
+                      <SortableColumnHeader field="inviter_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden md:table-cell">Inviter</SortableColumnHeader>
+                      {isAdmin && (
+                        <SortableColumnHeader field="inviter_group_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden sm:table-cell">Group</SortableColumnHeader>
+                      )}
+                      <SortableColumnHeader field="category" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden lg:table-cell">Category</SortableColumnHeader>
+                      <SortableColumnHeader field="approved_by_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden lg:table-cell">Approved By</SortableColumnHeader>
                       {!isAdmin && (
-                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        <th className="px-2 sm:px-4 py-2 sm:py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                           Actions
                         </th>
                       )}
@@ -685,7 +702,7 @@ export default function Approvals() {
                         className={`hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer ${selectedIds.has(invitee.id) ? 'bg-primary/5' : ''}`}
                         onClick={() => toggleSelect(invitee.id)}
                       >
-                        <td className="px-6 py-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                        <td className="px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                           <input
                             type="checkbox"
                             checked={selectedIds.has(invitee.id)}
@@ -693,27 +710,39 @@ export default function Approvals() {
                             className="rounded border-gray-300 text-primary focus:ring-primary"
                           />
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-2 sm:px-4 py-2 sm:py-3">
                           <div className="flex items-center">
-                            <div className="flex-shrink-0 h-10 w-10 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
+                            <div className="hidden sm:flex flex-shrink-0 h-10 w-10 bg-green-100 dark:bg-green-900/30 rounded-full items-center justify-center">
                               <User className="h-5 w-5 text-green-600 dark:text-green-400" />
                             </div>
-                            <div className="ml-4">
-                              <div className="text-sm font-medium text-gray-900 dark:text-white">{invitee.invitee_name}</div>
-                              {/* <div className="text-sm text-gray-500 dark:text-gray-400">{invitee.invitee_email}</div> */}
+                            <div className="sm:ml-4 min-w-0">
+                              <div className="text-xs sm:text-sm font-medium text-gray-900 dark:text-white truncate max-w-[100px] sm:max-w-none">{invitee.invitee_name}</div>
+                              {/* Mobile-only summary tags for hidden columns */}
+                              <div className="flex flex-wrap gap-1 mt-0.5 md:hidden">
+                                {(invitee.inviter_name || invitee.submitter_name) && <span className="text-[10px] px-1.5 py-0 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded">{invitee.inviter_name || invitee.submitter_name}</span>}
+                                {invitee.inviter_group_name && <span className="text-[10px] px-1.5 py-0 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 rounded">{invitee.inviter_group_name}</span>}
+                                {invitee.category && <span className="text-[10px] px-1.5 py-0 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-400 rounded">{invitee.category}</span>}
+                              </div>
                             </div>
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center">
-                            <Calendar className="w-4 h-4 text-gray-400 mr-2" />
-                            <span className="text-sm text-gray-900 dark:text-white">{invitee.event_name}</span>
+                        <td className="px-2 sm:px-4 py-2 sm:py-3">
+                          <div className="flex items-center min-w-0">
+                            <Calendar className="hidden sm:block w-4 h-4 text-gray-400 mr-2 flex-shrink-0" />
+                            <span className="text-xs sm:text-sm text-gray-900 dark:text-white truncate max-w-[100px] sm:max-w-none">{invitee.event_name}</span>
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="text-sm text-gray-900 dark:text-white">{invitee.inviter_name || invitee.submitter_name || '-'}</span>
+                        <td className="hidden md:table-cell px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap">
+                          <span className="text-xs sm:text-sm text-gray-900 dark:text-white">{invitee.inviter_name || invitee.submitter_name || '-'}</span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        {isAdmin && (
+                          <td className="hidden sm:table-cell px-2 sm:px-4 py-2 sm:py-3">
+                            {invitee.inviter_group_name ? (
+                              <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 rounded">{invitee.inviter_group_name}</span>
+                            ) : <span className="text-xs text-gray-400">-</span>}
+                          </td>
+                        )}
+                        <td className="hidden lg:table-cell px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap">
                           {invitee.category && (
                             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${invitee.category === 'Gold' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
                               }`}>
@@ -721,9 +750,9 @@ export default function Approvals() {
                             </span>
                           )}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="hidden lg:table-cell px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap">
                           <div>
-                            <span className="text-sm text-gray-900 dark:text-white">{invitee.approved_by_name || '-'}</span>
+                            <span className="text-xs sm:text-sm text-gray-900 dark:text-white">{invitee.approved_by_name || '-'}</span>
                             {invitee.status_date && (
                               <div className="text-xs text-gray-500 dark:text-gray-400">
                                 {formatDateTimeEgypt(invitee.status_date)}
@@ -732,11 +761,11 @@ export default function Approvals() {
                           </div>
                         </td>
                         {!isAdmin && (
-                          <td className="px-6 py-4 whitespace-nowrap text-right">
+                          <td className="px-2 sm:px-4 py-2 sm:py-3 text-right">
                             <button
                               onClick={(e) => { e.stopPropagation(); openCancelApprovalModal(invitee); }}
                               disabled={submitting}
-                              className="text-red-600 hover:text-red-800 text-sm font-medium disabled:opacity-50"
+                              className="text-red-600 hover:text-red-800 text-xs sm:text-sm font-medium disabled:opacity-50"
                             >
                               Cancel Approval
                             </button>

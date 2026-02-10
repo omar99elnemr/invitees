@@ -8,7 +8,12 @@ import { AuthProvider } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { ProtectedRoute } from './components/common/ProtectedRoute';
 import { Layout } from './components/layout/Layout';
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useState, useCallback } from 'react';
+import PWAInstallPrompt from './components/common/PWAInstallPrompt';
+import SplashScreen from './components/common/SplashScreen';
+
+const isPWA = window.matchMedia('(display-mode: standalone)').matches ||
+              (window.navigator as any).standalone === true;
 
 // Lazy-loaded pages (code splitting)
 const Login = lazy(() => import('./pages/Login'));
@@ -27,7 +32,12 @@ const ExportSettings = lazy(() => import('./pages/ExportSettings'));
 const NotFound = lazy(() => import('./pages/NotFound'));
 
 function App() {
+  const [showSplash, setShowSplash] = useState(isPWA);
+  const hideSplash = useCallback(() => setShowSplash(false), []);
+
   return (
+    <>
+    {showSplash && <SplashScreen onFinish={hideSplash} />}
     <BrowserRouter>
       <ThemeProvider>
       <AuthProvider>
@@ -56,6 +66,7 @@ function App() {
           }}
         />
         
+        <PWAInstallPrompt />
         <Suspense fallback={<div className="min-h-screen" />}>
         <Routes>
           <Route path="/login" element={<Login />} />
@@ -133,6 +144,8 @@ function App() {
       </AuthProvider>
       </ThemeProvider>
     </BrowserRouter>
+
+    </>
   );
 }
 

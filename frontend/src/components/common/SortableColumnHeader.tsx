@@ -28,7 +28,7 @@ export default function SortableColumnHeader({
 
   return (
     <th
-      className={`px-4 py-3 text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider cursor-pointer select-none hover:bg-gray-200/70 dark:hover:bg-gray-600 transition-colors ${alignClass} ${className}`}
+      className={`px-2 sm:px-4 py-2 sm:py-3 text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider cursor-pointer select-none hover:bg-gray-200/70 dark:hover:bg-gray-600 transition-colors ${alignClass} ${className}`}
       onClick={() => onSort(field)}
     >
       <div className={`flex items-center gap-1.5 ${alignClass}`}>

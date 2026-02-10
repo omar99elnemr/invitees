@@ -31,6 +31,16 @@ const api = axios.create({
   },
 });
 
+// Request interceptor: tag PWA standalone requests so backend can extend session
+const isPWA = window.matchMedia('(display-mode: standalone)').matches ||
+              (window.navigator as any).standalone === true;
+api.interceptors.request.use((config) => {
+  if (isPWA) {
+    config.headers['X-PWA-Standalone'] = '1';
+  }
+  return config;
+});
+
 // Response interceptor for global error handling
 api.interceptors.response.use(
   (response) => response,
@@ -645,6 +655,46 @@ export const settingsAPI = {
     remove_right?: boolean;
   }) =>
     api.put<{ success: boolean; settings: ExportSettings }>('/settings/export', data),
+};
+
+// --- Notifications API ---
+export interface Notification {
+  id: number;
+  user_id: number;
+  title: string;
+  message: string;
+  type: string;
+  link: string | null;
+  is_read: boolean;
+  created_at: string;
+}
+
+export const notificationsAPI = {
+  getAll: (unreadOnly = false, limit = 50) =>
+    api.get<{ notifications: Notification[]; unread_count: number }>(
+      `/notifications?unread_only=${unreadOnly}&limit=${limit}`
+    ),
+
+  getUnreadCount: () =>
+    api.get<{ unread_count: number }>('/notifications/unread-count'),
+
+  markAsRead: (id: number) =>
+    api.post(`/notifications/${id}/read`),
+
+  markAllAsRead: () =>
+    api.post('/notifications/read-all'),
+
+  delete: (id: number) =>
+    api.delete(`/notifications/${id}`),
+
+  subscribePush: (subscription: PushSubscriptionJSON) =>
+    api.post('/notifications/push/subscribe', subscription),
+
+  unsubscribePush: (endpoint: string) =>
+    api.post('/notifications/push/unsubscribe', { endpoint }),
+
+  getVapidKey: () =>
+    api.get<{ vapid_public_key: string }>('/notifications/push/vapid-key'),
 };
 
 export interface ExportSettingValue {

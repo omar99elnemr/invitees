@@ -1,7 +1,7 @@
 """
 Flask application factory
 """
-from flask import Flask, session
+from flask import Flask, session, request
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_login import LoginManager
@@ -31,7 +31,7 @@ def create_app(config_class=Config):
     CORS(app, 
          origins=app.config.get('CORS_ORIGINS', 'http://localhost:5173'),
          supports_credentials=True,
-         allow_headers=['Content-Type', 'Authorization'],
+         allow_headers=['Content-Type', 'Authorization', 'X-PWA-Standalone'],
          methods=['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'])
     
     # Disable CSRF for API endpoints (use session-based auth instead)
@@ -51,8 +51,14 @@ def create_app(config_class=Config):
         """Mark every session as permanent so Flask re-stamps the cookie
         on each response (via SESSION_REFRESH_EACH_REQUEST, default True).
         This turns PERMANENT_SESSION_LIFETIME into a *sliding* window —
-        30 min from the last request, not 30 min from login."""
+        30 min from the last request, not 30 min from login.
+        For PWA standalone mode, extend to 30 days so the app feels native."""
+        from datetime import timedelta
         session.permanent = True
+        if request.headers.get('X-PWA-Standalone') == '1':
+            app.permanent_session_lifetime = timedelta(days=30)
+        else:
+            app.permanent_session_lifetime = app.config['PERMANENT_SESSION_LIFETIME']
     
     # Register blueprints
     from app.routes.auth import auth_bp
@@ -71,6 +77,7 @@ def create_app(config_class=Config):
     from app.routes.checkin import checkin_bp
     from app.routes.live_dashboard import live_dashboard_bp
     from app.routes.settings import settings_bp
+    from app.routes.notifications import notifications_bp
     
     # Exempt API routes from CSRF protection
     csrf.exempt(auth_bp)
@@ -89,6 +96,7 @@ def create_app(config_class=Config):
     csrf.exempt(checkin_bp)
     csrf.exempt(live_dashboard_bp)
     csrf.exempt(settings_bp)
+    csrf.exempt(notifications_bp)
     
     app.register_blueprint(auth_bp)
     app.register_blueprint(users_bp)
@@ -106,6 +114,7 @@ def create_app(config_class=Config):
     app.register_blueprint(checkin_bp, url_prefix='/api/checkin')
     app.register_blueprint(live_dashboard_bp, url_prefix='/api/live')
     app.register_blueprint(settings_bp)
+    app.register_blueprint(notifications_bp)
     
     # Health check route
     @app.route('/health')

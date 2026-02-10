@@ -34,9 +34,14 @@ class Config:
     # CORS
     CORS_ORIGINS = os.getenv('CORS_ORIGINS', 'http://localhost:5173').split(',')
     
-    # File Upload
-    UPLOAD_FOLDER = os.getenv('UPLOAD_FOLDER', 'uploads')
-    MAX_CONTENT_LENGTH = int(os.getenv('MAX_CONTENT_LENGTH', 10 * 1024 * 1024))  # 10MB
+    # Upload Configuration
+    UPLOAD_FOLDER = os.environ.get('UPLOAD_FOLDER', 'uploads')
+    MAX_CONTENT_LENGTH = int(os.environ.get('MAX_CONTENT_LENGTH', 10 * 1024 * 1024))
+    
+    # Web Push (VAPID) Configuration
+    VAPID_PUBLIC_KEY = os.environ.get('VAPID_PUBLIC_KEY', '')
+    VAPID_PRIVATE_KEY = os.environ.get('VAPID_PRIVATE_KEY', '')
+    VAPID_CONTACT_EMAIL = os.environ.get('VAPID_CONTACT_EMAIL', 'mailto:admin@example.com')
     ALLOWED_EXTENSIONS = {'xlsx', 'xls', 'csv'}
 
 class DevelopmentConfig(Config):

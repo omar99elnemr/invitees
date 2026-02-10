@@ -91,6 +91,13 @@ class ApprovalService:
                 new_value=f'Approved invitation for {event_invitee.invitee.name} to {event_invitee.event.name}',
                 ip_address=request.remote_addr
             )
+            
+            # Notify submitter
+            try:
+                from app.services.notification_service import notify_invitation_approved
+                notify_invitation_approved(event_invitee, exclude_user_id=approver_user_id)
+            except Exception:
+                pass
         
         db.session.commit()
         
@@ -140,6 +147,13 @@ class ApprovalService:
                 new_value=f'Rejected invitation for {event_invitee.invitee.name} to {event_invitee.event.name}',
                 ip_address=request.remote_addr
             )
+            
+            # Notify submitter
+            try:
+                from app.services.notification_service import notify_invitation_rejected
+                notify_invitation_rejected(event_invitee, notes, exclude_user_id=approver_user_id)
+            except Exception:
+                pass
         
         db.session.commit()
         
@@ -236,6 +250,13 @@ class ApprovalService:
                 new_value=f'Status: rejected - {notes}',
                 ip_address=request.remote_addr
             )
+            
+            # Notify submitter
+            try:
+                from app.services.notification_service import notify_invitation_cancelled
+                notify_invitation_cancelled(event_invitee, exclude_user_id=approver_user_id)
+            except Exception:
+                pass
         
         db.session.commit()
         

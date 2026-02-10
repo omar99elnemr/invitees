@@ -8,6 +8,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useNavigate } from 'react-router-dom';
 import { useState, useRef, useEffect } from 'react';
+import NotificationBell from '../common/NotificationBell';
 
 interface HeaderProps {
   onMenuClick: () => void;
@@ -47,7 +48,7 @@ export function Header({ onMenuClick, sidebarOpen }: HeaderProps) {
   };
 
   return (
-    <header className="fixed top-0 left-0 right-0 h-16 bg-white/90 dark:bg-gray-900/80 backdrop-blur-lg border-b border-gray-200 dark:border-gray-700/50 z-50 shadow-sm">
+    <header className="fixed top-0 left-0 right-0 h-16 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border-b border-gray-200/60 dark:border-gray-700/40 z-50 shadow-sm">
       <div className="h-full px-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <button
@@ -63,13 +64,13 @@ export function Header({ onMenuClick, sidebarOpen }: HeaderProps) {
           </button>
           
           {/* Logo */}
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-lg flex items-center justify-center shadow-md">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 bg-gradient-to-br from-indigo-500 to-indigo-700 rounded-xl flex items-center justify-center shadow-md shadow-indigo-500/20 ring-1 ring-white/10">
               <svg viewBox="0 0 32 32" className="w-5 h-5">
-                <circle cx="13" cy="10" r="4" fill="white"/>
-                <path d="M6 22c0-4 3.5-6 7-6s7 2 7 6" fill="white"/>
-                <circle cx="23" cy="22" r="7" fill="#10B981"/>
-                <path d="M19.5 22l2.5 2.5 4-4" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+                <circle cx="13" cy="11" r="3.8" fill="white" opacity="0.95"/>
+                <path d="M6.5 22.5c0-3.8 2.9-5.8 6.5-5.8s6.5 2 6.5 5.8" fill="white" opacity="0.95"/>
+                <circle cx="23.5" cy="22" r="6.5" fill="#34D399"/>
+                <path d="M20.2 22l2.3 2.3 3.8-3.8" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
               </svg>
             </div>
             <div className="hidden sm:block">
@@ -84,15 +85,18 @@ export function Header({ onMenuClick, sidebarOpen }: HeaderProps) {
           {/* Theme Toggle */}
           <button
             onClick={toggleTheme}
-            className="p-2.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl relative transition-colors"
+            className="p-2.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl relative transition-all duration-300"
             aria-label="Toggle theme"
           >
             {theme === 'dark' ? (
-              <Sun size={20} className="text-amber-500" />
+              <Sun size={20} className="text-amber-400 transition-transform duration-300 hover:rotate-45" />
             ) : (
-              <Moon size={20} className="text-gray-600 dark:text-gray-300" />
+              <Moon size={20} className="text-gray-500 transition-transform duration-300 hover:-rotate-12" />
             )}
           </button>
+
+          {/* Notifications */}
+          <NotificationBell />
 
           {/* User Menu */}
           <div className="relative" ref={menuRef}>
@@ -100,7 +104,7 @@ export function Header({ onMenuClick, sidebarOpen }: HeaderProps) {
               onClick={() => setShowMenu(!showMenu)}
               className="flex items-center gap-2 p-1.5 pr-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors"
             >
-              <div className={`w-8 h-8 bg-gradient-to-br ${getRoleGradient()} text-white rounded-lg flex items-center justify-center font-semibold text-sm shadow-md`}>
+              <div className={`w-8 h-8 bg-gradient-to-br ${getRoleGradient()} text-white rounded-lg flex items-center justify-center font-semibold text-sm shadow-md ring-2 ring-white/20 dark:ring-gray-700/50`}>
                 {user?.username?.charAt(0).toUpperCase()}
               </div>
               <div className="text-left hidden md:block">

@@ -12,6 +12,7 @@ from app.models.audit_log import AuditLog
 
 from app.models.category import Category
 from app.models.export_setting import ExportSetting
+from app.models.notification import Notification, PushSubscription
 
 __all__ = [
     'User',
@@ -25,4 +26,6 @@ __all__ = [
     'AuditLog',
     'Category',
     'ExportSetting',
+    'Notification',
+    'PushSubscription',
 ]

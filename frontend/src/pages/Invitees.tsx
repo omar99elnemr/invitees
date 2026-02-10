@@ -22,16 +22,18 @@ import {
   History,
   FileUp,
   FileSpreadsheet,
+  FileText,
   Trash,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
-import { eventsAPI, inviteesAPI, invitersAPI, importAPI, categoriesAPI, inviterGroupsAPI } from '../services/api';
+import { eventsAPI, inviteesAPI, invitersAPI, importAPI, categoriesAPI, inviterGroupsAPI, settingsAPI } from '../services/api';
 import type { Event, EventInvitee, Inviter, InviteeWithStats, InviteeFormData, Category, InviterGroup } from '../types';
 import CategoryManager from '../components/categories/CategoryManager';
 import TablePagination from '../components/common/TablePagination';
 import SortableColumnHeader, { applySorting, type SortDirection } from '../components/common/SortableColumnHeader';
 import { formatDateEgypt } from '../utils/formatters';
+import { exportToExcel, exportToPDF, exportToCSV } from '../utils/exportHelpers';
 
 // Status display helpers
 const statusColors: Record<string, string> = {
@@ -151,6 +153,14 @@ export default function Invitees() {
   const [adminIsDragOver, setAdminIsDragOver] = useState(false);
   const adminFileInputRef = useRef<HTMLInputElement>(null);
 
+  // Export state (admin contacts export)
+  const [showExportMenu, setShowExportMenu] = useState(false);
+  const exportMenuRef = useRef<HTMLDivElement>(null);
+  const [exportLogoLeft, setExportLogoLeft] = useState<string | null>(null);
+  const [exportLogoRight, setExportLogoRight] = useState<string | null>(null);
+  const [exportLogosLoaded, setExportLogosLoaded] = useState(false);
+  const [logoImageData, setLogoImageData] = useState<string>('');
+
   // Form data
   const [formData, setFormData] = useState<InviteeFormData>(initialFormData);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
@@ -258,6 +268,87 @@ export default function Invitees() {
     }
   }, [isAdmin]);
 
+  // Load export logos (for admin export)
+  const loadExportLogos = useCallback(async () => {
+    if (!isAdmin) return;
+    try {
+      const res = await settingsAPI.getExportSettings();
+      const settings = res.data.settings || {};
+      setExportLogoLeft(settings.logo_left?.value || null);
+      setExportLogoRight(settings.logo_right?.value || null);
+      setExportLogosLoaded(true);
+    } catch {
+      setExportLogosLoaded(true);
+    }
+  }, [isAdmin]);
+
+  const loadLogoData = useCallback(async () => {
+    if (!isAdmin) return;
+    try {
+      const { logoBase64 } = await import('../utils/logoData');
+      setLogoImageData(logoBase64);
+    } catch {
+      setLogoImageData('');
+    }
+  }, [isAdmin]);
+
+  // Close export menu on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(e.target as Node)) {
+        setShowExportMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Export contacts data builder
+  const getContactsExportData = () => {
+    return filteredContacts.map(c => ({
+      'Name': c.name || '',
+      'Email': c.email || '',
+      'Phone': c.phone || '',
+      'Position': c.position || '',
+      'Company': c.company || '',
+      'Category': c.category || '',
+      'Inviter': c.inviter_name || '',
+      'Group': c.inviter_group_name || '',
+      'Plus One': c.plus_one ?? 0,
+      'Approved': c.approved_count ?? 0,
+      'Pending': c.pending_count ?? 0,
+      'Rejected': c.rejected_count ?? 0,
+      'Total Events': c.total_events ?? 0,
+    }));
+  };
+
+  const handleContactsExport = (format: 'excel' | 'pdf' | 'csv') => {
+    const data = getContactsExportData();
+    if (data.length === 0) {
+      toast.error('No contacts to export');
+      return;
+    }
+    const filename = `contacts_export_${new Date().toISOString().split('T')[0]}`;
+    const title = 'Contacts Export';
+    const logoOptions = exportLogosLoaded
+      ? { logoLeft: exportLogoLeft, logoRight: exportLogoRight }
+      : undefined;
+
+    try {
+      if (format === 'excel') {
+        exportToExcel(data, filename, title, logoImageData, logoOptions);
+      } else if (format === 'pdf') {
+        exportToPDF(data, filename, title, 'landscape', logoOptions);
+      } else {
+        exportToCSV(data, filename);
+      }
+      toast.success(`Exported ${data.length} contacts as ${format.toUpperCase()}`);
+    } catch {
+      toast.error('Failed to export contacts');
+    }
+    setShowExportMenu(false);
+  };
+
   // React to URL param changes (deep-linking from dashboard)
   useEffect(() => {
     if (urlTab === 'events' || urlTab === 'contacts') {
@@ -276,7 +367,9 @@ export default function Invitees() {
     fetchContacts();
     fetchCategories();
     fetchInviterGroups();
-  }, [fetchEvents, fetchInviters, fetchContacts, fetchCategories, fetchInviterGroups]);
+    loadExportLogos();
+    loadLogoData();
+  }, [fetchEvents, fetchInviters, fetchContacts, fetchCategories, fetchInviterGroups, loadExportLogos, loadLogoData]);
 
   // Load event invitees when event is selected
   useEffect(() => {
@@ -370,8 +463,6 @@ export default function Invitees() {
     const start = (currentPage - 1) * itemsPerPage;
     return filteredContacts.slice(start, start + itemsPerPage);
   }, [filteredContacts, currentPage, itemsPerPage]);
-
-  const totalPages = Math.ceil(filteredContacts.length / itemsPerPage);
 
   // Reset form
   const resetForm = () => {
@@ -701,6 +792,11 @@ export default function Invitees() {
         if (failed > 0) toast.error(`${failed} row(s) failed to import`);
       }
 
+      // Auto-download rejected entries if any
+      if (response.data.rejected_rows && response.data.rejected_rows.length > 0) {
+        downloadRejectedCSV(response.data.rejected_rows, 'admin_import_rejected');
+      }
+
       setShowAdminImportModal(false);
       setAdminImportFile(null);
       fetchContacts();
@@ -710,6 +806,28 @@ export default function Invitees() {
     } finally {
       setAdminImporting(false);
     }
+  };
+
+  // Auto-download rejected rows as CSV
+  const downloadRejectedCSV = (rejectedRows: Record<string, string>[], prefix = 'rejected') => {
+    if (!rejectedRows || rejectedRows.length === 0) return;
+    // Build CSV header from keys (exclude internal fields, keep 'reason' last)
+    const keys = Object.keys(rejectedRows[0]).filter(k => k !== 'reason');
+    const header = [...keys, 'Rejection Reason'];
+    const rows = rejectedRows.map(row =>
+      [...keys.map(k => `"${(row[k] || '').replace(/"/g, '""')}"`), `"${(row.reason || '').replace(/"/g, '""')}"`].join(',')
+    );
+    const csv = [header.join(','), ...rows].join('\n');
+    const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${prefix}_entries_${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast(`${rejectedRows.length} rejected/skipped entries downloaded as CSV`, { icon: '📥', duration: 5000 });
   };
 
   const handleImport = async () => {
@@ -783,6 +901,11 @@ export default function Invitees() {
         if (failed > 0) {
           toast.error(`${failed} row(s) failed to import`);
         }
+      }
+
+      // Auto-download rejected entries if any
+      if (response.data.rejected_rows && response.data.rejected_rows.length > 0) {
+        downloadRejectedCSV(response.data.rejected_rows, 'import_rejected');
       }
 
       setShowImportModal(false);
@@ -936,10 +1059,10 @@ export default function Invitees() {
             <>
               {/* Event Info Header */}
               <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border dark:border-gray-700 p-4">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <h2 className="text-xl font-semibold text-gray-900 dark:text-white">{selectedEvent.name}</h2>
-                    <p className="text-gray-500 dark:text-gray-400">
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+                  <div className="min-w-0">
+                    <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white truncate">{selectedEvent.name}</h2>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
                       {formatDateEgypt(selectedEvent.start_date)} - {selectedEvent.venue}
                     </p>
                     {selectedEvent.inviter_group_names && selectedEvent.inviter_group_names.length > 0 && (
@@ -956,7 +1079,7 @@ export default function Invitees() {
                       </div>
                     )}
                   </div>
-                  <div className="flex gap-4 text-sm">
+                  <div className="flex gap-2 sm:gap-4 text-sm shrink-0">
                     <button
                       onClick={() => {
                         if (user?.role === 'admin' || user?.role === 'director') {
@@ -965,11 +1088,11 @@ export default function Invitees() {
                           toast.error('Only Directors and Admins can access pending approvals');
                         }
                       }}
-                      className="text-center hover:bg-yellow-50 dark:hover:bg-yellow-900/20 p-2 rounded-lg transition-colors cursor-pointer"
+                      className="flex-1 sm:flex-none text-center hover:bg-yellow-50 dark:hover:bg-yellow-900/20 p-2 rounded-lg transition-colors cursor-pointer"
                       title="View pending approvals"
                     >
-                      <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-500">{pendingInvitees.length}</div>
-                      <div className="text-gray-500 dark:text-gray-400">Pending</div>
+                      <div className="text-xl sm:text-2xl font-bold text-yellow-600 dark:text-yellow-500">{pendingInvitees.length}</div>
+                      <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Pending</div>
                     </button>
                     <button
                       onClick={() => {
@@ -979,24 +1102,24 @@ export default function Invitees() {
                           toast.error('Only Directors and Admins can access approved invitees');
                         }
                       }}
-                      className="text-center hover:bg-green-50 dark:hover:bg-green-900/20 p-2 rounded-lg transition-colors cursor-pointer"
+                      className="flex-1 sm:flex-none text-center hover:bg-green-50 dark:hover:bg-green-900/20 p-2 rounded-lg transition-colors cursor-pointer"
                       title="View approved invitees"
                     >
-                      <div className="text-2xl font-bold text-green-600 dark:text-green-500">
+                      <div className="text-xl sm:text-2xl font-bold text-green-600 dark:text-green-500">
                         {eventInvitees.filter(ei => ei.status === 'approved').length}
                       </div>
-                      <div className="text-gray-500 dark:text-gray-400">Approved</div>
+                      <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Approved</div>
                     </button>
                     <button
                       onClick={() => {
                         setStatusFilter('rejected');
                         toast.success('Showing rejected contacts');
                       }}
-                      className="text-center hover:bg-red-50 dark:hover:bg-red-900/20 p-2 rounded-lg transition-colors cursor-pointer"
+                      className="flex-1 sm:flex-none text-center hover:bg-red-50 dark:hover:bg-red-900/20 p-2 rounded-lg transition-colors cursor-pointer"
                       title="Filter to rejected contacts"
                     >
-                      <div className="text-2xl font-bold text-red-600 dark:text-red-500">{rejectedInvitees.length}</div>
-                      <div className="text-gray-500 dark:text-gray-400">Rejected</div>
+                      <div className="text-xl sm:text-2xl font-bold text-red-600 dark:text-red-500">{rejectedInvitees.length}</div>
+                      <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Rejected</div>
                     </button>
                   </div>
                 </div>
@@ -1133,7 +1256,7 @@ export default function Invitees() {
                     <table className="w-full">
                       <thead className="bg-gray-50 dark:bg-gray-700">
                         <tr>
-                          <th className="px-4 py-3 text-left">
+                          <th className="px-2 sm:px-4 py-2 sm:py-3 text-left">
                             <input
                               type="checkbox"
                               checked={selectedContactIds.length === filteredAvailableContacts.length && filteredAvailableContacts.length > 0}
@@ -1142,13 +1265,17 @@ export default function Invitees() {
                             />
                           </th>
                           <SortableColumnHeader field="name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Name</SortableColumnHeader>
-                          <SortableColumnHeader field="inviter_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Inviter</SortableColumnHeader>
-                          <SortableColumnHeader field="category" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Category</SortableColumnHeader>
-                          <SortableColumnHeader field="plus_one" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Guests</SortableColumnHeader>
-                          <SortableColumnHeader field="position" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Position</SortableColumnHeader>
-                          <SortableColumnHeader field="company" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Company</SortableColumnHeader>
+                          <SortableColumnHeader field="inviter_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden sm:table-cell">Inviter</SortableColumnHeader>
+                          <SortableColumnHeader field="category" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden lg:table-cell">Category</SortableColumnHeader>
+                          <SortableColumnHeader field="plus_one" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden lg:table-cell">Guests</SortableColumnHeader>
+                          <SortableColumnHeader field="position" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden xl:table-cell">Position</SortableColumnHeader>
+                          {isAdmin ? (
+                            <SortableColumnHeader field="inviter_group_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden lg:table-cell">Group</SortableColumnHeader>
+                          ) : (
+                            <SortableColumnHeader field="company" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden xl:table-cell">Company</SortableColumnHeader>
+                          )}
                           {!isAdmin && (
-                            <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Action</th>
+                            <th className="px-2 sm:px-4 py-2 sm:py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Action</th>
                           )}
                         </tr>
                       </thead>
@@ -1163,7 +1290,7 @@ export default function Invitees() {
                                 }`}
                               onClick={() => handleToggleContact(contact.id)}
                             >
-                              <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                              <td className="px-2 sm:px-4 py-2 sm:py-3" onClick={(e) => e.stopPropagation()}>
                                 <input
                                   type="checkbox"
                                   checked={selectedContactIds.includes(contact.id)}
@@ -1171,8 +1298,8 @@ export default function Invitees() {
                                   className="rounded border-gray-300 text-primary focus:ring-primary"
                                 />
                               </td>
-                              <td className="px-4 py-3">
-                                <div className="flex items-center gap-2 font-medium text-gray-900 dark:text-white">
+                              <td className="px-2 sm:px-4 py-2 sm:py-3">
+                                <div className="flex items-center gap-2 font-medium text-gray-900 dark:text-white text-xs sm:text-sm">
                                   {contact.name}
                                   {rejectedInvitee && (
                                     <button
@@ -1182,25 +1309,38 @@ export default function Invitees() {
                                       onClick={e => {
                                         e.stopPropagation();
                                         setResubmitInvitee(rejectedInvitee);
-                                        // setShowResubmitModal(true); // removed
                                       }}
                                     >
                                       <XCircle className="w-4 h-4 text-red-500" />
                                     </button>
                                   )}
                                 </div>
+                                {/* Mobile-only summary tags for hidden columns */}
+                                <div className="flex flex-wrap gap-1 mt-0.5 sm:hidden">
+                                  {contact.inviter_name && <span className="text-[10px] px-1.5 py-0 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded">{contact.inviter_name}</span>}
+                                  {contact.category && <span className="text-[10px] px-1.5 py-0 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-400 rounded">{contact.category}</span>}
+                                  {isAdmin && contact.inviter_group_name && <span className="text-[10px] px-1.5 py-0 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 rounded">{contact.inviter_group_name}</span>}
+                                </div>
                               </td>
-                              <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{contact.inviter_name || '-'}</td>
-                              <td className="px-4 py-3">
+                              <td className="hidden sm:table-cell px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-gray-600 dark:text-gray-400">{contact.inviter_name || '-'}</td>
+                              <td className="hidden lg:table-cell px-2 sm:px-4 py-2 sm:py-3">
                                 {contact.category && (
                                   <span className="text-xs px-2 py-0.5 bg-gray-100 dark:bg-gray-700 dark:text-gray-300 rounded">{contact.category}</span>
                                 )}
                               </td>
-                              <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{contact.plus_one || 0}</td>
-                              <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{contact.position || '-'}</td>
-                              <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{contact.company || '-'}</td>
+                              <td className="hidden lg:table-cell px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-gray-600 dark:text-gray-400">{contact.plus_one || 0}</td>
+                              <td className="hidden xl:table-cell px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-gray-600 dark:text-gray-400">{contact.position || '-'}</td>
+                              {isAdmin ? (
+                                <td className="hidden lg:table-cell px-2 sm:px-4 py-2 sm:py-3">
+                                  {contact.inviter_group_name ? (
+                                    <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 rounded">{contact.inviter_group_name}</span>
+                                  ) : <span className="text-xs text-gray-400">-</span>}
+                                </td>
+                              ) : (
+                                <td className="hidden xl:table-cell px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-gray-600 dark:text-gray-400">{contact.company || '-'}</td>
+                              )}
                               {!isAdmin && (
-                                <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
+                                <td className="px-2 sm:px-4 py-2 sm:py-3 text-right" onClick={(e) => e.stopPropagation()}>
                                   <button
                                     onClick={async () => {
                                       if (!selectedEventId) return;
@@ -1313,50 +1453,88 @@ export default function Invitees() {
                 ))}
               </select>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               {isAdmin && (
                 <>
                   {selectedContactListIds.length > 0 && (
                     <button
                       onClick={() => setShowBulkDeleteModal(true)}
                       disabled={submitting}
-                      className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 flex items-center gap-2"
+                      className="px-3 sm:px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 flex items-center gap-2 text-sm"
                     >
                       <Trash2 className="w-4 h-4" />
-                      Delete ({selectedContactListIds.length})
+                      <span className="hidden sm:inline">Delete</span> ({selectedContactListIds.length})
                     </button>
                   )}
                   <button
                     onClick={() => setShowCategoryManager(true)}
-                    className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 dark:text-gray-300 flex items-center gap-2"
+                    className="px-3 sm:px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 dark:text-gray-300 flex items-center gap-2 text-sm"
+                    title="Manage Categories"
                   >
                     <Edit2 className="w-4 h-4" />
-                    Manage Categories
+                    <span className="hidden sm:inline">Manage Categories</span>
                   </button>
                   <button
                     onClick={() => setShowAdminImportModal(true)}
-                    className="px-4 py-2 border border-purple-300 dark:border-purple-600 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-900/30 text-purple-700 dark:text-purple-300 flex items-center gap-2"
+                    className="px-3 sm:px-4 py-2 border border-purple-300 dark:border-purple-600 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-900/30 text-purple-700 dark:text-purple-300 flex items-center gap-2 text-sm"
+                    title="Admin Import"
                   >
                     <Upload className="w-4 h-4" />
-                    Admin Import
+                    <span className="hidden sm:inline">Admin Import</span>
                   </button>
+                  <div className="relative" ref={exportMenuRef}>
+                    <button
+                      onClick={() => setShowExportMenu(prev => !prev)}
+                      className="px-3 sm:px-4 py-2 border border-green-300 dark:border-green-600 rounded-lg hover:bg-green-50 dark:hover:bg-green-900/30 text-green-700 dark:text-green-300 flex items-center gap-2 text-sm"
+                      title="Export Contacts"
+                    >
+                      <Download className="w-4 h-4" />
+                      <span className="hidden sm:inline">Export</span>
+                    </button>
+                    {showExportMenu && (
+                      <div className="absolute right-0 mt-1 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 z-20 py-1">
+                        <button
+                          onClick={() => handleContactsExport('csv')}
+                          className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 flex items-center gap-2.5"
+                        >
+                          <Download className="w-4 h-4" />
+                          CSV
+                        </button>
+                        <button
+                          onClick={() => handleContactsExport('excel')}
+                          className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 flex items-center gap-2.5"
+                        >
+                          <FileSpreadsheet className="w-4 h-4" />
+                          Excel
+                        </button>
+                        <button
+                          onClick={() => handleContactsExport('pdf')}
+                          className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 flex items-center gap-2.5"
+                        >
+                          <FileText className="w-4 h-4" />
+                          PDF
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </>
               )}
               {!isAdmin && (
                 <>
                   <button
                     onClick={() => setShowImportModal(true)}
-                    className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 dark:text-gray-300 flex items-center gap-2"
+                    className="px-3 sm:px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 dark:text-gray-300 flex items-center gap-2 text-sm"
+                    title="Import"
                   >
                     <Upload className="w-4 h-4" />
-                    Import
+                    <span className="hidden sm:inline">Import</span>
                   </button>
                   <button
                     onClick={() => { setShowAddContactModal(true); resetForm(); }}
-                    className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark flex items-center gap-2"
+                    className="px-3 sm:px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark flex items-center gap-2 text-sm"
                   >
                     <Plus className="w-4 h-4" />
-                    Add Contact
+                    <span className="hidden sm:inline">Add Contact</span>
                   </button>
                 </>
               )}
@@ -1379,7 +1557,7 @@ export default function Invitees() {
                   <table className="w-full">
                     <thead className="bg-gray-50 dark:bg-gray-700">
                       <tr>
-                        <th className="px-4 py-3 text-left">
+                        <th className="px-2 sm:px-4 py-2 sm:py-3 text-left">
                           <input
                             type="checkbox"
                             checked={selectedContactListIds.length > 0 && selectedContactListIds.length === filteredContacts.length}
@@ -1388,13 +1566,17 @@ export default function Invitees() {
                           />
                         </th>
                         <SortableColumnHeader field="name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Name</SortableColumnHeader>
-                        <SortableColumnHeader field="inviter_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Inviter</SortableColumnHeader>
-                        <SortableColumnHeader field="category" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Category</SortableColumnHeader>
-                        <SortableColumnHeader field="plus_one" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Guests</SortableColumnHeader>
-                        <SortableColumnHeader field="position" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Position</SortableColumnHeader>
-                        <SortableColumnHeader field="company" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Company</SortableColumnHeader>
-                        <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Events</th>
-                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Actions</th>
+                        <SortableColumnHeader field="inviter_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden sm:table-cell">Inviter</SortableColumnHeader>
+                        <SortableColumnHeader field="category" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden lg:table-cell">Category</SortableColumnHeader>
+                        <SortableColumnHeader field="plus_one" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden lg:table-cell">Guests</SortableColumnHeader>
+                        <SortableColumnHeader field="position" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden xl:table-cell">Position</SortableColumnHeader>
+                        {isAdmin ? (
+                          <SortableColumnHeader field="inviter_group_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden lg:table-cell">Group</SortableColumnHeader>
+                        ) : (
+                          <SortableColumnHeader field="company" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden xl:table-cell">Company</SortableColumnHeader>
+                        )}
+                        <th className="hidden sm:table-cell px-2 sm:px-4 py-2 sm:py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Events</th>
+                        <th className="px-2 sm:px-4 py-2 sm:py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -1404,7 +1586,7 @@ export default function Invitees() {
                           className={`hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer ${selectedContactListIds.includes(contact.id) ? 'bg-primary/5' : ''}`}
                           onClick={() => handleToggleContactListSelection(contact.id)}
                         >
-                          <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                          <td className="px-2 sm:px-4 py-2 sm:py-3" onClick={(e) => e.stopPropagation()}>
                             <input
                               type="checkbox"
                               checked={selectedContactListIds.includes(contact.id)}
@@ -1412,21 +1594,35 @@ export default function Invitees() {
                               className="rounded border-gray-300 text-primary focus:ring-primary"
                             />
                           </td>
-                          <td className="px-4 py-3">
-                            <div className="font-medium text-gray-900 dark:text-white">{contact.name}</div>
+                          <td className="px-2 sm:px-4 py-2 sm:py-3">
+                            <div className="font-medium text-gray-900 dark:text-white text-xs sm:text-sm">{contact.name}</div>
+                            {/* Mobile-only summary tags for hidden columns */}
+                            <div className="flex flex-wrap gap-1 mt-0.5 sm:hidden">
+                              {contact.inviter_name && <span className="text-[10px] px-1.5 py-0 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded">{contact.inviter_name}</span>}
+                              {contact.category && <span className="text-[10px] px-1.5 py-0 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-400 rounded">{contact.category}</span>}
+                              {isAdmin && contact.inviter_group_name && <span className="text-[10px] px-1.5 py-0 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 rounded">{contact.inviter_group_name}</span>}
+                            </div>
                           </td>
-                          <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{contact.inviter_name || '-'} </td>
-                          <td className="px-4 py-3">
+                          <td className="hidden sm:table-cell px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-gray-600 dark:text-gray-400">{contact.inviter_name || '-'} </td>
+                          <td className="hidden lg:table-cell px-2 sm:px-4 py-2 sm:py-3">
                             {contact.category ? (
                               <span className="text-xs px-2 py-0.5 bg-gray-100 dark:bg-gray-700 dark:text-gray-300 rounded">{contact.category}</span>
                             ) : '-'}
                           </td>
-                          <td className="px-4 py-3 text-gray-600 dark:text-gray-400">
+                          <td className="hidden lg:table-cell px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-gray-600 dark:text-gray-400">
                             {contact.plus_one !== undefined ? contact.plus_one : 0}
                           </td>
-                          <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{contact.position || '-'}</td>
-                          <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{contact.company || '-'}</td>
-                          <td className="px-4 py-3 text-center">
+                          <td className="hidden xl:table-cell px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-gray-600 dark:text-gray-400">{contact.position || '-'}</td>
+                          {isAdmin ? (
+                            <td className="hidden lg:table-cell px-2 sm:px-4 py-2 sm:py-3">
+                              {contact.inviter_group_name ? (
+                                <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 rounded">{contact.inviter_group_name}</span>
+                              ) : <span className="text-xs text-gray-400">-</span>}
+                            </td>
+                          ) : (
+                            <td className="hidden xl:table-cell px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-gray-600 dark:text-gray-400">{contact.company || '-'}</td>
+                          )}
+                          <td className="hidden sm:table-cell px-2 sm:px-4 py-2 sm:py-3 text-center">
                             <div className="flex justify-center gap-1">
                               <span className="px-1.5 py-0.5 text-xs bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 rounded">
                                 {contact.approved_count}
@@ -1439,21 +1635,21 @@ export default function Invitees() {
                               </span>
                             </div>
                           </td>
-                          <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                            <div className="flex justify-end gap-1">
+                          <td className="px-2 sm:px-4 py-2 sm:py-3" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex justify-end gap-0.5 sm:gap-1">
                               <button
                                 onClick={() => handleViewHistory(contact)}
                                 className="p-1 text-gray-400 hover:text-primary rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
                                 title="View History"
                               >
-                                <History className="w-5 h-5" />
+                                <History className="w-4 h-4 sm:w-5 sm:h-5" />
                               </button>
                               <button
                                 onClick={() => openEditModal(contact)}
                                 className="p-1 text-gray-400 hover:text-primary rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
                                 title="Edit"
                               >
-                                <Edit2 className="w-5 h-5" />
+                                <Edit2 className="w-4 h-4 sm:w-5 sm:h-5" />
                               </button>
                               {isAdmin && (
                                 <button
@@ -1461,7 +1657,7 @@ export default function Invitees() {
                                   className="p-1 text-gray-400 hover:text-red-600 rounded-full hover:bg-red-50 dark:hover:bg-red-900/30"
                                   title="Delete"
                                 >
-                                  <Trash2 className="w-5 h-5" />
+                                  <Trash2 className="w-4 h-4 sm:w-5 sm:h-5" />
                                 </button>
                               )}
                             </div>
@@ -1491,9 +1687,9 @@ export default function Invitees() {
       {showAddContactModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-8">
+            <div className="p-4 sm:p-6 lg:p-8">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Add New Contact</h2>
+                <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">Add New Contact</h2>
                 <button
                   onClick={() => { setShowAddContactModal(false); resetForm(); }}
                   className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full text-gray-500 dark:text-gray-400">

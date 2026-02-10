@@ -139,6 +139,15 @@ def update_event_status(event_id):
         status_code = 404 if 'not found' in error.lower() else 400
         return jsonify({'error': error}), status_code
     
+    # Notify relevant users about event status change
+    try:
+        from app.services.notification_service import notify_event_status_changed
+        from app import db as _db
+        notify_event_status_changed(event, exclude_user_id=current_user.id)
+        _db.session.commit()
+    except Exception:
+        pass
+    
     return jsonify(event.to_dict()), 200
 
 @events_bp.route('/<int:event_id>', methods=['DELETE'])

@@ -10,7 +10,9 @@ import { LogIn, User, Lock, Eye, EyeOff, Calendar, Users, CheckCircle, Shield } 
 export default function Login() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [remember, setRemember] = useState(false);
+  const isPWA = window.matchMedia('(display-mode: standalone)').matches ||
+                (window.navigator as any).standalone === true;
+  const [remember, setRemember] = useState(isPWA);
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const { login, user, loading: authLoading } = useAuth();
@@ -40,7 +42,7 @@ export default function Login() {
   return (
     <div className="min-h-screen flex">
       {/* Left Panel - Branding */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-indigo-600 via-indigo-700 to-purple-800 relative overflow-hidden">
+      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-indigo-600 via-indigo-700 to-purple-900 relative overflow-hidden">
         {/* Animated background shapes */}
         <div className="absolute inset-0">
           <div className="absolute top-20 left-20 w-72 h-72 bg-white/10 rounded-full blur-3xl animate-pulse"></div>
@@ -53,12 +55,12 @@ export default function Login() {
           {/* Logo */}
           <div className="mb-8">
             <div className="flex items-center gap-4">
-              <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center">
+              <div className="w-16 h-16 bg-white/15 backdrop-blur-md rounded-2xl flex items-center justify-center ring-1 ring-white/20 shadow-lg">
                 <svg viewBox="0 0 32 32" className="w-10 h-10">
-                  <circle cx="13" cy="10" r="4" fill="white"/>
-                  <path d="M6 22c0-4 3.5-6 7-6s7 2 7 6" fill="white"/>
-                  <circle cx="23" cy="22" r="7" fill="#10B981"/>
-                  <path d="M19.5 22l2.5 2.5 4-4" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+                  <circle cx="13" cy="11" r="3.8" fill="white" opacity="0.95"/>
+                  <path d="M6.5 22.5c0-3.8 2.9-5.8 6.5-5.8s6.5 2 6.5 5.8" fill="white" opacity="0.95"/>
+                  <circle cx="23.5" cy="22" r="6.5" fill="#34D399"/>
+                  <path d="M20.2 22l2.3 2.3 3.8-3.8" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
                 </svg>
               </div>
               <div>
@@ -80,8 +82,8 @@ export default function Login() {
 
           {/* Features */}
           <div className="space-y-4">
-            <div className="flex items-center gap-4">
-              <div className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-lg flex items-center justify-center">
+            <div className="flex items-center gap-4 group">
+              <div className="w-10 h-10 bg-white/15 backdrop-blur-sm rounded-xl flex items-center justify-center ring-1 ring-white/10 transition-all duration-300 group-hover:bg-white/25 group-hover:scale-105">
                 <Calendar size={20} />
               </div>
               <div>
@@ -89,8 +91,8 @@ export default function Login() {
                 <p className="text-indigo-200 text-sm">Create and manage multiple events</p>
               </div>
             </div>
-            <div className="flex items-center gap-4">
-              <div className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-lg flex items-center justify-center">
+            <div className="flex items-center gap-4 group">
+              <div className="w-10 h-10 bg-white/15 backdrop-blur-sm rounded-xl flex items-center justify-center ring-1 ring-white/10 transition-all duration-300 group-hover:bg-white/25 group-hover:scale-105">
                 <Users size={20} />
               </div>
               <div>
@@ -98,8 +100,8 @@ export default function Login() {
                 <p className="text-indigo-200 text-sm">Track all your guests in one place</p>
               </div>
             </div>
-            <div className="flex items-center gap-4">
-              <div className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-lg flex items-center justify-center">
+            <div className="flex items-center gap-4 group">
+              <div className="w-10 h-10 bg-white/15 backdrop-blur-sm rounded-xl flex items-center justify-center ring-1 ring-white/10 transition-all duration-300 group-hover:bg-white/25 group-hover:scale-105">
                 <CheckCircle size={20} />
               </div>
               <div>
@@ -107,8 +109,8 @@ export default function Login() {
                 <p className="text-indigo-200 text-sm">Streamlined approval process</p>
               </div>
             </div>
-            <div className="flex items-center gap-4">
-              <div className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-lg flex items-center justify-center">
+            <div className="flex items-center gap-4 group">
+              <div className="w-10 h-10 bg-white/15 backdrop-blur-sm rounded-xl flex items-center justify-center ring-1 ring-white/10 transition-all duration-300 group-hover:bg-white/25 group-hover:scale-105">
                 <Shield size={20} />
               </div>
               <div>
@@ -125,12 +127,12 @@ export default function Login() {
         <div className="w-full max-w-md animate-fade-in">
           {/* Mobile Logo */}
           <div className="lg:hidden text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-indigo-600 rounded-2xl mb-4">
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-indigo-500 to-indigo-700 rounded-2xl mb-4 shadow-lg shadow-indigo-500/30 ring-1 ring-white/10">
               <svg viewBox="0 0 32 32" className="w-10 h-10">
-                <circle cx="13" cy="10" r="4" fill="white"/>
-                <path d="M6 22c0-4 3.5-6 7-6s7 2 7 6" fill="white"/>
-                <circle cx="23" cy="22" r="7" fill="#10B981"/>
-                <path d="M19.5 22l2.5 2.5 4-4" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+                <circle cx="13" cy="11" r="3.8" fill="white" opacity="0.95"/>
+                <path d="M6.5 22.5c0-3.8 2.9-5.8 6.5-5.8s6.5 2 6.5 5.8" fill="white" opacity="0.95"/>
+                <circle cx="23.5" cy="22" r="6.5" fill="#34D399"/>
+                <path d="M20.2 22l2.3 2.3 3.8-3.8" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
               </svg>
             </div>
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Invitees Management</h1>
@@ -192,26 +194,28 @@ export default function Login() {
                 </div>
               </div>
 
-              <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <input
-                    id="remember"
-                    type="checkbox"
-                    checked={remember}
-                    onChange={(e) => setRemember(e.target.checked)}
-                    className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 dark:border-gray-600 rounded cursor-pointer dark:bg-gray-700"
-                  />
-                  <label htmlFor="remember" className="ml-2 block text-sm text-gray-600 dark:text-gray-400 cursor-pointer">
-                    Remember me
-                  </label>
+              {!isPWA && (
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <input
+                      id="remember"
+                      type="checkbox"
+                      checked={remember}
+                      onChange={(e) => setRemember(e.target.checked)}
+                      className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 dark:border-gray-600 rounded cursor-pointer dark:bg-gray-700"
+                    />
+                    <label htmlFor="remember" className="ml-2 block text-sm text-gray-600 dark:text-gray-400 cursor-pointer">
+                      Remember me
+                    </label>
+                  </div>
+                  <span className="text-xs text-gray-400 dark:text-gray-500">7 days</span>
                 </div>
-                <span className="text-xs text-gray-400 dark:text-gray-500">7 days</span>
-              </div>
+              )}
 
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-3 px-4 rounded-xl flex items-center justify-center transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-indigo-500/30 hover:shadow-xl hover:shadow-indigo-500/40"
+                className="w-full bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white font-semibold py-3 px-4 rounded-xl flex items-center justify-center transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-indigo-500/30 hover:shadow-xl hover:shadow-indigo-500/40 hover:-translate-y-0.5"
               >
                 {loading ? (
                   <>

@@ -8,11 +8,13 @@ import { Header } from './Header';
 import { Sidebar } from './Sidebar';
 import { useState, useEffect } from 'react';
 import { useEventToasts } from '../../hooks/useEventToasts';
+import { usePushNotifications } from '../../hooks/usePushNotifications';
 
 const SIDEBAR_KEY = 'sidebar_open';
 
 export function Layout() {
   useEventToasts();
+  usePushNotifications();
 
   const [sidebarOpen, setSidebarOpen] = useState(() => {
     // On desktop, restore saved preference; default to open
@@ -78,7 +80,7 @@ export function Layout() {
             sidebarOpen && !isMobile ? 'lg:ml-64' : 'ml-0'
           }`}
         >
-          <div className="p-4 sm:p-6 lg:p-8 max-w-[1800px] mx-auto">
+          <div className="p-3 sm:p-6 lg:p-8 max-w-[1800px] mx-auto">
             <Outlet />
           </div>
         </main>

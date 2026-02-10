@@ -725,6 +725,33 @@ def invite_existing_to_event(event_id):
             ip_address=request.remote_addr
         )
         db.session.commit()
+        
+        # Notify directors/admins about new submissions
+        try:
+            from app.services.notification_service import create_bulk_notifications
+            from app.models.user import User
+            count = len(results['successful'])
+            user_ids = set()
+            admins = User.query.filter_by(role='admin', is_active=True).all()
+            user_ids.update(u.id for u in admins)
+            if current_user.inviter_group_id:
+                directors = User.query.filter_by(
+                    inviter_group_id=current_user.inviter_group_id,
+                    role='director', is_active=True
+                ).all()
+                user_ids.update(u.id for u in directors)
+            user_ids.discard(current_user.id)
+            if user_ids:
+                create_bulk_notifications(
+                    list(user_ids),
+                    'New Invitations Submitted',
+                    f'{count} invitee{"s" if count > 1 else ""} submitted for "{event.name}" — awaiting approval.',
+                    type='invitation_submitted',
+                    link='/approvals',
+                )
+                db.session.commit()
+        except Exception:
+            pass
     
     return jsonify({
         'message': f'Invited {len(results["successful"])} invitees',
