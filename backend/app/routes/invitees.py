@@ -23,6 +23,61 @@ def get_categories():
     return jsonify([c.name for c in categories]), 200
 
 
+@invitees_bp.route('/export-data', methods=['GET'])
+@login_required
+@admin_required
+def get_export_data():
+    """Get contacts with per-event status data for admin export.
+    Returns all contact fields + a mapping of event_id -> status for each contact,
+    plus the full events list so the frontend can build per-event columns."""
+    from app.models.invitee import Invitee
+    from app.models.event_invitee import EventInvitee
+    from app.models.event import Event
+
+    # Optional group filter
+    group_id = request.args.get('inviter_group_id', type=int)
+
+    # Get all events ordered by date (newest first)
+    events = Event.query.order_by(Event.start_date.desc()).all()
+
+    # Get contacts
+    query = Invitee.query
+    if group_id:
+        query = query.filter_by(inviter_group_id=group_id)
+    invitees = query.order_by(Invitee.created_at.desc()).all()
+    invitee_ids = [inv.id for inv in invitees]
+
+    # Single query: all event_invitee records for these contacts
+    ei_records = EventInvitee.query.filter(
+        EventInvitee.invitee_id.in_(invitee_ids)
+    ).all() if invitee_ids else []
+
+    # Build lookup: invitee_id -> { event_id: status_letter }
+    status_map = {}
+    for ei in ei_records:
+        if ei.invitee_id not in status_map:
+            status_map[ei.invitee_id] = {}
+        status_map[ei.invitee_id][ei.event_id] = ei.status
+
+    # Build response
+    contacts = []
+    for inv in invitees:
+        d = inv.to_dict(include_contact_details=True)
+        inv_statuses = status_map.get(inv.id, {})
+        d['event_statuses'] = {str(eid): st for eid, st in inv_statuses.items()}
+        statuses_list = list(inv_statuses.values())
+        d['total_events'] = len(statuses_list)
+        d['approved_count'] = sum(1 for s in statuses_list if s == 'approved')
+        d['rejected_count'] = sum(1 for s in statuses_list if s == 'rejected')
+        d['pending_count'] = sum(1 for s in statuses_list if s == 'waiting_for_approval')
+        contacts.append(d)
+
+    return jsonify({
+        'events': [{'id': e.id, 'name': e.name} for e in events],
+        'contacts': contacts,
+    }), 200
+
+
 @invitees_bp.route('', methods=['GET'])
 @login_required
 def get_all_invitees():
@@ -726,30 +781,17 @@ def invite_existing_to_event(event_id):
         )
         db.session.commit()
         
-        # Notify directors/admins about new submissions
+        # Notify directors in same group about submissions (organizer only)
+        # Directors/admins manage approvals themselves — no notification for them
         try:
-            from app.services.notification_service import create_bulk_notifications
-            from app.models.user import User
-            count = len(results['successful'])
-            user_ids = set()
-            admins = User.query.filter_by(role='admin', is_active=True).all()
-            user_ids.update(u.id for u in admins)
-            if current_user.inviter_group_id:
-                directors = User.query.filter_by(
-                    inviter_group_id=current_user.inviter_group_id,
-                    role='director', is_active=True
-                ).all()
-                user_ids.update(u.id for u in directors)
-            user_ids.discard(current_user.id)
-            if user_ids:
-                create_bulk_notifications(
-                    list(user_ids),
-                    'New Invitations Submitted',
-                    f'{count} invitee{"s" if count > 1 else ""} submitted for "{event.name}" — awaiting approval.',
-                    type='invitation_submitted',
-                    link='/approvals',
-                )
-                db.session.commit()
+            from app.services.notification_service import notify_invitation_submitted, notify_invitation_resubmitted
+            new_count = sum(1 for s in results['successful'] if not s.get('resubmitted'))
+            resub_count = sum(1 for s in results['successful'] if s.get('resubmitted'))
+            if new_count > 0:
+                notify_invitation_submitted(event.name, new_count, current_user)
+            if resub_count > 0:
+                notify_invitation_resubmitted(event.name, resub_count, current_user)
+            db.session.commit()
         except Exception:
             pass
     

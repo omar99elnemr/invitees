@@ -74,7 +74,7 @@ export const authAPI = {
     api.post('/auth/logout'),
 
   getCurrentUser: () =>
-    api.get<User>('/auth/me'),
+    api.get<User>('/auth/me', { params: { _t: Date.now() } }),
 
   changePassword: (data: { old_password: string; new_password: string }) =>
     api.post('/auth/change-password', data),
@@ -264,6 +264,12 @@ export const inviteesAPI = {
 
   deleteBulk: (inviteeIds: number[]) =>
     api.delete('/invitees/bulk', { data: { invitee_ids: inviteeIds } }),
+
+  getExportData: (groupId?: number) =>
+    api.get<{ events: { id: number; name: string }[]; contacts: any[] }>(
+      '/invitees/export-data',
+      { params: groupId ? { inviter_group_id: groupId } : {} }
+    ),
 
   // Event-specific invitees
   getForEvent: (eventId: number, filters?: ReportFilters) =>
@@ -653,8 +659,24 @@ export const settingsAPI = {
     logo_right?: string | null;
     remove_left?: boolean;
     remove_right?: boolean;
+    logo_scale?: number | null;
+    logo_padding_top?: number | null;
+    logo_padding_bottom?: number | null;
   }) =>
     api.put<{ success: boolean; settings: ExportSettings }>('/settings/export', data),
+
+  getBackupData: (tables?: string[], includePasswords = false) =>
+    api.get<{
+      backup_date: string;
+      backed_up_by: string;
+      summary: Record<string, number>;
+      data: Record<string, any[]>;
+    }>('/settings/backup', {
+      params: {
+        ...(tables ? { tables: tables.join(',') } : {}),
+        ...(includePasswords ? { include_passwords: 'true' } : {}),
+      },
+    }),
 };
 
 // --- Notifications API ---
@@ -706,6 +728,9 @@ export interface ExportSettingValue {
 export interface ExportSettings {
   logo_left?: ExportSettingValue;
   logo_right?: ExportSettingValue;
+  logo_scale?: ExportSettingValue;
+  logo_padding_top?: ExportSettingValue;
+  logo_padding_bottom?: ExportSettingValue;
 }
 
 export default api;

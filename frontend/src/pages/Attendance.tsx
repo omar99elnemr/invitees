@@ -26,6 +26,8 @@ import {
   RotateCcw,
   MoreHorizontal,
   UserX,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { attendanceAPI, AttendanceStats, AttendanceFilters, settingsAPI, eventsAPI, CheckinPinInfo } from '../services/api';
 import type { Event, EventInvitee } from '../types';
@@ -90,6 +92,9 @@ export default function Attendance() {
   const bulkActionsRef = useRef<HTMLDivElement>(null);
 
 
+  // Show all events toggle (only active events shown by default)
+  const [showAllEvents, setShowAllEvents] = useState(false);
+
   // Row action menu
   const [activeRowMenu, setActiveRowMenu] = useState<number | null>(null);
   const rowMenuRef = useRef<HTMLDivElement>(null);
@@ -151,15 +156,33 @@ export default function Attendance() {
     }
   }, [selectedEventId]);
 
+  // Derived: split events into active (upcoming/ongoing) and inactive
+  const activeStatuses = new Set(['upcoming', 'ongoing']);
+  const activeEvents = events.filter(e => activeStatuses.has(e.status));
+  const inactiveEvents = events.filter(e => !activeStatuses.has(e.status));
+
+  // When toggling back to active-only, if the selected event is inactive, switch to first active
+  useEffect(() => {
+    if (!showAllEvents && selectedEventId) {
+      const sel = events.find(e => e.id === selectedEventId);
+      if (sel && !activeStatuses.has(sel.status)) {
+        const firstActive = activeEvents[0];
+        setSelectedEventId(firstActive ? firstActive.id : null);
+      }
+    }
+  }, [showAllEvents]);
+
   const loadEvents = async () => {
     try {
       setLoading(true);
       const response = await attendanceAPI.getEvents();
-      setEvents(response.data.events || []);
+      const allEvents: Event[] = response.data.events || [];
+      setEvents(allEvents);
       
-      // Auto-select first event if available
-      if (response.data.events?.length > 0 && !selectedEventId) {
-        setSelectedEventId(response.data.events[0].id);
+      // Auto-select first active event if available
+      if (allEvents.length > 0 && !selectedEventId) {
+        const firstActive = allEvents.find(e => e.status === 'upcoming' || e.status === 'ongoing');
+        setSelectedEventId(firstActive ? firstActive.id : allEvents[0].id);
       }
     } catch (error) {
       toast.error('Failed to load events');
@@ -570,19 +593,43 @@ export default function Attendance() {
         </div>
         
         {/* Event Selector */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
           <select
             value={selectedEventId || ''}
             onChange={(e) => setSelectedEventId(Number(e.target.value))}
-            className="px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white dark:bg-gray-800 dark:text-white shadow-sm"
+            className="px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white dark:bg-gray-800 dark:text-white shadow-sm min-w-[180px]"
           >
             <option value="">Select Event</option>
-            {events.map(event => (
-              <option key={event.id} value={event.id}>
-                {event.name} ({event.status})
-              </option>
-            ))}
+            {activeEvents.length > 0 && (
+              <optgroup label="Active Events">
+                {activeEvents.map(event => (
+                  <option key={event.id} value={event.id}>
+                    {event.name} — {event.status === 'ongoing' ? '● Live' : '◦ Upcoming'}
+                  </option>
+                ))}
+              </optgroup>
+            )}
+            {showAllEvents && inactiveEvents.length > 0 && (
+              <optgroup label="Past / Inactive">
+                {inactiveEvents.map(event => (
+                  <option key={event.id} value={event.id}>
+                    {event.name} — {event.status}
+                  </option>
+                ))}
+              </optgroup>
+            )}
           </select>
+          <button
+            onClick={() => setShowAllEvents(prev => !prev)}
+            className={`p-2.5 rounded-xl transition-colors border ${
+              showAllEvents
+                ? 'bg-indigo-50 dark:bg-indigo-900/30 border-indigo-300 dark:border-indigo-600 text-indigo-600 dark:text-indigo-400'
+                : 'border-gray-200 dark:border-gray-600 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
+            }`}
+            title={showAllEvents ? 'Showing all events — click to show active only' : 'Show ended / inactive events'}
+          >
+            {showAllEvents ? <Eye className="w-5 h-5" /> : <EyeOff className="w-5 h-5" />}
+          </button>
           <button
             onClick={loadEventData}
             className="p-2.5 text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-xl transition-colors"
@@ -1101,9 +1148,17 @@ export default function Attendance() {
 
       {!selectedEventId && (
         <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-lg shadow">
-          <Calendar className="w-12 h-12 mx-auto text-gray-300 mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Select an Event</h3>
-          <p className="text-gray-500 dark:text-gray-400">Choose an event from the dropdown above to manage attendance</p>
+          <Calendar className="w-12 h-12 mx-auto text-gray-300 dark:text-gray-600 mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+            {activeEvents.length === 0 && inactiveEvents.length > 0
+              ? 'No Active Events'
+              : 'Select an Event'}
+          </h3>
+          <p className="text-gray-500 dark:text-gray-400">
+            {activeEvents.length === 0 && inactiveEvents.length > 0
+              ? <>No upcoming or ongoing events found. Click the <EyeOff className="w-4 h-4 inline -mt-0.5" /> button above to view past events.</>
+              : 'Choose an event from the dropdown above to manage attendance'}
+          </p>
         </div>
       )}
 

@@ -24,6 +24,7 @@ import {
   FileSpreadsheet,
   FileText,
   Trash,
+  Printer,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
@@ -160,6 +161,9 @@ export default function Invitees() {
   const [exportLogoRight, setExportLogoRight] = useState<string | null>(null);
   const [exportLogosLoaded, setExportLogosLoaded] = useState(false);
   const [logoImageData, setLogoImageData] = useState<string>('');
+  const [logoScale, setLogoScale] = useState<number>(100);
+  const [logoPaddingTop, setLogoPaddingTop] = useState<number>(0);
+  const [logoPaddingBottom, setLogoPaddingBottom] = useState<number>(0);
 
   // Form data
   const [formData, setFormData] = useState<InviteeFormData>(initialFormData);
@@ -276,6 +280,9 @@ export default function Invitees() {
       const settings = res.data.settings || {};
       setExportLogoLeft(settings.logo_left?.value || null);
       setExportLogoRight(settings.logo_right?.value || null);
+      if (settings.logo_scale?.value) setLogoScale(Number(settings.logo_scale.value) || 100);
+      if (settings.logo_padding_top?.value) setLogoPaddingTop(Number(settings.logo_padding_top.value) || 0);
+      if (settings.logo_padding_bottom?.value) setLogoPaddingBottom(Number(settings.logo_padding_bottom.value) || 0);
       setExportLogosLoaded(true);
     } catch {
       setExportLogosLoaded(true);
@@ -307,18 +314,19 @@ export default function Invitees() {
   const getContactsExportData = () => {
     return filteredContacts.map(c => ({
       'Name': c.name || '',
-      'Email': c.email || '',
       'Phone': c.phone || '',
-      'Position': c.position || '',
-      'Company': c.company || '',
-      'Category': c.category || '',
+      '2nd Phone': c.secondary_phone || '',
+      'Email': c.email || '',
       'Inviter': c.inviter_name || '',
       'Group': c.inviter_group_name || '',
-      'Plus One': c.plus_one ?? 0,
-      'Approved': c.approved_count ?? 0,
-      'Pending': c.pending_count ?? 0,
-      'Rejected': c.rejected_count ?? 0,
-      'Total Events': c.total_events ?? 0,
+      'Category': c.category || '',
+      'Position': c.position || '',
+      'Company': c.company || '',
+      'Guests': c.plus_one ?? 0,
+      'A': c.approved_count ?? 0,
+      'P': c.pending_count ?? 0,
+      'R': c.rejected_count ?? 0,
+      'Total': c.total_events ?? 0,
     }));
   };
 
@@ -331,14 +339,30 @@ export default function Invitees() {
     const filename = `contacts_export_${new Date().toISOString().split('T')[0]}`;
     const title = 'Contacts Export';
     const logoOptions = exportLogosLoaded
-      ? { logoLeft: exportLogoLeft, logoRight: exportLogoRight }
+      ? { logoLeft: exportLogoLeft, logoRight: exportLogoRight, logoScale, logoPaddingTop, logoPaddingBottom }
       : undefined;
 
     try {
       if (format === 'excel') {
         exportToExcel(data, filename, title, logoImageData, logoOptions);
       } else if (format === 'pdf') {
-        exportToPDF(data, filename, title, 'landscape', logoOptions);
+        // PDF-specific column order: hide Company, move Guests after Category before Position
+        const pdfData = data.map(row => ({
+          'Name': row['Name'],
+          'Phone': row['Phone'],
+          '2nd Phone': row['2nd Phone'],
+          'Email': row['Email'],
+          'Inviter': row['Inviter'],
+          'Group': row['Group'],
+          'Category': row['Category'],
+          'Guests': row['Guests'],
+          'Position': row['Position'],
+          'A': row['A'],
+          'P': row['P'],
+          'R': row['R'],
+          'Total': row['Total'],
+        }));
+        exportToPDF(pdfData, filename, title, 'landscape', logoOptions);
       } else {
         exportToCSV(data, filename);
       }
@@ -1513,6 +1537,91 @@ export default function Invitees() {
                         >
                           <FileText className="w-4 h-4" />
                           PDF
+                        </button>
+                        <div className="border-t border-gray-100 dark:border-gray-700 my-1" />
+                        <button
+                          onClick={() => {
+                            const data = getContactsExportData();
+                            if (data.length === 0) {
+                              toast.error('No contacts to print');
+                              setShowExportMenu(false);
+                              return;
+                            }
+                            const headers = Object.keys(data[0]);
+                            const tableRows = data.map((row, idx) =>
+                              `<tr style="${idx % 2 === 0 ? '' : 'background-color: #f9fafb;'}">
+                                ${headers.map(h => `<td>${row[h] ?? '—'}</td>`).join('')}
+                              </tr>`
+                            ).join('');
+
+                            const scaleFactor = logoScale / 100;
+                            const printH = Math.round(45 * scaleFactor);
+                            const printW = Math.round(130 * scaleFactor);
+                            const pTop = logoPaddingTop;
+                            const pBot = logoPaddingBottom;
+                            const printLeftLogo = exportLogosLoaded && exportLogoLeft
+                              ? `<img src="${exportLogoLeft}" style="height:${printH}px;max-width:${printW}px;margin-top:-${pTop}px;margin-bottom:-${pBot}px;" />`
+                              : '';
+                            const printRightLogo = exportLogosLoaded && exportLogoRight
+                              ? `<img src="${exportLogoRight}" style="height:${printH}px;max-width:${printW}px;margin-top:-${pTop}px;margin-bottom:-${pBot}px;" />`
+                              : '';
+
+                            const printWindow = window.open('', '_blank');
+                            if (printWindow) {
+                              printWindow.document.write(`
+                                <html>
+                                  <head>
+                                    <title>Contacts Export</title>
+                                    <style>
+                                      body { font-family: 'Segoe UI', Arial, sans-serif; padding: 30px; margin: 0; }
+                                      .print-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+                                      .print-header-center { text-align: center; flex: 1; }
+                                      .print-header-center h1 { font-size: 22px; margin: 0 0 4px 0; color: #1f2937; }
+                                      .print-header-center .meta { color: #6b7280; font-size: 11px; }
+                                      table { width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 15px; table-layout: auto; }
+                                      th { background-color: #2980b9; color: white; padding: 10px 8px; text-align: left; font-weight: 600; white-space: nowrap; }
+                                      td { border-bottom: 1px solid #e5e7eb; padding: 8px; word-wrap: break-word; max-width: 200px; }
+                                      tr:hover { background-color: #f3f4f6; }
+                                      .footer { margin-top: 20px; font-size: 10px; color: #9ca3af; text-align: center; }
+                                      @media print {
+                                        body { padding: 10px; }
+                                        @page { size: landscape; margin: 10mm; }
+                                        table { width: 100%; font-size: 9px; table-layout: auto; }
+                                        th { padding: 4px 6px; font-size: 9px; }
+                                        td { padding: 4px 6px; font-size: 9px; max-width: none; }
+                                      }
+                                    </style>
+                                  </head>
+                                  <body>
+                                    <div class="print-header">
+                                      <div>${printLeftLogo}</div>
+                                      <div class="print-header-center">
+                                        <h1>Contacts Export</h1>
+                                        <div class="meta">Generated: ${new Date().toLocaleString()} — ${data.length} contacts</div>
+                                      </div>
+                                      <div>${printRightLogo}</div>
+                                    </div>
+                                    <table>
+                                      <thead>
+                                        <tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr>
+                                      </thead>
+                                      <tbody>
+                                        ${tableRows}
+                                      </tbody>
+                                    </table>
+                                    <div class="footer">Total Records: ${data.length}</div>
+                                  </body>
+                                </html>
+                              `);
+                              printWindow.document.close();
+                              printWindow.print();
+                            }
+                            setShowExportMenu(false);
+                          }}
+                          className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 flex items-center gap-2.5"
+                        >
+                          <Printer className="w-4 h-4" />
+                          Print
                         </button>
                       </div>
                     )}

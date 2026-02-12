@@ -16,6 +16,11 @@ const isPublicRoute = () => {
          path === '/login';
 };
 
+// PWA standalone mode — backend auto-sets 30-day remember cookie,
+// so the frontend should never show the inactivity timeout modal.
+const isPWA = window.matchMedia('(display-mode: standalone)').matches ||
+              (window.navigator as any).standalone === true;
+
 // Session timeout in milliseconds (30 minutes)
 const SESSION_TIMEOUT = 30 * 60 * 1000;
 // Check interval (every minute)
@@ -42,7 +47,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [showSessionExpiredModal, setShowSessionExpiredModal] = useState(false);
   const lastActivityRef = useRef<number>(Date.now());
-  const rememberMeRef = useRef<boolean>(localStorage.getItem('rememberMe') === 'true');
+  const rememberMeRef = useRef<boolean>(isPWA || localStorage.getItem('rememberMe') === 'true');
   const sessionCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const heartbeatIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const lastHeartbeatActivityRef = useRef<number>(Date.now());
@@ -142,10 +147,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const checkAuth = async () => {
     try {
-      const response = await authAPI.getCurrentUser();
-      setUser(response.data);
-      // Restore remember me preference from localStorage
-      rememberMeRef.current = localStorage.getItem('rememberMe') === 'true';
+      // Use raw fetch with cache:'no-store' to guarantee the browser
+      // never serves a cached /api/auth/me response (XMLHttpRequest
+      // used by axios does NOT support the cache directive).
+      const res = await fetch(`/api/auth/me?_t=${Date.now()}`, {
+        method: 'GET',
+        cache: 'no-store',
+        credentials: 'include',
+        headers: { 'Accept': 'application/json' },
+      });
+      if (!res.ok) throw new Error('Not authenticated');
+      const data = await res.json();
+      setUser(data);
+      // Restore remember me preference (PWA always remembers)
+      rememberMeRef.current = isPWA || localStorage.getItem('rememberMe') === 'true';
     } catch (error) {
       setUser(null);
       // If not authenticated, clear stale remember flag
@@ -159,11 +174,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const response = await authAPI.login({ username, password, remember });
       setUser(response.data);
-      rememberMeRef.current = remember;
+      rememberMeRef.current = isPWA || remember;
       lastActivityRef.current = Date.now();
       setShowSessionExpiredModal(false);
-      // Persist remember me preference
-      if (remember) {
+      // Persist remember me preference (PWA always remembers)
+      if (isPWA || remember) {
         localStorage.setItem('rememberMe', 'true');
       } else {
         localStorage.removeItem('rememberMe');

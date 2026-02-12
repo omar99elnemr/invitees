@@ -143,6 +143,9 @@ export default function Reports() {
   const [exportLogoLeft, setExportLogoLeft] = useState<string | null>(null);
   const [exportLogoRight, setExportLogoRight] = useState<string | null>(null);
   const [exportLogosLoaded, setExportLogosLoaded] = useState(false);
+  const [logoScale, setLogoScale] = useState<number>(100);
+  const [logoPaddingTop, setLogoPaddingTop] = useState<number>(0);
+  const [logoPaddingBottom, setLogoPaddingBottom] = useState<number>(0);
 
   const isAdmin = user?.role === 'admin';
   const isDirector = user?.role === 'director';
@@ -220,6 +223,9 @@ export default function Reports() {
       const settings = res.data.settings || {};
       setExportLogoLeft(settings.logo_left?.value || null);
       setExportLogoRight(settings.logo_right?.value || null);
+      if (settings.logo_scale?.value) setLogoScale(Number(settings.logo_scale.value) || 100);
+      if (settings.logo_padding_top?.value) setLogoPaddingTop(Number(settings.logo_padding_top.value) || 0);
+      if (settings.logo_padding_bottom?.value) setLogoPaddingBottom(Number(settings.logo_padding_bottom.value) || 0);
       setExportLogosLoaded(true);
     } catch {
       // If settings API fails, export will fall back to hardcoded logo
@@ -460,7 +466,7 @@ export default function Reports() {
 
     // Build logo options from admin settings (shared by PDF and Excel)
     const logoOptions = exportLogosLoaded
-      ? { logoLeft: exportLogoLeft, logoRight: exportLogoRight }
+      ? { logoLeft: exportLogoLeft, logoRight: exportLogoRight, logoScale, logoPaddingTop, logoPaddingBottom }
       : undefined;
 
     try {
@@ -829,12 +835,17 @@ export default function Reports() {
                 </tr>`
               ).join('');
               
-              // Build print logo HTML from dynamic settings
+              // Build print logo HTML from dynamic settings (with sizing)
+              const sf = logoScale / 100;
+              const pH = Math.round(45 * sf);
+              const pW = Math.round(130 * sf);
+              const pT = logoPaddingTop;
+              const pB = logoPaddingBottom;
               const printLeftLogo = exportLogosLoaded && exportLogoLeft
-                ? `<img src="${exportLogoLeft}" style="height:45px;max-width:130px;" />`
+                ? `<img src="${exportLogoLeft}" style="height:${pH}px;max-width:${pW}px;margin-top:-${pT}px;margin-bottom:-${pB}px;" />`
                 : '';
               const printRightLogo = exportLogosLoaded && exportLogoRight
-                ? `<img src="${exportLogoRight}" style="height:45px;max-width:130px;" />`
+                ? `<img src="${exportLogoRight}" style="height:${pH}px;max-width:${pW}px;margin-top:-${pT}px;margin-bottom:-${pB}px;" />`
                 : '';
 
               const printWindow = window.open('', '_blank');

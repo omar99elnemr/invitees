@@ -4,12 +4,11 @@
  * and faster subsequent loads.
  */
 
-const CACHE_NAME = 'invitees-v1';
+const CACHE_NAME = 'invitees-v2';
 
 // App shell files to pre-cache on install
 const APP_SHELL = [
   '/',
-  '/manifest.json',
   '/favicon.svg',
 ];
 
@@ -22,6 +21,13 @@ self.addEventListener('install', (event) => {
   );
   // Activate immediately
   self.skipWaiting();
+});
+
+// Message: allow the app to tell a waiting SW to activate immediately
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
 });
 
 // Activate: clean up old caches
@@ -92,6 +98,9 @@ self.addEventListener('fetch', (event) => {
 
   // Skip API calls — always go to network
   if (url.pathname.startsWith('/api/')) return;
+
+  // Never cache manifest — Android needs to always fetch fresh for splash/icon updates
+  if (url.pathname === '/manifest.json') return;
 
   // For navigation requests (HTML pages), use network-first
   if (event.request.mode === 'navigate') {

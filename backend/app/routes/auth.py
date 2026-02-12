@@ -20,6 +20,11 @@ def login():
     
     if user:
         remember = data.get('remember', False)
+        # PWA standalone mode: always set remember cookie for native-app-like
+        # long-lived sessions (30 days via REMEMBER_COOKIE_DURATION).
+        # Desktop / phone-browser sessions rely on the 30-min sliding window.
+        if request.headers.get('X-PWA-Standalone') == '1':
+            remember = True
         AuthService.login(user, remember=remember)
         return jsonify(user.to_dict()), 200
     
@@ -36,7 +41,10 @@ def logout():
 @login_required
 def get_current_user():
     """Get current authenticated user"""
-    return jsonify(current_user.to_dict()), 200
+    resp = jsonify(current_user.to_dict())
+    resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    resp.headers['Pragma'] = 'no-cache'
+    return resp, 200
 
 @auth_bp.route('/change-password', methods=['POST'])
 @login_required

@@ -11,6 +11,7 @@ import { Layout } from './components/layout/Layout';
 import { lazy, Suspense, useState, useCallback } from 'react';
 import PWAInstallPrompt from './components/common/PWAInstallPrompt';
 import SplashScreen from './components/common/SplashScreen';
+import PageLoader from './components/common/PageLoader';
 
 const isPWA = window.matchMedia('(display-mode: standalone)').matches ||
               (window.navigator as any).standalone === true;
@@ -67,7 +68,7 @@ function App() {
         />
         
         <PWAInstallPrompt />
-        <Suspense fallback={<div className="min-h-screen" />}>
+        <Suspense fallback={<PageLoader />}>
         <Routes>
           <Route path="/login" element={<Login />} />
           {/* Public Routes - No Auth Required */}

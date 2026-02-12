@@ -17,9 +17,44 @@ def refresh_event_statuses():
     Refresh all event statuses based on current Egypt time.
     Called periodically by the frontend to keep statuses in sync.
     Returns the updated events list.
+    Sends system notifications when events auto-transition (upcoming→ongoing, ongoing→ended).
     """
     try:
+        from app import db as _db
+
+        # Detect which events WILL transition before the bulk update
+        now = get_egypt_time()
+        going_live = Event.query.filter(
+            Event.status == 'upcoming',
+            Event.start_date <= now,
+            Event.end_date > now
+        ).all()
+        going_ended = Event.query.filter(
+            Event.status.in_(['upcoming', 'ongoing']),
+            Event.end_date <= now
+        ).all()
+
+        # Build transition list: (event, old_status, new_status)
+        transitioned = []
+        for ev in going_live:
+            transitioned.append((ev, ev.status, 'ongoing'))
+        for ev in going_ended:
+            # Avoid duplicates if an event appears in both queries
+            if not any(t[0].id == ev.id for t in transitioned):
+                transitioned.append((ev, ev.status, 'ended'))
+
+        # Now do the actual bulk status update
         ongoing_count, ended_count = Event.update_all_statuses()
+
+        # Send system notifications for auto-transitions (best effort)
+        if transitioned:
+            try:
+                from app.services.notification_service import notify_event_auto_transitions
+                notify_event_auto_transitions(transitioned)
+                _db.session.commit()
+            except Exception:
+                pass
+
         events = EventService.get_events_for_user(current_user)
         return jsonify({
             'events': [event.to_dict() for event in events],
@@ -88,6 +123,36 @@ def create_event():
     if error:
         return jsonify({'error': error}), 400
     
+    # Notify assigned group members about the new event
+    try:
+        from app.services.notification_service import notify_group_assigned_to_event, create_bulk_notifications
+        from app.models.user import User
+        from app.models.inviter_group import InviterGroup as IG
+
+        if event.is_all_groups:
+            groups = IG.query.all()
+        else:
+            groups = event.inviter_groups
+
+        for group in groups:
+            notify_group_assigned_to_event(event, group, exclude_user_id=current_user.id)
+
+        # Also notify other admins about the new event
+        admin_ids = {u.id for u in User.query.filter_by(role='admin', is_active=True).all()}
+        admin_ids.discard(current_user.id)
+        if admin_ids:
+            create_bulk_notifications(
+                list(admin_ids),
+                'New Event Created',
+                f'"{event.name}" has been created and assigned to {"all groups" if event.is_all_groups else f"{len(groups)} group(s)"}.',
+                type='event_status',
+                link='/events',
+            )
+
+        db.session.commit()
+    except Exception:
+        pass
+    
     return jsonify(event.to_dict()), 201
 
 @events_bp.route('/<int:event_id>', methods=['PUT'])
@@ -100,6 +165,17 @@ def update_event(event_id):
     # Get is_all_groups flag
     is_all_groups = data.get('is_all_groups')
     inviter_group_ids = data.get('inviter_group_ids')
+    
+    # Snapshot old group IDs before update so we can detect newly added groups
+    from app.models.event import Event as EventModel
+    old_event = EventModel.query.get(event_id)
+    old_group_ids = set()
+    if old_event:
+        if old_event.is_all_groups:
+            from app.models.inviter_group import InviterGroup as IG
+            old_group_ids = {g.id for g in IG.query.all()}
+        else:
+            old_group_ids = {g.id for g in old_event.inviter_groups}
     
     event, error = EventService.update_event(
         event_id=event_id,
@@ -116,6 +192,30 @@ def update_event(event_id):
     if error:
         status_code = 404 if 'not found' in error.lower() else 400
         return jsonify({'error': error}), status_code
+    
+    # Notify only NEWLY assigned group members (avoid re-notifying existing)
+    try:
+        from app.services.notification_service import notify_group_assigned_to_event, notify_event_details_updated
+        from app.models.inviter_group import InviterGroup as IG
+
+        if event.is_all_groups:
+            new_group_ids = {g.id for g in IG.query.all()} - old_group_ids
+        elif inviter_group_ids is not None:
+            new_group_ids = set(inviter_group_ids) - old_group_ids
+        else:
+            new_group_ids = set()
+
+        if new_group_ids:
+            new_groups = IG.query.filter(IG.id.in_(new_group_ids)).all()
+            for group in new_groups:
+                notify_group_assigned_to_event(event, group, exclude_user_id=current_user.id)
+
+        # Notify existing assigned groups about the detail changes
+        notify_event_details_updated(event, exclude_user_id=current_user.id)
+
+        db.session.commit()
+    except Exception:
+        pass
     
     return jsonify(event.to_dict()), 200
 

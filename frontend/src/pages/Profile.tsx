@@ -11,6 +11,8 @@ import {
   EyeOff,
   CheckCircle,
   AlertTriangle,
+  RefreshCw,
+  Trash2,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { authAPI } from '../services/api';
@@ -372,6 +374,93 @@ export default function Profile() {
           </div>
         </div>
       )}
+
+      {/* App Update & Cache */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+        <div className="p-5 sm:p-6 border-b border-gray-200 dark:border-gray-700">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">App Update & Cache</h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400">Force the app to fetch the latest version or clear locally cached data</p>
+        </div>
+        <div className="p-5 sm:p-6 space-y-4">
+          <div className="flex flex-col sm:flex-row gap-3">
+            <button
+              onClick={async () => {
+                const toastId = toast.loading('Checking for updates…');
+                try {
+                  if ('serviceWorker' in navigator) {
+                    const reg = await navigator.serviceWorker.getRegistration();
+                    if (reg) {
+                      // Listen for the new SW to take control then reload
+                      navigator.serviceWorker.addEventListener('controllerchange', () => {
+                        window.location.reload();
+                      }, { once: true });
+
+                      await reg.update();
+
+                      // The new SW may already be waiting or still installing
+                      const waiting = reg.waiting;
+                      const installing = reg.installing;
+                      if (waiting) {
+                        waiting.postMessage({ type: 'SKIP_WAITING' });
+                      } else if (installing) {
+                        // Wait for it to finish installing then activate
+                        installing.addEventListener('statechange', () => {
+                          if (installing.state === 'installed' && reg.waiting) {
+                            reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+                          }
+                        });
+                      }
+                    }
+                  }
+                  toast.dismiss(toastId);
+                  toast.success('Update check complete — reloading…');
+                  // Fallback reload in case controllerchange doesn't fire (no new SW found)
+                  setTimeout(() => window.location.reload(), 1500);
+                } catch (err) {
+                  toast.dismiss(toastId);
+                  toast.error('Update check failed');
+                  console.error(err);
+                }
+              }}
+              className="flex items-center justify-center gap-2 px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all shadow-md font-medium text-sm"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Check for Updates
+            </button>
+            <button
+              onClick={async () => {
+                const toastId = toast.loading('Clearing cached data…');
+                try {
+                  if ('caches' in window) {
+                    const keys = await caches.keys();
+                    await Promise.all(keys.map(k => caches.delete(k)));
+                  }
+                  if ('serviceWorker' in navigator) {
+                    const reg = await navigator.serviceWorker.getRegistration();
+                    if (reg) {
+                      await reg.unregister();
+                    }
+                  }
+                  toast.dismiss(toastId);
+                  toast.success('Cache cleared — reloading…');
+                  setTimeout(() => window.location.reload(), 800);
+                } catch (err) {
+                  toast.dismiss(toastId);
+                  toast.error('Failed to clear cache');
+                  console.error(err);
+                }
+              }}
+              className="flex items-center justify-center gap-2 px-5 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-xl hover:from-amber-600 hover:to-orange-600 transition-all shadow-md font-medium text-sm"
+            >
+              <Trash2 className="w-4 h-4" />
+              Clear Cached Data
+            </button>
+          </div>
+          <p className="text-xs text-gray-400 dark:text-gray-500">
+            <strong>Check for Updates</strong> fetches the latest app version from the server. <strong>Clear Cached Data</strong> removes all locally stored files and re-downloads them fresh. Neither will affect your login or personal data.
+          </p>
+        </div>
+      </div>
     </div>
   );
 }

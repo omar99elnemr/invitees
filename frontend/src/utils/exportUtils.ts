@@ -315,7 +315,7 @@ export const exportToPDF = (
   filename: string,
   title: string,
   orientation: 'portrait' | 'landscape' = 'landscape',
-  options?: { logoLeft?: string | null; logoRight?: string | null }
+  options?: { logoLeft?: string | null; logoRight?: string | null; logoScale?: number; logoPaddingTop?: number; logoPaddingBottom?: number }
 ): void => {
   try {
     if (!data || data.length === 0) {
@@ -325,6 +325,10 @@ export const exportToPDF = (
     // Resolve logos: dynamic from settings → fallback to hardcoded
     const leftLogo = options?.logoLeft !== undefined ? options.logoLeft : logoBase64;
     const rightLogo = options?.logoRight !== undefined ? options.logoRight : null;
+    const pdfScale = (options?.logoScale ?? 100) / 100;
+    const pdfLogoW = Math.round(25 * pdfScale);
+    const pdfLogoH = Math.round(12 * pdfScale);
+    const pdfPadTop = (options?.logoPaddingTop ?? 0) * 0.26; // px to mm approx
     console.log('🖼️ Left logo:', leftLogo ? 'Yes' : 'No', '| Right logo:', rightLogo ? 'Yes' : 'No');
 
     // Detect scripts in data
@@ -384,25 +388,36 @@ export const exportToPDF = (
     
     // Calculate column widths: always fill full page width
     const availableWidth = pageWidth - 28; // margins: 14 left + 14 right
+    const columnCount = columns.length;
     const columnWeights = columns.map((col) => {
       const headerLen = col.length;
       const maxDataLen = Math.max(...data.slice(0, 50).map(item => {
         const val = String(item[col] || '');
         return val.length;
       }), 1);
-      // Weight based on content length, with minimum floor
-      return Math.max(Math.max(headerLen, maxDataLen), 3);
+      const raw = Math.max(headerLen, maxDataLen);
+      // Clamp: very short columns stay compact, very long ones are capped
+      if (raw <= 2) return 2;      // Single-char columns like A, P, R
+      if (raw <= 6) return raw;     // Short columns like Total
+      if (raw > 30) return 20;      // Cap long content
+      return raw;
     });
     const totalWeight = columnWeights.reduce((sum, w) => sum + w, 0);
-    const adjustedWidths = columnWeights.map(w => 
-      Math.max((w / totalWeight) * availableWidth, 12)
+    // Minimum cell width scales down with more columns
+    const minCellWidth = columnCount > 14 ? 6 : columnCount > 10 ? 8 : 12;
+    const rawWidths = columnWeights.map(w => 
+      Math.max((w / totalWeight) * availableWidth, minCellWidth)
     );
+    // Normalize so widths sum to exactly availableWidth (equal left/right margins)
+    const rawSum = rawWidths.reduce((s, w) => s + w, 0);
+    const adjustedWidths = rawWidths.map(w => (w / rawSum) * availableWidth);
     
-    // Determine font sizes and spacing based on content
-    const baseFontSize = scripts.hasChinese ? 6 : (scripts.hasArabic || scripts.hasCyrillic ? 7 : 7); // Reduced all sizes
-    const headerFontSize = baseFontSize + 1;
-    const cellPadding = (scripts.hasArabic || scripts.hasCyrillic || scripts.hasChinese) ? 3 : 2; // Reduced padding
-    const minCellHeight = (scripts.hasArabic || scripts.hasCyrillic || scripts.hasChinese) ? 8 : 7; // Reduced height
+    // Determine font sizes and spacing based on content and column count
+    const manyColumns = columnCount > 12;
+    const baseFontSize = scripts.hasChinese ? 6 : manyColumns ? 6 : (scripts.hasArabic || scripts.hasCyrillic ? 7 : 7);
+    const headerFontSize = baseFontSize + (manyColumns ? 0.5 : 1);
+    const cellPadding = manyColumns ? 1.5 : (scripts.hasArabic || scripts.hasCyrillic || scripts.hasChinese) ? 3 : 2;
+    const minCellHeight = manyColumns ? 5 : (scripts.hasArabic || scripts.hasCyrillic || scripts.hasChinese) ? 8 : 7;
     
     // Select appropriate font for the content
     const selectedFont = selectFont(scripts);
@@ -459,7 +474,7 @@ export const exportToPDF = (
         // Add left logo to every page (top-left, within margins)
         if (leftLogo) {
           try {
-            doc.addImage(leftLogo, 'PNG', 14, 8, 25, 12);
+            doc.addImage(leftLogo, 'PNG', 14, 8 - pdfPadTop, pdfLogoW, pdfLogoH);
           } catch (e) {
             // Silently ignore on subsequent pages
           }
@@ -468,7 +483,7 @@ export const exportToPDF = (
         // Add right logo to every page (top-right, within margins)
         if (rightLogo) {
           try {
-            doc.addImage(rightLogo, 'PNG', pageWidth - 39, 8, 25, 12);
+            doc.addImage(rightLogo, 'PNG', pageWidth - 14 - pdfLogoW, 8 - pdfPadTop, pdfLogoW, pdfLogoH);
           } catch (e) {
             // Silently ignore on subsequent pages
           }

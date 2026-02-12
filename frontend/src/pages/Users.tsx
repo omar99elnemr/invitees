@@ -540,47 +540,47 @@ export default function Users() {
       {/* Tabs */}
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
         <div className="border-b border-gray-200 dark:border-gray-700">
-          <nav className="-mb-px flex overflow-x-auto">
+          <nav className="-mb-px flex">
             <button
               onClick={() => { setActiveTab('users'); sessionStorage.setItem('users_activeTab', 'users'); }}
-              className={`flex items-center gap-2 px-4 sm:px-6 py-4 text-sm font-medium border-b-2 transition-all whitespace-nowrap ${
+              className={`flex-1 flex items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-medium border-b-2 transition-all whitespace-nowrap ${
                 activeTab === 'users'
                   ? 'border-indigo-600 text-indigo-600 bg-indigo-50/50 dark:bg-indigo-900/20'
                   : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300'
               }`}
             >
-              <UsersIcon className="w-4 h-4" />
+              <UsersIcon className="w-4 h-4 hidden sm:block" />
               <span>Users</span>
-              <span className={`ml-1 px-2 py-0.5 rounded-full text-xs ${activeTab === 'users' ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'}`}>
+              <span className={`px-1.5 sm:px-2 py-0.5 rounded-full text-xs ${activeTab === 'users' ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'}`}>
                 {users.length}
               </span>
             </button>
             <button
               onClick={() => { setActiveTab('groups'); sessionStorage.setItem('users_activeTab', 'groups'); }}
-              className={`flex items-center gap-2 px-4 sm:px-6 py-4 text-sm font-medium border-b-2 transition-all whitespace-nowrap ${
+              className={`flex-1 flex items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-medium border-b-2 transition-all whitespace-nowrap ${
                 activeTab === 'groups'
                   ? 'border-indigo-600 text-indigo-600 bg-indigo-50/50 dark:bg-indigo-900/20'
                   : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300'
               }`}
             >
-              <Building className="w-4 h-4" />
+              <Building className="w-4 h-4 hidden sm:block" />
               <span className="hidden sm:inline">Inviter Groups</span>
               <span className="sm:hidden">Groups</span>
-              <span className={`ml-1 px-2 py-0.5 rounded-full text-xs ${activeTab === 'groups' ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'}`}>
+              <span className={`px-1.5 sm:px-2 py-0.5 rounded-full text-xs ${activeTab === 'groups' ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'}`}>
                 {inviterGroups.length}
               </span>
             </button>
             <button
               onClick={() => { setActiveTab('inviters'); sessionStorage.setItem('users_activeTab', 'inviters'); }}
-              className={`flex items-center gap-2 px-4 sm:px-6 py-4 text-sm font-medium border-b-2 transition-all whitespace-nowrap ${
+              className={`flex-1 flex items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-medium border-b-2 transition-all whitespace-nowrap ${
                 activeTab === 'inviters'
                   ? 'border-indigo-600 text-indigo-600 bg-indigo-50/50 dark:bg-indigo-900/20'
                   : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300'
               }`}
             >
-              <UserCog className="w-4 h-4" />
+              <UserCog className="w-4 h-4 hidden sm:block" />
               <span>Inviters</span>
-              <span className={`ml-1 px-2 py-0.5 rounded-full text-xs ${activeTab === 'inviters' ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'}`}>
+              <span className={`px-1.5 sm:px-2 py-0.5 rounded-full text-xs ${activeTab === 'inviters' ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'}`}>
                 {inviters.length}
               </span>
             </button>

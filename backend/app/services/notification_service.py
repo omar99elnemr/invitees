@@ -272,33 +272,141 @@ def notify_group_assigned_to_event(event, group, exclude_user_id=None):
         )
 
 
-def notify_invitation_submitted(event_invitee):
-    """Notify directors when an invitation is submitted for approval."""
+def notify_invitation_submitted(event_name, count, submitter_user):
+    """Notify directors in the same group when an organizer submits invitations.
+    Directors/admins submitting do NOT trigger this (they manage approvals)."""
     from app.models.user import User
 
-    title = 'New Invitation Submitted'
-    message = f'"{event_invitee.invitee_name}" submitted for "{event_invitee.event.name}" — awaiting approval.'
+    # Only organizer submissions trigger notifications
+    if submitter_user.role != 'organizer':
+        return
+
+    if not submitter_user.inviter_group_id:
+        return
+
+    title = 'New Invitations Submitted'
+    plural = 's' if count > 1 else ''
+    message = f'{count} invitee{plural} submitted for "{event_name}" by {submitter_user.username} — awaiting approval.'
     link = '/approvals'
 
-    # Notify directors in the same group + all admins
-    user_ids = set()
-    admins = User.query.filter_by(role='admin', is_active=True).all()
-    user_ids.update(u.id for u in admins)
-
-    if event_invitee.inviter_group_id:
-        directors = User.query.filter_by(
-            inviter_group_id=event_invitee.inviter_group_id,
-            role='director',
-            is_active=True,
-        ).all()
-        user_ids.update(u.id for u in directors)
-
-    # Don't notify the submitter themselves
-    if event_invitee.inviter_user_id and event_invitee.inviter_user_id in user_ids:
-        user_ids.discard(event_invitee.inviter_user_id)
+    # Only directors in the SAME group
+    directors = User.query.filter_by(
+        inviter_group_id=submitter_user.inviter_group_id,
+        role='director',
+        is_active=True,
+    ).all()
+    user_ids = {u.id for u in directors}
+    user_ids.discard(submitter_user.id)
 
     if user_ids:
         create_bulk_notifications(list(user_ids), title, message, type='invitation_submitted', link=link)
+
+
+def notify_invitation_resubmitted(event_name, count, submitter_user):
+    """Notify directors in the same group when an organizer resubmits rejected invitations."""
+    from app.models.user import User
+
+    if submitter_user.role != 'organizer':
+        return
+
+    if not submitter_user.inviter_group_id:
+        return
+
+    title = 'Invitations Resubmitted'
+    plural = 's' if count > 1 else ''
+    message = f'{count} previously rejected invitee{plural} resubmitted for "{event_name}" by {submitter_user.username}.'
+    link = '/approvals'
+
+    directors = User.query.filter_by(
+        inviter_group_id=submitter_user.inviter_group_id,
+        role='director',
+        is_active=True,
+    ).all()
+    user_ids = {u.id for u in directors}
+    user_ids.discard(submitter_user.id)
+
+    if user_ids:
+        create_bulk_notifications(list(user_ids), title, message, type='invitation_submitted', link=link)
+
+
+def notify_event_auto_transitions(transitioned_events):
+    """Notify all relevant users when events auto-transition status (system-triggered).
+    transitioned_events: list of (event, old_status, new_status) tuples.
+    System actions notify ALL relevant users (no exclusion)."""
+    from app.models.user import User
+    from app.models.inviter_group import InviterGroup
+
+    status_labels = {
+        'upcoming': 'Upcoming',
+        'ongoing': 'Now Live',
+        'ended': 'Ended',
+    }
+
+    for event, old_status, new_status in transitioned_events:
+        label = status_labels.get(new_status, new_status)
+        if new_status == 'ongoing':
+            title = 'Event Now Live'
+            message = f'"{event.name}" has started and is now live.'
+        elif new_status == 'ended':
+            title = 'Event Ended'
+            message = f'"{event.name}" has ended.'
+        else:
+            title = f'Event {label}'
+            message = f'"{event.name}" is now {label.lower()}.'
+
+        link = '/events'
+
+        # System action → notify ALL relevant users (admins + assigned groups)
+        user_ids = set()
+        admins = User.query.filter_by(role='admin', is_active=True).all()
+        user_ids.update(u.id for u in admins)
+
+        if event.is_all_groups:
+            groups = InviterGroup.query.all()
+        else:
+            groups = event.inviter_groups
+
+        for group in groups:
+            group_users = User.query.filter_by(inviter_group_id=group.id, is_active=True).all()
+            user_ids.update(u.id for u in group_users)
+
+        if user_ids:
+            create_bulk_notifications(list(user_ids), title, message, type='event_status', link=link)
+
+
+def notify_event_details_updated(event, exclude_user_id=None):
+    """Notify assigned group members when event details are updated by admin."""
+    from app.models.user import User
+    from app.models.inviter_group import InviterGroup
+
+    title = 'Event Updated'
+    message = f'Details for "{event.name}" have been updated.'
+    link = '/events'
+
+    user_ids = set()
+
+    if event.is_all_groups:
+        groups = InviterGroup.query.all()
+    else:
+        groups = event.inviter_groups
+
+    for group in groups:
+        group_users = User.query.filter(
+            User.inviter_group_id == group.id,
+            User.is_active == True,
+            User.role.in_(['director', 'organizer']),
+        ).all()
+        user_ids.update(u.id for u in group_users)
+
+    # Also notify other admins
+    admins = User.query.filter_by(role='admin', is_active=True).all()
+    user_ids.update(u.id for u in admins)
+
+    if exclude_user_id:
+        user_ids.discard(exclude_user_id)
+
+    if user_ids:
+        create_bulk_notifications(list(user_ids), title, message, type='event_status', link=link)
 
 
 def notify_invitation_approved(event_invitee, exclude_user_id=None):
@@ -310,7 +418,9 @@ def notify_invitation_approved(event_invitee, exclude_user_id=None):
         return
 
     title = 'Invitation Approved'
-    message = f'"{event_invitee.invitee_name}" has been approved for "{event_invitee.event.name}".'
+    invitee_name = event_invitee.invitee.name if event_invitee.invitee else 'Unknown'
+    event_name = event_invitee.event.name if event_invitee.event else 'Unknown'
+    message = f'"{invitee_name}" has been approved for "{event_name}".'
     link = '/invitees?tab=events'
 
     create_notification(
@@ -327,8 +437,10 @@ def notify_invitation_rejected(event_invitee, reason=None, exclude_user_id=None)
         return
 
     title = 'Invitation Rejected'
+    invitee_name = event_invitee.invitee.name if event_invitee.invitee else 'Unknown'
+    event_name = event_invitee.event.name if event_invitee.event else 'Unknown'
     reason_text = f' Reason: {reason}' if reason else ''
-    message = f'"{event_invitee.invitee_name}" was rejected for "{event_invitee.event.name}".{reason_text}'
+    message = f'"{invitee_name}" was rejected for "{event_name}".{reason_text}'
     link = '/invitees?tab=events'
 
     create_notification(
@@ -345,7 +457,9 @@ def notify_invitation_cancelled(event_invitee, exclude_user_id=None):
         return
 
     title = 'Approval Cancelled'
-    message = f'Approval for "{event_invitee.invitee_name}" in "{event_invitee.event.name}" has been cancelled.'
+    invitee_name = event_invitee.invitee.name if event_invitee.invitee else 'Unknown'
+    event_name = event_invitee.event.name if event_invitee.event else 'Unknown'
+    message = f'Approval for "{invitee_name}" in "{event_name}" has been cancelled.'
     link = '/invitees?tab=events'
 
     create_notification(

@@ -22,7 +22,7 @@ class ExportSetting(db.Model):
     updated_by = db.relationship('User', backref='export_setting_updates', lazy='joined')
     
     # Valid setting keys
-    VALID_KEYS = ['logo_left', 'logo_right']
+    VALID_KEYS = ['logo_left', 'logo_right', 'logo_scale', 'logo_padding_top', 'logo_padding_bottom']
     
     def __repr__(self):
         return f'<ExportSetting {self.setting_key}>'
