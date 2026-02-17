@@ -539,10 +539,11 @@ export default function Approvals() {
                       <SortableColumnHeader field="invitee_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Invitee</SortableColumnHeader>
                       <SortableColumnHeader field="event_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Event</SortableColumnHeader>
                       <SortableColumnHeader field="inviter_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden md:table-cell">Invited By</SortableColumnHeader>
+                      <SortableColumnHeader field="submitter_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden lg:table-cell">Submitted By</SortableColumnHeader>
                       {isAdmin && (
                         <SortableColumnHeader field="inviter_group_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden sm:table-cell">Group</SortableColumnHeader>
                       )}
-                      <SortableColumnHeader field="created_at" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden lg:table-cell">Date</SortableColumnHeader>
+                      <SortableColumnHeader field="created_at" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden xl:table-cell">Date</SortableColumnHeader>
                       {!isAdmin && (
                         <th className="px-2 sm:px-4 py-2 sm:py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                           Actions
@@ -602,6 +603,9 @@ export default function Approvals() {
                             </div>
                           )}
                         </td>
+                        <td className="hidden lg:table-cell px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap">
+                          <span className="text-xs sm:text-sm text-gray-900 dark:text-white">{approval.submitter_name || '-'}</span>
+                        </td>
                         {isAdmin && (
                           <td className="hidden sm:table-cell px-2 sm:px-4 py-2 sm:py-3">
                             {approval.inviter_group_name ? (
@@ -609,7 +613,7 @@ export default function Approvals() {
                             ) : <span className="text-xs text-gray-400">-</span>}
                           </td>
                         )}
-                        <td className="hidden lg:table-cell px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap">
+                        <td className="hidden xl:table-cell px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap">
                           <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1">
                             <Calendar className="w-3 h-3" />
                             {formatDateEgypt(approval.created_at)}
@@ -686,8 +690,9 @@ export default function Approvals() {
                       {isAdmin && (
                         <SortableColumnHeader field="inviter_group_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden sm:table-cell">Group</SortableColumnHeader>
                       )}
-                      <SortableColumnHeader field="category" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden lg:table-cell">Category</SortableColumnHeader>
-                      <SortableColumnHeader field="approved_by_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden lg:table-cell">Approved By</SortableColumnHeader>
+                      <SortableColumnHeader field="category" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden xl:table-cell">Category</SortableColumnHeader>
+                      <SortableColumnHeader field="submitter_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden lg:table-cell">Submitted By</SortableColumnHeader>
+                      <SortableColumnHeader field="approved_by_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden xl:table-cell">Approved By</SortableColumnHeader>
                       {!isAdmin && (
                         <th className="px-2 sm:px-4 py-2 sm:py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                           Actions
@@ -742,7 +747,7 @@ export default function Approvals() {
                             ) : <span className="text-xs text-gray-400">-</span>}
                           </td>
                         )}
-                        <td className="hidden lg:table-cell px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap">
+                        <td className="hidden xl:table-cell px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap">
                           {invitee.category && (
                             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${invitee.category === 'Gold' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
                               }`}>
@@ -751,6 +756,9 @@ export default function Approvals() {
                           )}
                         </td>
                         <td className="hidden lg:table-cell px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap">
+                          <span className="text-xs sm:text-sm text-gray-900 dark:text-white">{invitee.submitter_name || '-'}</span>
+                        </td>
+                        <td className="hidden xl:table-cell px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap">
                           <div>
                             <span className="text-xs sm:text-sm text-gray-900 dark:text-white">{invitee.approved_by_name || '-'}</span>
                             {invitee.status_date && (

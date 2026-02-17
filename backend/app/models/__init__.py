@@ -13,6 +13,7 @@ from app.models.audit_log import AuditLog
 from app.models.category import Category
 from app.models.export_setting import ExportSetting
 from app.models.notification import Notification, PushSubscription
+from app.models.event_group_quota import EventGroupQuota
 
 __all__ = [
     'User',
@@ -28,4 +29,5 @@ __all__ = [
     'ExportSetting',
     'Notification',
     'PushSubscription',
+    'EventGroupQuota',
 ]

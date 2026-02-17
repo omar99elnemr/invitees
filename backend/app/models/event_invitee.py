@@ -136,15 +136,15 @@ class EventInvitee(db.Model):
             data['inviter_name'] = self.inviter.name if self.inviter else None
             data['inviter_group_name'] = self.inviter.inviter_group.name if self.inviter and self.inviter.inviter_group else (submitter.inviter_group.name if submitter and submitter.inviter_group else None)
             # Submitter is the user who submitted the invitation
-            data['submitter_name'] = submitter.username if submitter else None
+            data['submitter_name'] = submitter.full_name if submitter and submitter.full_name else (submitter.username if submitter else None)
             data['approved_by_name'] = None
             if self.approved_by_user_id:
                 approver = User.query.get(self.approved_by_user_id)
-                data['approved_by_name'] = approver.username if approver else None
+                data['approved_by_name'] = approver.full_name if approver and approver.full_name else (approver.username if approver else None)
             # Add checked_in_by name
             if self.checked_in_by_user_id:
                 checked_in_by = User.query.get(self.checked_in_by_user_id)
-                data['checked_in_by_name'] = checked_in_by.username if checked_in_by else None
+                data['checked_in_by_name'] = checked_in_by.full_name if checked_in_by and checked_in_by.full_name else (checked_in_by.username if checked_in_by else None)
             else:
                 data['checked_in_by_name'] = None
             # Add invitee title for welcome page

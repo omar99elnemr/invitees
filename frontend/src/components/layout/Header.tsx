@@ -48,8 +48,11 @@ export function Header({ onMenuClick, sidebarOpen }: HeaderProps) {
   };
 
   return (
-    <header className="fixed top-0 left-0 right-0 h-16 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border-b border-gray-200/60 dark:border-gray-700/40 z-50 shadow-sm">
-      <div className="h-full px-4 flex items-center justify-between">
+    <header
+      className="fixed top-0 left-0 right-0 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border-b border-gray-200/60 dark:border-gray-700/40 z-50 shadow-sm"
+      style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
+    >
+      <div className="h-16 px-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <button
             onClick={onMenuClick}

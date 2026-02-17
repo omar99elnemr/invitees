@@ -7,6 +7,7 @@ from flask_login import login_required, current_user
 from app.utils.decorators import admin_required
 from app.services.event_service import EventService
 from app.models.event import Event, get_egypt_time
+from app import db
 
 events_bp = Blueprint('events', __name__, url_prefix='/api/events')
 
@@ -424,3 +425,132 @@ def update_checkin_settings(event_id):
         'success': True,
         'auto_deactivate_hours': event.checkin_pin_auto_deactivate_hours
     })
+
+
+# =========================
+# Group Quota Management
+# =========================
+
+@events_bp.route('/<int:event_id>/quotas', methods=['GET'])
+@login_required
+def get_event_quotas(event_id):
+    """
+    Get quota info for every assigned group of an event.
+    Returns list of {inviter_group_id, inviter_group_name, quota, used, remaining}.
+    Accessible by any logged-in user (directors/organizers see only their own group).
+    """
+    if not current_user.is_authenticated:
+        return jsonify({'error': 'Authentication required'}), 401
+
+    from app.models.event_group_quota import EventGroupQuota
+    from app.models.inviter_group import InviterGroup
+
+    event = Event.query.get(event_id)
+    if not event:
+        return jsonify({'error': 'Event not found'}), 404
+
+    # Determine which groups to report on
+    if event.is_all_groups:
+        groups = InviterGroup.query.order_by(InviterGroup.name).all()
+    else:
+        groups = sorted(event.inviter_groups, key=lambda g: g.name)
+
+    # Non-admins only see their own group
+    if getattr(current_user, 'role', None) != 'admin':
+        groups = [g for g in groups if g.id == getattr(current_user, 'inviter_group_id', None)]
+
+    result = []
+    for group in groups:
+        record = EventGroupQuota.get_quota(event_id, group.id)
+        quota_val = record.quota if record else None
+        used = EventGroupQuota.get_usage(event_id, group.id)
+        remaining = (quota_val - used) if quota_val is not None else None
+
+        result.append({
+            'inviter_group_id': group.id,
+            'inviter_group_name': group.name,
+            'quota': quota_val,
+            'used': used,
+            'remaining': max(remaining, 0) if remaining is not None else None,
+        })
+
+    return jsonify(result), 200
+
+
+@events_bp.route('/<int:event_id>/quotas', methods=['PUT'])
+@login_required
+@admin_required
+def set_event_quotas(event_id):
+    """
+    Set quotas for one or more groups.
+    Body: { "quotas": [ { "inviter_group_id": 1, "quota": 50 }, ... ] }
+    quota=null means unlimited.
+    """
+    from app.models.event_group_quota import EventGroupQuota
+    from app.models.audit_log import AuditLog
+    from app.models.inviter_group import InviterGroup
+
+    event = Event.query.get(event_id)
+    if not event:
+        return jsonify({'error': 'Event not found'}), 404
+
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'Request body is required'}), 400
+
+    quotas = data.get('quotas', [])
+
+    if not isinstance(quotas, list):
+        return jsonify({'error': 'quotas must be an array'}), 400
+
+    # Build set of valid group IDs for this event
+    if event.is_all_groups:
+        valid_group_ids = {g.id for g in InviterGroup.query.all()}
+    else:
+        valid_group_ids = {g.id for g in event.inviter_groups}
+
+    updated = []
+    for item in quotas:
+        group_id = item.get('inviter_group_id')
+        quota_val = item.get('quota')  # int or null
+
+        if group_id is None:
+            continue
+
+        # Skip groups not assigned to this event
+        if int(group_id) not in valid_group_ids:
+            continue
+
+        # Validate quota value
+        if quota_val is not None:
+            try:
+                quota_val = int(quota_val)
+                if quota_val < 0:
+                    return jsonify({'error': f'Quota for group {group_id} cannot be negative'}), 400
+            except (ValueError, TypeError):
+                return jsonify({'error': f'Invalid quota value for group {group_id}'}), 400
+
+        EventGroupQuota.set_quota(event_id, int(group_id), quota_val)
+        updated.append({'inviter_group_id': int(group_id), 'quota': quota_val})
+
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': f'Failed to save quotas: {str(e)}'}), 500
+
+    # Audit log (non-fatal)
+    try:
+        AuditLog.log(
+            user_id=getattr(current_user, 'id', None),
+            action='set_event_quotas',
+            table_name='event_group_quotas',
+            record_id=event_id,
+            new_value=str(updated),
+            ip_address=request.remote_addr
+        )
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+
+    return jsonify({'message': f'Updated quotas for {len(updated)} group(s)', 'updated': updated}), 200

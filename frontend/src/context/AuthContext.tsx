@@ -6,6 +6,7 @@ import { createContext, useContext, useState, useEffect, useRef, useCallback, Re
 import { authAPI } from '../services/api';
 import type { User } from '../types';
 import toast from 'react-hot-toast';
+import { isInstalledApp } from '../utils/capacitor';
 
 // Public routes where session timeout should never trigger
 const isPublicRoute = () => {
@@ -15,11 +16,6 @@ const isPublicRoute = () => {
          path.startsWith('/live/') ||
          path === '/login';
 };
-
-// PWA standalone mode — backend auto-sets 30-day remember cookie,
-// so the frontend should never show the inactivity timeout modal.
-const isPWA = window.matchMedia('(display-mode: standalone)').matches ||
-              (window.navigator as any).standalone === true;
 
 // Session timeout in milliseconds (30 minutes)
 const SESSION_TIMEOUT = 30 * 60 * 1000;
@@ -47,7 +43,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [showSessionExpiredModal, setShowSessionExpiredModal] = useState(false);
   const lastActivityRef = useRef<number>(Date.now());
-  const rememberMeRef = useRef<boolean>(isPWA || localStorage.getItem('rememberMe') === 'true');
+  const rememberMeRef = useRef<boolean>(isInstalledApp || localStorage.getItem('rememberMe') === 'true');
   const sessionCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const heartbeatIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const lastHeartbeatActivityRef = useRef<number>(Date.now());
@@ -160,7 +156,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const data = await res.json();
       setUser(data);
       // Restore remember me preference (PWA always remembers)
-      rememberMeRef.current = isPWA || localStorage.getItem('rememberMe') === 'true';
+      rememberMeRef.current = isInstalledApp || localStorage.getItem('rememberMe') === 'true';
     } catch (error) {
       setUser(null);
       // If not authenticated, clear stale remember flag
@@ -174,11 +170,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const response = await authAPI.login({ username, password, remember });
       setUser(response.data);
-      rememberMeRef.current = isPWA || remember;
+      rememberMeRef.current = isInstalledApp || remember;
       lastActivityRef.current = Date.now();
       setShowSessionExpiredModal(false);
       // Persist remember me preference (PWA always remembers)
-      if (isPWA || remember) {
+      if (isInstalledApp || remember) {
         localStorage.setItem('rememberMe', 'true');
       } else {
         localStorage.removeItem('rememberMe');

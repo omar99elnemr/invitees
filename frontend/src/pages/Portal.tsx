@@ -115,7 +115,7 @@ export default function Portal() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/10 via-white to-primary/5 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800">
+    <div className="min-h-screen min-h-[100dvh] bg-gradient-to-br from-primary/10 via-white to-primary/5 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
       <div className="max-w-2xl mx-auto px-4 py-12">
         {/* Header */}
         <div className="text-center mb-8">

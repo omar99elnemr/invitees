@@ -279,7 +279,7 @@ export default function CheckInConsole() {
 
   if (!eventInfo) {
     return (
-      <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex items-center justify-center">
+      <div className="min-h-screen min-h-[100dvh] bg-gray-100 dark:bg-gray-900 flex items-center justify-center" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
         <div className="text-center">
           <AlertCircle className="w-16 h-16 text-red-400 mx-auto mb-4" />
           <h2 className="text-xl font-semibold text-gray-700 dark:text-gray-200">Event Not Found</h2>
@@ -292,7 +292,7 @@ export default function CheckInConsole() {
   // PIN Entry Screen
   if (!isVerified) {
     return (
-      <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex items-center justify-center relative">
+      <div className="min-h-screen min-h-[100dvh] bg-gray-100 dark:bg-gray-900 flex items-center justify-center relative" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
         {/* Theme Toggle */}
         <button
           onClick={toggleTheme}
@@ -364,7 +364,7 @@ export default function CheckInConsole() {
 
   // Main Check-in Console (verified)
   return (
-    <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
+    <div className="min-h-screen min-h-[100dvh] bg-gray-100 dark:bg-gray-900" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
       {/* Header */}
       <div className="bg-white dark:bg-gray-800 shadow">
         <div className="max-w-7xl mx-auto px-4 py-4">

@@ -91,6 +91,7 @@ export interface InviteeWithStats extends Invitee {
   inviter_id?: number;
   inviter_name?: string;
   plus_one?: number;
+  secondary_phone?: string;
   total_events: number;
   approved_count: number;
   rejected_count: number;
@@ -194,6 +195,7 @@ export interface ImportResult {
   skipped: number;
   failed: number;
   errors: string[];
+  rejected_rows?: Record<string, string>[];
 }
 
 export interface ApprovalResult {

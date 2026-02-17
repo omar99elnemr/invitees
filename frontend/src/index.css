@@ -142,7 +142,7 @@
 /* PWA / Mobile optimizations */
 @supports (padding: env(safe-area-inset-top)) {
   body {
-    padding-top: env(safe-area-inset-top);
+    /* No padding-top: the fixed Header handles safe-area-inset-top itself */
     padding-bottom: env(safe-area-inset-bottom);
     padding-left: env(safe-area-inset-left);
     padding-right: env(safe-area-inset-right);
@@ -153,6 +153,15 @@
   /* Prevent rubber-band overscroll to feel more native */
   html, body {
     overscroll-behavior: none;
+  }
+
+  /* Hide scrollbar tracks — installed PWAs should feel like native apps */
+  html {
+    scrollbar-width: none;
+  }
+  html::-webkit-scrollbar,
+  *::-webkit-scrollbar {
+    display: none;
   }
   
   /* Prevent long-press context menu on interactive elements */
@@ -170,6 +179,59 @@
   .overflow-y-auto, .overflow-x-auto {
     -webkit-overflow-scrolling: touch;
   }
+}
+
+/* Capacitor native app — apply same optimizations as standalone PWA */
+html.capacitor {
+  overscroll-behavior: none;
+  /* Hide scrollbar tracks — native apps use momentary scroll indicators, not tracks */
+  scrollbar-width: none;           /* Firefox */
+  -ms-overflow-style: none;        /* IE/Edge legacy */
+}
+html.capacitor::-webkit-scrollbar,
+html.capacitor *::-webkit-scrollbar {
+  display: none;                   /* Chrome / WebView */
+}
+html.capacitor body {
+  /* No padding-top: the fixed Header handles safe-area-inset-top itself */
+  padding-bottom: env(safe-area-inset-bottom, 16px);
+  overflow-x: hidden;
+}
+/* Prevent double-tap-to-zoom delay on all interactive elements */
+html.capacitor {
+  touch-action: manipulation;
+}
+/* Remove the blue/gray tap highlight rectangle Android shows on tap */
+html.capacitor * {
+  -webkit-tap-highlight-color: transparent;
+}
+html.capacitor button,
+html.capacitor a,
+html.capacitor input,
+html.capacitor select,
+html.capacitor textarea {
+  -webkit-touch-callout: none;
+}
+html.capacitor nav,
+html.capacitor header,
+html.capacitor aside,
+html.capacitor footer,
+html.capacitor .no-select {
+  -webkit-user-select: none;
+  user-select: none;
+}
+/* Prevent iOS auto-zoom on input focus (font-size < 16px triggers zoom) */
+@supports (-webkit-touch-callout: none) {
+  html.capacitor input,
+  html.capacitor select,
+  html.capacitor textarea {
+    font-size: 16px;
+  }
+}
+
+/* When native keyboard is open, shrink bottom-fixed elements */
+body.keyboard-open .fixed.bottom-0 {
+  display: none;
 }
 
 /* Print styles */

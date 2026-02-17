@@ -67,6 +67,16 @@ class ReportService:
         )
         
         results = query.all()
+
+        # Build quota lookup for enrichment
+        from app.models.event_group_quota import EventGroupQuota
+        quota_map = {}
+        try:
+            all_quotas = EventGroupQuota.query.all()
+            for q in all_quotas:
+                quota_map[(q.event_id, q.inviter_group_id)] = q.quota
+        except Exception:
+            pass
         
         return [{
             'event_id': r.event_id,
@@ -74,7 +84,8 @@ class ReportService:
             'inviter_group_id': r.inviter_group_id,
             'inviter_group_name': r.inviter_group_name or 'Unassigned',
             'status': r.status,
-            'total_invitees': r.total_invitees
+            'total_invitees': r.total_invitees,
+            'quota': quota_map.get((r.event_id, r.inviter_group_id)),
         } for r in results]
     
     @staticmethod

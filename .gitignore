@@ -13,6 +13,18 @@ frontend/build/
 frontend/.env
 frontend/.env.local
 
+# Capacitor native platforms (build artifacts — source is tracked)
+frontend/android/app/build/
+frontend/android/app/src/main/assets/public/
+frontend/android/app/src/main/assets/capacitor.config.json
+frontend/android/.gradle/
+frontend/android/build/
+frontend/android/capacitor-cordova-android-plugins/build/
+frontend/ios/App/App/public/
+frontend/ios/App/App/capacitor.config.json
+frontend/ios/App/Pods/
+*.keystore
+
 # General
 .DS_Store
 *.log

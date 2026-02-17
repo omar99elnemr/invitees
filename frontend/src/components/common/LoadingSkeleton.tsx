@@ -138,7 +138,7 @@ export function FormSkeleton() {
 /** Live dashboard: dark theme with stat cards */
 export function LiveDashboardSkeleton() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-6">
+    <div className="min-h-screen min-h-[100dvh] bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-6 overflow-hidden" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -171,7 +171,7 @@ export function LiveDashboardSkeleton() {
 /** Check-in console */
 export function CheckInSkeleton() {
   return (
-    <div className="min-h-screen bg-gray-100 dark:bg-gray-900 p-6">
+    <div className="min-h-screen min-h-[100dvh] bg-gray-100 dark:bg-gray-900 p-6 overflow-hidden" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
       <div className="max-w-2xl mx-auto space-y-6">
         <div className="text-center space-y-3">
           <Bone className="h-8 w-64 mx-auto" />

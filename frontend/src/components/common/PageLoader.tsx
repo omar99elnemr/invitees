@@ -5,7 +5,7 @@
  */
 export default function PageLoader() {
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-900 transition-colors">
+    <div className="fixed inset-0 flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-900 transition-colors z-[100]">
       {/* App logo */}
       <div className="w-14 h-14 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-xl flex items-center justify-center shadow-lg mb-4">
         <svg viewBox="0 0 32 32" className="w-8 h-8">

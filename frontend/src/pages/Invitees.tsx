@@ -25,10 +25,11 @@ import {
   FileText,
   Trash,
   Printer,
+  Gauge,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
-import { eventsAPI, inviteesAPI, invitersAPI, importAPI, categoriesAPI, inviterGroupsAPI, settingsAPI } from '../services/api';
+import { eventsAPI, inviteesAPI, invitersAPI, importAPI, categoriesAPI, inviterGroupsAPI, settingsAPI, GroupQuotaInfo } from '../services/api';
 import type { Event, EventInvitee, Inviter, InviteeWithStats, InviteeFormData, Category, InviterGroup } from '../types';
 import CategoryManager from '../components/categories/CategoryManager';
 import TablePagination from '../components/common/TablePagination';
@@ -105,6 +106,7 @@ export default function Invitees() {
   const [editModalInviters, setEditModalInviters] = useState<Inviter[]>([]); // Inviters for edit modal (group-specific for admin)
   const [loadingEvents, setLoadingEvents] = useState(true);
   const [loadingEventInvitees, setLoadingEventInvitees] = useState(false);
+  const [quotaInfo, setQuotaInfo] = useState<GroupQuotaInfo | null>(null);
 
   // Contacts tab state
   const [contacts, setContacts] = useState<InviteeWithStats[]>([]);
@@ -395,11 +397,16 @@ export default function Invitees() {
     loadLogoData();
   }, [fetchEvents, fetchInviters, fetchContacts, fetchCategories, fetchInviterGroups, loadExportLogos, loadLogoData]);
 
-  // Load event invitees when event is selected
+  // Load event invitees and quota when event is selected
   useEffect(() => {
     if (selectedEventId) {
       fetchEventInvitees(selectedEventId);
       setSelectedContactIds([]);
+      // Fetch quota info for current user's group
+      eventsAPI.getQuotas(selectedEventId).then(res => {
+        // Non-admins get only their own group's quota
+        setQuotaInfo(res.data.length > 0 ? res.data[0] : null);
+      }).catch(() => setQuotaInfo(null));
     }
   }, [selectedEventId, fetchEventInvitees]);
 
@@ -526,6 +533,14 @@ export default function Invitees() {
     }
   };
 
+  // Refresh quota info for the current event
+  const refreshQuota = useCallback(() => {
+    if (!selectedEventId) return;
+    eventsAPI.getQuotas(selectedEventId).then(res => {
+      setQuotaInfo(res.data.length > 0 ? res.data[0] : null);
+    }).catch(() => {});
+  }, [selectedEventId]);
+
   // Handle resubmit rejected invitation
   // Removed unused handleResubmit function
 
@@ -544,6 +559,24 @@ export default function Invitees() {
   const handleSubmitForApproval = async () => {
     if (!selectedEventId || selectedContactIds.length === 0) return;
 
+    // ── Frontend quota pre-check ──────────────────────────────
+    if (quotaInfo && quotaInfo.quota !== null && quotaInfo.remaining !== null) {
+      if (selectedContactIds.length > quotaInfo.remaining) {
+        toast.error(
+          `Cannot submit ${selectedContactIds.length} contact(s) — only ${quotaInfo.remaining} of ${quotaInfo.quota} quota remaining for your group.`,
+          { duration: 6000 }
+        );
+        return;
+      }
+      if (quotaInfo.remaining === 0) {
+        toast.error(
+          `Quota limit reached — your group has used all ${quotaInfo.quota} allowed submissions.`,
+          { duration: 6000 }
+        );
+        return;
+      }
+    }
+
     try {
       setSubmitting(true);
 
@@ -561,10 +594,19 @@ export default function Invitees() {
       const crossGroupDuplicates = results.cross_group_duplicates || [];
       const alreadyInvited = results.already_invited || [];
       const failed = results.failed || [];
+      const quotaExceeded = results.quota_exceeded || [];
 
       // Show appropriate messages based on results
       if (successCount > 0) {
         toast.success(`${successCount} contact(s) submitted for approval`);
+      }
+
+      // Show quota exceeded errors
+      if (quotaExceeded.length > 0) {
+        toast.error(
+          `${quotaExceeded.length} contact(s) rejected — quota limit reached (${quotaInfo?.quota} allowed for your group).`,
+          { duration: 6000 }
+        );
       }
 
       // Show cross-group duplicate errors with clear message
@@ -585,19 +627,22 @@ export default function Invitees() {
       // If nothing succeeded and we had cross-group duplicates, show summary
       if (successCount === 0 && crossGroupDuplicates.length > 0 && selectedContactIds.length === crossGroupDuplicates.length) {
         // All were duplicates - no additional message needed, individual errors shown above
-      } else if (successCount === 0 && crossGroupDuplicates.length === 0 && alreadyInvited.length === 0) {
+      } else if (successCount === 0 && crossGroupDuplicates.length === 0 && alreadyInvited.length === 0 && quotaExceeded.length === 0) {
         toast.error('No contacts were submitted');
       }
 
       // Clear selection
       setSelectedContactIds([]);
 
-      // Refresh data
+      // Refresh data + quota bar immediately
       fetchEventInvitees(selectedEventId);
+      refreshQuota();
 
     } catch (error: any) {
       toast.error(error.response?.data?.error || 'Failed to submit contacts');
       console.error(error);
+      // Refresh quota even on error (server may have changed state)
+      refreshQuota();
     } finally {
       setSubmitting(false);
     }
@@ -1151,6 +1196,41 @@ export default function Invitees() {
 
 
 
+              {/* Quota Banner */}
+              {quotaInfo && quotaInfo.quota !== null && !isAdmin && (
+                <div className={`flex items-center gap-3 p-3 rounded-lg border ${
+                  quotaInfo.remaining === 0
+                    ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
+                    : quotaInfo.remaining !== null && quotaInfo.remaining <= 5
+                      ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800'
+                      : 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-800'
+                }`}>
+                  <Gauge className={`w-5 h-5 shrink-0 ${
+                    quotaInfo.remaining === 0 ? 'text-red-500' : quotaInfo.remaining !== null && quotaInfo.remaining <= 5 ? 'text-amber-500' : 'text-indigo-500'
+                  }`} />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="font-medium text-gray-900 dark:text-white">
+                        Group Quota: {quotaInfo.used} / {quotaInfo.quota}
+                      </span>
+                      <span className={`text-xs font-medium ${
+                        quotaInfo.remaining === 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'
+                      }`}>
+                        {quotaInfo.remaining === 0 ? 'Quota reached' : `${quotaInfo.remaining} remaining`}
+                      </span>
+                    </div>
+                    <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-1.5 mt-1.5">
+                      <div
+                        className={`h-1.5 rounded-full transition-all ${
+                          quotaInfo.remaining === 0 ? 'bg-red-500' : quotaInfo.remaining !== null && quotaInfo.remaining <= 5 ? 'bg-amber-500' : 'bg-indigo-500'
+                        }`}
+                        style={{ width: `${Math.min((quotaInfo.used / (quotaInfo.quota || 1)) * 100, 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Status Filter Badge */}
               {statusFilter !== 'all' && (
                 <div className="flex items-center gap-2 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
@@ -1242,8 +1322,9 @@ export default function Invitees() {
                     {!isAdmin && (
                       <button
                         onClick={handleSubmitForApproval}
-                        disabled={selectedContactIds.length === 0 || submitting}
+                        disabled={selectedContactIds.length === 0 || submitting || (quotaInfo?.quota !== null && quotaInfo?.quota !== undefined && quotaInfo?.remaining === 0)}
                         className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                        title={quotaInfo?.remaining === 0 ? 'Quota limit reached' : undefined}
                       >
                         {submitting ? (
                           <>
@@ -1253,7 +1334,9 @@ export default function Invitees() {
                         ) : (
                           <>
                             <UserCheck className="w-4 h-4" />
-                            Submit for Approval
+                            Submit for Approval{quotaInfo?.quota !== null && quotaInfo?.quota !== undefined && selectedContactIds.length > 0 && quotaInfo?.remaining !== null
+                              ? ` (${selectedContactIds.length}/${quotaInfo.remaining} remaining)`
+                              : ''}
                           </>
                         )}
                       </button>
@@ -1368,6 +1451,14 @@ export default function Invitees() {
                                   <button
                                     onClick={async () => {
                                       if (!selectedEventId) return;
+                                      // Frontend quota pre-check for single submit
+                                      if (quotaInfo && quotaInfo.quota !== null && quotaInfo.remaining !== null && quotaInfo.remaining <= 0) {
+                                        toast.error(
+                                          `Quota limit reached — your group has used all ${quotaInfo.quota} allowed submissions.`,
+                                          { duration: 6000 }
+                                        );
+                                        return;
+                                      }
                                       try {
                                         setSubmitting(true);
                                         const response = await inviteesAPI.inviteExistingToEvent(selectedEventId, [contact.id], {});
@@ -1375,11 +1466,16 @@ export default function Invitees() {
                                         const successCount = results.successful?.length || 0;
                                         const crossGroupDuplicates = results.cross_group_duplicates || [];
                                         const alreadyInvited = results.already_invited || [];
+                                        const quotaExceeded = results.quota_exceeded || [];
 
                                         if (successCount > 0) {
                                           toast.success(`${contact.name} submitted for approval`);
+                                        } else if (quotaExceeded.length > 0) {
+                                          toast.error(
+                                            `Cannot submit "${contact.name}" — quota limit reached (${quotaInfo?.quota} allowed for your group).`,
+                                            { duration: 6000 }
+                                          );
                                         } else if (crossGroupDuplicates.length > 0) {
-                                          // Show the specific cross-group duplicate error with clear message
                                           toast.error(`"${contact.name}" ${crossGroupDuplicates[0].reason}`, { duration: 6000 });
                                         } else if (alreadyInvited.length > 0) {
                                           toast(`${contact.name} is already invited to this event`, { icon: 'ℹ️' });
@@ -1387,13 +1483,15 @@ export default function Invitees() {
                                           toast.error(`Failed to submit ${contact.name}`);
                                         }
                                         fetchEventInvitees(selectedEventId);
+                                        refreshQuota();
                                       } catch (error: any) {
                                         toast.error(error.response?.data?.error || 'Failed to submit contact');
+                                        refreshQuota();
                                       } finally {
                                         setSubmitting(false);
                                       }
                                     }}
-                                    disabled={submitting}
+                                    disabled={submitting || (quotaInfo?.quota !== null && quotaInfo?.quota !== undefined && quotaInfo?.remaining === 0)}
                                     className="text-primary hover:text-primary-dark text-sm font-medium disabled:opacity-50"
                                   >
                                     Submit
@@ -1550,7 +1648,7 @@ export default function Invitees() {
                             const headers = Object.keys(data[0]);
                             const tableRows = data.map((row, idx) =>
                               `<tr style="${idx % 2 === 0 ? '' : 'background-color: #f9fafb;'}">
-                                ${headers.map(h => `<td>${row[h] ?? '—'}</td>`).join('')}
+                                ${headers.map(h => `<td>${(row as Record<string, any>)[h] ?? '—'}</td>`).join('')}
                               </tr>`
                             ).join('');
 

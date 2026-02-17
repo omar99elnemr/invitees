@@ -3,6 +3,7 @@
  * All API endpoints are defined here
  */
 import axios from 'axios';
+import { isInstalledApp } from '../utils/capacitor';
 import type {
   User,
   InviterGroup,
@@ -31,11 +32,9 @@ const api = axios.create({
   },
 });
 
-// Request interceptor: tag PWA standalone requests so backend can extend session
-const isPWA = window.matchMedia('(display-mode: standalone)').matches ||
-              (window.navigator as any).standalone === true;
+// Request interceptor: tag installed-app requests so backend can extend session
 api.interceptors.request.use((config) => {
-  if (isPWA) {
+  if (isInstalledApp) {
     config.headers['X-PWA-Standalone'] = '1';
   }
   return config;
@@ -220,6 +219,13 @@ export const eventsAPI = {
 
   updateCheckinPinSettings: (id: number, autoDeactivateHours: number | null) =>
     api.patch<{ success: boolean }>(`/events/${id}/checkin-pin/settings`, { auto_deactivate_hours: autoDeactivateHours }),
+
+  // Quota Management
+  getQuotas: (id: number) =>
+    api.get<GroupQuotaInfo[]>(`/events/${id}/quotas`),
+
+  setQuotas: (id: number, quotas: { inviter_group_id: number; quota: number | null }[]) =>
+    api.put<{ message: string; updated: { inviter_group_id: number; quota: number | null }[] }>(`/events/${id}/quotas`, { quotas }),
 };
 
 export interface CheckinPinInfo {
@@ -230,6 +236,14 @@ export interface CheckinPinInfo {
   auto_deactivate_hours: number | null;
   checkin_url: string;
   live_url: string;
+}
+
+export interface GroupQuotaInfo {
+  inviter_group_id: number;
+  inviter_group_name: string;
+  quota: number | null;
+  used: number;
+  remaining: number | null;
 }
 
 // =========================
@@ -289,7 +303,7 @@ export const inviteesAPI = {
 
   // Bulk invite existing invitees to event
   inviteExistingToEvent: (eventId: number, inviteeIds: number[], invitationData?: { category?: string; inviter_id?: number; plus_one?: number; notes?: string }) =>
-    api.post<{ message: string; results: { successful: any[]; failed: any[]; already_invited: any[]; cross_group_duplicates?: any[] } }>(
+    api.post<{ message: string; results: { successful: any[]; failed: any[]; already_invited: any[]; cross_group_duplicates?: any[]; quota_exceeded?: any[] } }>(
       `/invitees/events/${eventId}/invite-existing`,
       { invitee_ids: inviteeIds, invitation_data: invitationData }
     ),

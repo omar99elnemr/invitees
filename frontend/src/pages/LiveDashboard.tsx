@@ -85,7 +85,7 @@ export default function LiveDashboard() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center">
+      <div className="min-h-screen min-h-[100dvh] bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
         <div className="text-center text-white">
           <AlertCircle className="w-20 h-20 text-red-500 mx-auto mb-4" />
           <h2 className="text-2xl font-bold">Event Not Found</h2>
@@ -96,7 +96,7 @@ export default function LiveDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white">
+    <div className="min-h-screen min-h-[100dvh] bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
       {/* Header */}
       <div className="bg-black/30 backdrop-blur-sm border-b border-white/10">
         <div className="max-w-7xl mx-auto px-4 py-4">

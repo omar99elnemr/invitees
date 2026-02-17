@@ -142,6 +142,28 @@ def create_app(config_class=Config):
     app.register_blueprint(settings_bp)
     app.register_blueprint(notifications_bp)
     
+    # Global error handler — log to file and return traceback
+    import logging
+    fh = logging.FileHandler('C:/inetpub/wwwroot/invitees/backend/flask_errors.log')
+    fh.setLevel(logging.ERROR)
+    fh.setFormatter(logging.Formatter('%(asctime)s %(levelname)s: %(message)s'))
+    app.logger.addHandler(fh)
+    app.logger.setLevel(logging.DEBUG)
+
+    @app.errorhandler(500)
+    def handle_500(e):
+        import traceback
+        tb = traceback.format_exc()
+        app.logger.error(f'500 error on {request.method} {request.path}: {e}\n{tb}')
+        return jsonify({'error': str(e), 'traceback': tb}), 500
+
+    @app.errorhandler(Exception)
+    def handle_exception(e):
+        import traceback
+        tb = traceback.format_exc()
+        app.logger.error(f'Unhandled exception on {request.method} {request.path}: {e}\n{tb}')
+        return jsonify({'error': str(e), 'traceback': tb}), 500
+
     # Health check route
     @app.route('/health')
     def health_check():

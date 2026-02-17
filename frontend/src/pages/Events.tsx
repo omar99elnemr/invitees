@@ -17,10 +17,10 @@ import {
   BarChart3,
   CheckCircle,
   XCircle,
+  Gauge,
 } from 'lucide-react';
-import { eventsAPI, inviterGroupsAPI, CheckinPinInfo } from '../services/api';
+import { eventsAPI, inviterGroupsAPI, CheckinPinInfo, GroupQuotaInfo } from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import ActionMenu, { ActionMenuItem } from '../components/common/ActionMenu';
 import type { Event, InviterGroup } from '../types';
 import toast from 'react-hot-toast';
 
@@ -59,6 +59,12 @@ export default function Events() {
   const [autoDeactivateHours, setAutoDeactivateHours] = useState<number | null>(24);
   const [showGroupsModal, setShowGroupsModal] = useState(false);
   const [groupsModalEvent, setGroupsModalEvent] = useState<Event | null>(null);
+  const [showQuotaModal, setShowQuotaModal] = useState(false);
+  const [quotaEvent, setQuotaEvent] = useState<Event | null>(null);
+  const [quotaData, setQuotaData] = useState<GroupQuotaInfo[]>([]);
+  const [quotaEdits, setQuotaEdits] = useState<Record<number, string>>({});
+  const [loadingQuotas, setLoadingQuotas] = useState(false);
+  const [savingQuotas, setSavingQuotas] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -371,6 +377,50 @@ export default function Events() {
     toast.success(`${label} copied to clipboard`);
   };
 
+  // Open Quota modal
+  const openQuotaModal = async (event: Event) => {
+    setQuotaEvent(event);
+    setShowQuotaModal(true);
+    setLoadingQuotas(true);
+    setQuotaEdits({});
+    try {
+      const response = await eventsAPI.getQuotas(event.id);
+      setQuotaData(response.data);
+      // Pre-populate edit fields
+      const edits: Record<number, string> = {};
+      response.data.forEach((q) => {
+        edits[q.inviter_group_id] = q.quota !== null ? String(q.quota) : '';
+      });
+      setQuotaEdits(edits);
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Failed to load quotas');
+    } finally {
+      setLoadingQuotas(false);
+    }
+  };
+
+  // Save quotas
+  const handleSaveQuotas = async () => {
+    if (!quotaEvent) return;
+    setSavingQuotas(true);
+    try {
+      const quotas = Object.entries(quotaEdits).map(([groupId, val]) => ({
+        inviter_group_id: Number(groupId),
+        quota: val.trim() === '' ? null : Number(val),
+      }));
+      await eventsAPI.setQuotas(quotaEvent.id, quotas);
+      toast.success('Quotas saved successfully');
+      // Close modal on success
+      setShowQuotaModal(false);
+      setQuotaEvent(null);
+      setQuotaData([]);
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Failed to save quotas');
+    } finally {
+      setSavingQuotas(false);
+    }
+  };
+
   if (loading) {
     return <CardGridSkeleton />;
   }
@@ -502,9 +552,9 @@ export default function Events() {
           {filteredEvents.map((event) => (
             <div
               key={event.id}
-              className="group bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-lg hover:border-indigo-200 dark:hover:border-indigo-700 transition-all duration-300"
+              className="group bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-lg hover:border-indigo-200 dark:hover:border-indigo-700 transition-all duration-300 flex flex-col"
             >
-              <div className="p-5 sm:p-6">
+              <div className="p-5 sm:p-6 flex-1">
                 {/* Header */}
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
@@ -515,56 +565,26 @@ export default function Events() {
                       {statusLabels[event.status]}
                     </span>
                   </div>
-                  
-                  {isAdmin && (
-                    <ActionMenu>
-                      <ActionMenuItem
-                        onClick={() => openEditModal(event)}
-                        icon={<Edit className="w-4 h-4" />}
-                      >
-                        Edit Event
-                      </ActionMenuItem>
-                      <ActionMenuItem
-                        onClick={() => openPinModal(event)}
-                        icon={<Key className="w-4 h-4" />}
-                      >
-                        Check-in Settings
-                      </ActionMenuItem>
-                      <ActionMenuItem
-                        onClick={() => openStatusModal(event)}
-                        icon={<Clock className="w-4 h-4" />}
-                      >
-                        Change Status
-                      </ActionMenuItem>
-                      <ActionMenuItem
-                        onClick={() => openDeleteModal(event)}
-                        icon={<Trash2 className="w-4 h-4" />}
-                        variant="danger"
-                      >
-                        Delete Event
-                      </ActionMenuItem>
-                    </ActionMenu>
-                  )}
                 </div>
 
                 {/* Details */}
                 <div className="mt-4 space-y-2.5">
                   <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
-                    <Calendar className="w-4 h-4 mr-2.5 text-indigo-400" />
+                    <Calendar className="w-4 h-4 mr-2.5 text-indigo-400 shrink-0" />
                     <span>{formatDate(event.start_date)}</span>
                   </div>
                   <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
-                    <Clock className="w-4 h-4 mr-2.5 text-indigo-400" />
+                    <Clock className="w-4 h-4 mr-2.5 text-indigo-400 shrink-0" />
                     <span>to {formatDate(event.end_date)}</span>
                   </div>
                   {event.venue && (
                     <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
-                      <MapPin className="w-4 h-4 mr-2.5 text-indigo-400" />
+                      <MapPin className="w-4 h-4 mr-2.5 text-indigo-400 shrink-0" />
                       <span className="truncate">{event.venue}</span>
                     </div>
                   )}
                   <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
-                    <Users className="w-4 h-4 mr-2.5 text-indigo-400" />
+                    <Users className="w-4 h-4 mr-2.5 text-indigo-400 shrink-0" />
                     <span>{event.invitee_count || 0} invitees</span>
                   </div>
                 </div>
@@ -596,12 +616,64 @@ export default function Events() {
                     ) : null}
                   </div>
                 )}
-
-                {/* Footer */}
-                <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 text-xs text-gray-400 dark:text-gray-500">
-                  Created by <span className="text-gray-600 dark:text-gray-400">{event.creator_name || 'Unknown'}</span>
-                </div>
               </div>
+
+              {/* Quick Actions Toolbar (Admin) */}
+              {isAdmin && (
+                <div className="px-5 sm:px-6 pb-4">
+                  <div className="pt-3 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                    <span className="text-xs text-gray-400 dark:text-gray-500 truncate mr-2">
+                      by {event.creator_name || 'Unknown'}
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => openEditModal(event)}
+                        className="p-1.5 rounded-lg text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:text-indigo-400 dark:hover:bg-indigo-900/30 transition-colors"
+                        title="Edit Event"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => openQuotaModal(event)}
+                        className="p-1.5 rounded-lg text-gray-400 hover:text-purple-600 hover:bg-purple-50 dark:hover:text-purple-400 dark:hover:bg-purple-900/30 transition-colors"
+                        title="Group Quotas"
+                      >
+                        <Gauge className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => openPinModal(event)}
+                        className="p-1.5 rounded-lg text-gray-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:text-amber-400 dark:hover:bg-amber-900/30 transition-colors"
+                        title="Check-in Settings"
+                      >
+                        <Key className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => openStatusModal(event)}
+                        className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:text-blue-400 dark:hover:bg-blue-900/30 transition-colors"
+                        title="Change Status"
+                      >
+                        <Clock className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => openDeleteModal(event)}
+                        className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:text-red-400 dark:hover:bg-red-900/30 transition-colors"
+                        title="Delete Event"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Footer (Non-admin) */}
+              {!isAdmin && (
+                <div className="px-5 sm:px-6 pb-4">
+                  <div className="pt-3 border-t border-gray-200 dark:border-gray-700 text-xs text-gray-400 dark:text-gray-500">
+                    Created by <span className="text-gray-600 dark:text-gray-400">{event.creator_name || 'Unknown'}</span>
+                  </div>
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -1244,6 +1316,126 @@ export default function Events() {
             <div className="px-5 py-3 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 flex justify-end">
               <button onClick={() => { setShowGroupsModal(false); setGroupsModalEvent(null); }} className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-600 border border-gray-300 dark:border-gray-500 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-500">
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Quota Management Modal */}
+      {showQuotaModal && quotaEvent && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-lg max-h-[85vh] overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b dark:border-gray-700 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-indigo-100 dark:bg-indigo-900/40 rounded-lg">
+                  <Gauge className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                </div>
+                <div>
+                  <h3 className="text-base font-semibold text-gray-900 dark:text-white">Group Quotas</h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{quotaEvent.name}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => { setShowQuotaModal(false); setQuotaEvent(null); setQuotaData([]); }}
+                className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="px-5 py-4 overflow-y-auto max-h-[calc(85vh-180px)]">
+              {loadingQuotas ? (
+                <div className="space-y-3">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="h-16 bg-gray-100 dark:bg-gray-700 rounded-lg animate-pulse" />
+                  ))}
+                </div>
+              ) : quotaData.length === 0 ? (
+                <div className="text-center py-8">
+                  <Users className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
+                  <p className="text-sm text-gray-500 dark:text-gray-400">No groups assigned to this event</p>
+                </div>
+              ) : (
+                <>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                    Set the maximum number of invitees each group can submit. Leave blank for unlimited.
+                  </p>
+                  <div className="space-y-3">
+                    {quotaData.map((q) => {
+                      const editVal = quotaEdits[q.inviter_group_id] ?? '';
+                      const quotaNum = editVal.trim() === '' ? null : Number(editVal);
+                      const pct = quotaNum && quotaNum > 0 ? Math.min((q.used / quotaNum) * 100, 100) : 0;
+                      const isOver = quotaNum !== null && q.used > quotaNum;
+
+                      return (
+                        <div
+                          key={q.inviter_group_id}
+                          className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-100 dark:border-gray-600/50"
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-sm font-medium text-gray-900 dark:text-white">{q.inviter_group_name}</span>
+                            <span className={`text-xs font-medium ${isOver ? 'text-red-600 dark:text-red-400' : 'text-gray-500 dark:text-gray-400'}`}>
+                              {q.used} used{quotaNum !== null ? ` / ${quotaNum}` : ''}
+                            </span>
+                          </div>
+
+                          {/* Progress bar */}
+                          {quotaNum !== null && quotaNum > 0 && (
+                            <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-1.5 mb-2">
+                              <div
+                                className={`h-1.5 rounded-full transition-all ${
+                                  pct >= 100 ? 'bg-red-500' : pct >= 80 ? 'bg-amber-500' : 'bg-indigo-500'
+                                }`}
+                                style={{ width: `${pct}%` }}
+                              />
+                            </div>
+                          )}
+
+                          <div className="flex items-center gap-2">
+                            <label className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">Quota:</label>
+                            <input
+                              type="number"
+                              min="0"
+                              placeholder="Unlimited"
+                              value={editVal}
+                              onChange={(e) =>
+                                setQuotaEdits((prev) => ({ ...prev, [q.inviter_group_id]: e.target.value }))
+                              }
+                              className="w-full px-2.5 py-1.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                            />
+                            {quotaNum !== null && (
+                              <span className={`text-xs whitespace-nowrap font-medium ${
+                                isOver ? 'text-red-600 dark:text-red-400' : q.remaining === 0 ? 'text-amber-600 dark:text-amber-400' : 'text-green-600 dark:text-green-400'
+                              }`}>
+                                {isOver ? `Over by ${q.used - quotaNum}` : `${Math.max((quotaNum || 0) - q.used, 0)} left`}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="px-5 py-3 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 flex justify-end gap-3">
+              <button
+                onClick={() => { setShowQuotaModal(false); setQuotaEvent(null); setQuotaData([]); }}
+                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-600 border border-gray-300 dark:border-gray-500 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-500"
+              >
+                Close
+              </button>
+              <button
+                onClick={handleSaveQuotas}
+                disabled={savingQuotas || loadingQuotas || quotaData.length === 0}
+                className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+              >
+                {savingQuotas ? 'Saving...' : 'Save Quotas'}
               </button>
             </div>
           </div>

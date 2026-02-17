@@ -77,6 +77,7 @@ interface SummaryData {
   inviter_name?: string;
   status: string;
   total_invitees: number;
+  quota?: number | null;
 }
 
 export default function Reports() {
@@ -393,8 +394,10 @@ export default function Reports() {
         row['Inviter'] = item.inviter_name || '—';
         row['Category'] = item.category || '—';
         row['Inviter Group'] = item.inviter_group_name || '—';
+        row['Submitted By'] = item.submitter_name || '—';
         row['Status'] = item.status === 'waiting_for_approval' ? 'Pending' : 
                   item.status === 'approved' ? 'Approved' : 'Rejected';
+        row['Approved By'] = item.approved_by_name || '—';
         if (isAdmin) {
           row['Attendance Code'] = item.attendance_code || '—';
         }
@@ -424,19 +427,22 @@ export default function Reports() {
         row['Inviter'] = item.inviter_name || '—';
         row['Category'] = item.category || '—';
         row['Inviter Group'] = item.inviter_group_name || '—';
+        row['Submitted By'] = item.submitter_name || '—';
         row['Status'] = item.status === 'waiting_for_approval' ? 'Pending' : 
                   item.status === 'approved' ? 'Approved' : 'Rejected';
+        row['Approved/Rejected By'] = item.approved_by_name || '—';
         row['Date & Time'] = item.created_at ? formatDateTimeEgypt(item.created_at) : '—';
         return row;
       });
     } else if (activeReport === 'summary-group') {
-      // Summary by Group: Event, Inviter Group, Status, Total
+      // Summary by Group: Event, Inviter Group, Status, Total, Quota
       return (rawData as SummaryData[]).map(item => ({
         'Event': item.event_name || '—',
         'Inviter Group': item.inviter_group_name || '—',
         'Status': item.status === 'waiting_for_approval' ? 'Pending' : 
                   item.status === 'approved' ? 'Approved' : 'Rejected',
         'Total Invitees': item.total_invitees || 0,
+        'Quota': item.quota != null ? item.quota : '∞',
       }));
     } else if (activeReport === 'summary-inviter') {
       // Summary by Inviter: Event, Inviter, Group, Status, Total
@@ -978,6 +984,11 @@ export default function Reports() {
                           <th className="px-2 sm:px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
                             Count
                           </th>
+                          {activeReport === 'summary-group' && (
+                            <th className="px-2 sm:px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                              Quota
+                            </th>
+                          )}
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -1022,6 +1033,13 @@ export default function Reports() {
                                 {item.total_invitees}
                               </span>
                             </td>
+                            {activeReport === 'summary-group' && (
+                              <td className="px-2 sm:px-4 py-2 text-right">
+                                <span className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">
+                                  {item.quota != null ? item.quota : '∞'}
+                                </span>
+                              </td>
+                            )}
                           </tr>
                         ))}
                       </tbody>
@@ -1054,13 +1072,26 @@ export default function Reports() {
                 <table className="w-full divide-y divide-gray-200 dark:divide-gray-700">
                   <thead className="bg-gray-50 dark:bg-gray-700">
                     <tr>
-                      {[
-                        { key: 'invitee_name', label: 'Invitee' },
-                        { key: 'event_name', label: 'Event' },
-                        { key: 'inviter_name', label: 'Inviter' },
-                        { key: 'category', label: 'Category' },
-                        { key: 'status', label: 'Status' },
-                      ].map(col => (
+                      {(activeReport === 'detail-approved'
+                        ? [
+                            { key: 'invitee_name', label: 'Invitee', hideClass: '' },
+                            { key: 'event_name', label: 'Event', hideClass: '' },
+                            { key: 'inviter_name', label: 'Inviter', hideClass: 'hidden lg:table-cell' },
+                            { key: 'category', label: 'Category', hideClass: 'hidden xl:table-cell' },
+                            { key: 'submitter_name', label: 'Submitted By', hideClass: 'hidden md:table-cell' },
+                            { key: 'status', label: 'Status', hideClass: '' },
+                            { key: 'approved_by_name', label: 'Approved By', hideClass: 'hidden md:table-cell' },
+                          ]
+                        : [
+                            { key: 'invitee_name', label: 'Invitee', hideClass: '' },
+                            { key: 'event_name', label: 'Event', hideClass: '' },
+                            { key: 'inviter_name', label: 'Inviter', hideClass: 'hidden lg:table-cell' },
+                            { key: 'category', label: 'Category', hideClass: 'hidden xl:table-cell' },
+                            { key: 'submitter_name', label: 'Submitted By', hideClass: 'hidden md:table-cell' },
+                            { key: 'status', label: 'Status', hideClass: '' },
+                            { key: 'approved_by_name', label: 'Approved/Rejected By', hideClass: 'hidden lg:table-cell' },
+                          ]
+                      ).map(col => (
                         <th
                           key={col.key}
                           onClick={() => {
@@ -1071,7 +1102,7 @@ export default function Reports() {
                               setDetailSortDirection('asc');
                             }
                           }}
-                          className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
+                          className={`px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 ${col.hideClass}`}
                         >
                           <div className="flex items-center gap-1">
                             {col.label}
@@ -1083,11 +1114,11 @@ export default function Reports() {
                       ))}
                       {activeReport === 'detail-approved' && (
                         <>
-                          {isAdmin && <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Code</th>}
-                          <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Sent</th>
-                          <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Confirmed</th>
-                          <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">In</th>
-                          <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Guests</th>
+                          {isAdmin && <th className="hidden xl:table-cell px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Code</th>}
+                          <th className="hidden lg:table-cell px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Sent</th>
+                          <th className="hidden lg:table-cell px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Confirmed</th>
+                          <th className="hidden xl:table-cell px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">In</th>
+                          <th className="hidden xl:table-cell px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Guests</th>
                         </>
                       )}
                       <th
@@ -1099,7 +1130,7 @@ export default function Reports() {
                             setDetailSortDirection('asc');
                           }
                         }}
-                        className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
+                        className="hidden lg:table-cell px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
                       >
                         <div className="flex items-center gap-1">
                           Date & Time
@@ -1137,14 +1168,17 @@ export default function Reports() {
                           <td className="px-2 py-2 text-sm text-gray-900 dark:text-white max-w-[100px] truncate" title={item.event_name}>
                             {item.event_name}
                           </td>
-                          <td className="px-2 py-2 max-w-[120px]">
+                          <td className="hidden lg:table-cell px-2 py-2 max-w-[120px]">
                             <div className="truncate text-sm text-gray-900 dark:text-white" title={item.inviter_name}>{item.inviter_name}</div>
                             {item.inviter_group_name && (
                               <div className="truncate text-xs text-gray-500 dark:text-gray-400" title={item.inviter_group_name}>{item.inviter_group_name}</div>
                             )}
                           </td>
-                          <td className="px-2 py-2 text-sm text-gray-500 dark:text-gray-400 max-w-[80px] truncate" title={item.category || ''}>
+                          <td className="hidden xl:table-cell px-2 py-2 text-sm text-gray-500 dark:text-gray-400 max-w-[80px] truncate" title={item.category || ''}>
                             {item.category || '—'}
+                          </td>
+                          <td className="hidden md:table-cell px-2 py-2 text-sm text-gray-900 dark:text-white max-w-[110px] truncate" title={item.submitter_name || ''}>
+                            {item.submitter_name || '—'}
                           </td>
                           <td className="px-2 py-2">
                             <span
@@ -1159,10 +1193,18 @@ export default function Reports() {
                               {item.status}
                             </span>
                           </td>
+                          {activeReport === 'detail-event' && (
+                            <td className="hidden lg:table-cell px-2 py-2 text-sm text-gray-900 dark:text-white max-w-[110px] truncate" title={item.approved_by_name || ''}>
+                              {item.approved_by_name || '—'}
+                            </td>
+                          )}
                           {activeReport === 'detail-approved' && (
                             <>
+                              <td className="hidden md:table-cell px-2 py-2 text-sm text-gray-900 dark:text-white max-w-[110px] truncate" title={item.approved_by_name || ''}>
+                                {item.approved_by_name || '—'}
+                              </td>
                               {isAdmin && (
-                                <td className="px-2 py-2 text-sm">
+                                <td className="hidden xl:table-cell px-2 py-2 text-sm">
                                   {item.attendance_code ? (
                                     <code className="px-1 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-xs font-mono dark:text-gray-300">
                                       {item.attendance_code}
@@ -1172,14 +1214,14 @@ export default function Reports() {
                                   )}
                                 </td>
                               )}
-                              <td className="px-2 py-2 text-sm">
+                              <td className="hidden lg:table-cell px-2 py-2 text-sm">
                                 {item.invitation_sent ? (
                                   <span className="text-green-600">✓</span>
                                 ) : (
                                   <span className="text-gray-400">—</span>
                                 )}
                               </td>
-                              <td className="px-2 py-2 text-sm">
+                              <td className="hidden lg:table-cell px-2 py-2 text-sm">
                                 {item.attendance_confirmed === true ? (
                                   <span className="text-green-600">✓ ({item.confirmed_guests || 0})</span>
                                 ) : item.attendance_confirmed === false ? (
@@ -1188,21 +1230,21 @@ export default function Reports() {
                                   <span className="text-gray-400">Pending</span>
                                 )}
                               </td>
-                              <td className="px-2 py-2 text-sm">
+                              <td className="hidden xl:table-cell px-2 py-2 text-sm">
                                 {item.checked_in ? (
                                   <span className="text-green-600">✓</span>
                                 ) : (
                                   <span className="text-gray-400 dark:text-gray-500">—</span>
                                 )}
                               </td>
-                              <td className="px-2 py-2 text-sm">
+                              <td className="hidden xl:table-cell px-2 py-2 text-sm">
                                 <span className="text-gray-700 dark:text-gray-300">
                                   {item.checked_in ? item.actual_guests : item.plus_one || 0}
                                 </span>
                               </td>
                             </>
                           )}
-                          <td className="px-2 py-2 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                          <td className="hidden lg:table-cell px-2 py-2 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
                             {item.created_at ? formatDateTimeEgypt(item.created_at) : '—'}
                           </td>
                         </tr>

@@ -64,7 +64,7 @@ export function Layout() {
     <div className="min-h-screen min-h-[100dvh] bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 overflow-x-hidden">
       <Header onMenuClick={handleSidebarToggle} sidebarOpen={sidebarOpen} />
       
-      <div className="flex pt-16">
+      <div className="flex" style={{ paddingTop: 'calc(4rem + env(safe-area-inset-top, 0px))' }}>
         <Sidebar isOpen={sidebarOpen} isMobile={isMobile} onClose={handleSidebarClose} />
         
         {/* Mobile overlay */}

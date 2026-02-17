@@ -11,7 +11,7 @@ export default function NotFound() {
   const { isAuthenticated } = useAuth();
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 px-4">
+    <div className="min-h-screen min-h-[100dvh] flex items-center justify-center bg-gray-50 dark:bg-gray-900 px-4 overflow-hidden" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
       <div className="max-w-lg w-full text-center">
         {/* Animated 404 illustration */}
         <div className="relative mb-8">

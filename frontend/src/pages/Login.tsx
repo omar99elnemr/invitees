@@ -6,13 +6,12 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { LogIn, User, Lock, Eye, EyeOff, Calendar, Users, CheckCircle, Shield } from 'lucide-react';
+import { isInstalledApp, isNative } from '../utils/capacitor';
 
 export default function Login() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const isPWA = window.matchMedia('(display-mode: standalone)').matches ||
-                (window.navigator as any).standalone === true;
-  const [remember, setRemember] = useState(isPWA);
+  const [remember, setRemember] = useState(isInstalledApp);
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const { login, user, loading: authLoading } = useAuth();
@@ -40,7 +39,7 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex">
+    <div className="min-h-screen min-h-[100dvh] flex overflow-hidden" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
       {/* Left Panel - Branding */}
       <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-indigo-600 via-indigo-700 to-purple-900 relative overflow-hidden">
         {/* Animated background shapes */}
@@ -162,7 +161,7 @@ export default function Login() {
                     className="input pl-10"
                     placeholder="Enter your username"
                     required
-                    autoFocus
+                    autoFocus={!isNative}
                   />
                 </div>
               </div>
@@ -194,7 +193,7 @@ export default function Login() {
                 </div>
               </div>
 
-              {!isPWA && (
+              {!isInstalledApp && (
                 <div className="flex items-center justify-between">
                   <div className="flex items-center">
                     <input

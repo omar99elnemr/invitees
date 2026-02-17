@@ -427,6 +427,15 @@ def add_invitee_to_event(event_id):
     if current_user.role != 'admin' and not event.can_add_invitees():
         return jsonify({'error': 'Cannot add invitees to this event'}), 403
     
+    # ── Quota check ───────────────────────────────────────────────
+    if current_user.inviter_group_id:
+        from app.models.event_group_quota import EventGroupQuota
+        allowed, remaining, quota_val = EventGroupQuota.check_quota(event_id, current_user.inviter_group_id)
+        if not allowed:
+            return jsonify({
+                'error': f'Quota reached. Your group is allowed {quota_val} invitees for this event ({remaining} remaining).'
+            }), 403
+
     # Cross-group duplicate phone check for event submissions
     from app.models.event_invitee import EventInvitee
     from app.models.invitee import Invitee
@@ -546,6 +555,17 @@ def resubmit_invitee(event_id, invitee_id):
     
     if not event.can_add_invitees() and current_user.role != 'admin':
         return jsonify({'error': 'Cannot resubmit to this event'}), 403
+
+    # ── Quota enforcement for resubmission ────────────────────────
+    if current_user.inviter_group_id and current_user.role != 'admin':
+        from app.models.event_group_quota import EventGroupQuota
+        allowed, remaining, quota_val = EventGroupQuota.check_quota(
+            event_id, current_user.inviter_group_id, additional=1
+        )
+        if not allowed:
+            return jsonify({
+                'error': f'Quota limit reached — your group\'s quota is {quota_val} and {quota_val - (remaining or 0)} have already been used. Cannot resubmit.'
+            }), 400
     
     # Check if user can resubmit:
     # 1. Original inviter can always resubmit
@@ -647,13 +667,31 @@ def invite_existing_to_event(event_id):
         else:
             return jsonify({'error': 'You are not assigned to an inviter group'}), 403
     
+    # ── Bulk quota pre-check ──────────────────────────────────────
+    quota_remaining = None  # None = unlimited
+    quota_val = None
+    if current_user.inviter_group_id and current_user.role != 'admin':
+        from app.models.event_group_quota import EventGroupQuota
+        allowed, remaining, quota_val = EventGroupQuota.check_quota(
+            event_id, current_user.inviter_group_id, additional=len(invitee_ids)
+        )
+        quota_remaining = remaining  # track for per-item enforcement
+        # Reject the entire batch upfront if it exceeds remaining quota
+        if not allowed:
+            return jsonify({
+                'error': f'Cannot submit {len(invitee_ids)} contact(s) — only {remaining} of {quota_val} quota remaining for your group.'
+            }), 400
+
     results = {
         'successful': [],
         'failed': [],
         'already_invited': [],
-        'cross_group_duplicates': []
+        'cross_group_duplicates': [],
+        'quota_exceeded': []
     }
     
+    successful_count = 0  # track ALL submissions (new + resubmit) against quota
+
     for invitee_id in invitee_ids:
         # Get the invitee
         invitee = Invitee.query.get(invitee_id)
@@ -708,11 +746,21 @@ def invite_existing_to_event(event_id):
             # If rejected, allow resubmission by updating status back to pending
             # (cross-group check already passed above)
             if existing.status == 'rejected':
+                # ── Quota enforcement for resubmission ────────────────
+                if quota_remaining is not None:
+                    if successful_count >= quota_remaining:
+                        results['quota_exceeded'].append({
+                            'invitee_id': invitee_id,
+                            'name': invitee.name,
+                            'reason': f'Quota limit reached ({quota_val} allowed, {quota_remaining} were remaining)'
+                        })
+                        continue
                 existing.status = 'waiting_for_approval'
                 existing.notes = invitation_data.get('notes', 'Resubmitted after rejection')
                 existing.status_date = datetime.utcnow()
                 existing.approved_by = None
                 existing.approval_notes = None
+                successful_count += 1
                 results['successful'].append({
                     'invitee_id': invitee_id,
                     'name': invitee.name,
@@ -729,6 +777,16 @@ def invite_existing_to_event(event_id):
                 continue
 
         # New submission - cross-group check already passed above
+
+        # ── Per-item quota enforcement ────────────────────────────
+        if quota_remaining is not None:
+            if successful_count >= quota_remaining:
+                results['quota_exceeded'].append({
+                    'invitee_id': invitee_id,
+                    'name': invitee.name,
+                    'reason': f'Quota limit reached ({quota_val} allowed, {quota_remaining} were remaining)'
+                })
+                continue
 
         # Use stored data from invitee if not provided
         final_inviter_id = inviter_id or invitee.inviter_id
@@ -756,6 +814,7 @@ def invite_existing_to_event(event_id):
         )
 
         db.session.add(event_invitee)
+        successful_count += 1
 
         results['successful'].append({
             'invitee_id': invitee_id,
