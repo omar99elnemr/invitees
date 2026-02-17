@@ -12,9 +12,7 @@ import { lazy, Suspense, useState, useCallback } from 'react';
 import PWAInstallPrompt from './components/common/PWAInstallPrompt';
 import SplashScreen from './components/common/SplashScreen';
 import PageLoader from './components/common/PageLoader';
-
-const isPWA = window.matchMedia('(display-mode: standalone)').matches ||
-              (window.navigator as any).standalone === true;
+import { isInstalledApp, isNative } from './utils/capacitor';
 
 // Lazy-loaded pages (code splitting)
 const Login = lazy(() => import('./pages/Login'));
@@ -30,10 +28,11 @@ const Portal = lazy(() => import('./pages/Portal'));
 const CheckInConsole = lazy(() => import('./pages/CheckInConsole'));
 const LiveDashboard = lazy(() => import('./pages/LiveDashboard'));
 const ExportSettings = lazy(() => import('./pages/ExportSettings'));
+const Help = lazy(() => import('./pages/Help'));
 const NotFound = lazy(() => import('./pages/NotFound'));
 
 function App() {
-  const [showSplash, setShowSplash] = useState(isPWA);
+  const [showSplash, setShowSplash] = useState(isInstalledApp);
   const hideSplash = useCallback(() => setShowSplash(false), []);
 
   return (
@@ -42,31 +41,6 @@ function App() {
     <BrowserRouter>
       <ThemeProvider>
       <AuthProvider>
-        <Toaster
-          position="top-right"
-          toastOptions={{
-            duration: 3000,
-            style: {
-              background: '#363636',
-              color: '#fff',
-            },
-            success: {
-              duration: 3000,
-              iconTheme: {
-                primary: '#10B981',
-                secondary: '#fff',
-              },
-            },
-            error: {
-              duration: 4000,
-              iconTheme: {
-                primary: '#EF4444',
-                secondary: '#fff',
-              },
-            },
-          }}
-        />
-        
         <PWAInstallPrompt />
         <Suspense fallback={<PageLoader />}>
         <Routes>
@@ -121,6 +95,7 @@ function App() {
               }
             />
             <Route path="profile" element={<Profile />} />
+            <Route path="help" element={<Help />} />
             <Route
               path="settings"
               element={
@@ -146,6 +121,39 @@ function App() {
       </ThemeProvider>
     </BrowserRouter>
 
+    {/* Toaster MUST be outside BrowserRouter and rendered last so it sits
+        above every modal (z-50), sidebar (z-40), and PWA prompt (z-[61]). */}
+    <Toaster
+      position="top-center"
+      containerStyle={{
+        // Guarantee toasts float above every overlay in the app
+        zIndex: 99999,
+        // Push toasts below the status bar / notch on native apps
+        top: isNative ? 'env(safe-area-inset-top, 0px)' : '8px',
+      }}
+      toastOptions={{
+        duration: 3000,
+        style: {
+          background: '#363636',
+          color: '#fff',
+          maxWidth: '90vw',
+        },
+        success: {
+          duration: 3000,
+          iconTheme: {
+            primary: '#10B981',
+            secondary: '#fff',
+          },
+        },
+        error: {
+          duration: 4000,
+          iconTheme: {
+            primary: '#EF4444',
+            secondary: '#fff',
+          },
+        },
+      }}
+    />
     </>
   );
 }

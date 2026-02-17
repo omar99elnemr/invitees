@@ -16,6 +16,7 @@ import {
   X,
   ChevronRight,
   Settings,
+  BookOpen,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -76,6 +77,12 @@ export function Sidebar({ isOpen, isMobile, onClose }: SidebarProps) {
       icon: Settings,
       roles: ['admin'],
     },
+    {
+      name: 'Help',
+      path: '/help',
+      icon: BookOpen,
+      roles: ['admin', 'director', 'organizer'],
+    },
   ];
 
   const visibleItems = menuItems.filter((item) => hasRole(item.roles));
@@ -91,9 +98,13 @@ export function Sidebar({ isOpen, isMobile, onClose }: SidebarProps) {
 
   return (
     <aside 
-      className={`fixed left-0 top-16 h-[calc(100vh-4rem)] w-64 bg-gradient-to-b from-white via-white to-gray-50/80 dark:from-gray-800 dark:via-gray-800 dark:to-gray-850 border-r border-gray-200/80 dark:border-gray-700/60 overflow-y-auto shadow-xl lg:shadow-lg dark:lg:shadow-none z-40 transition-transform duration-300 ease-bounce-in ${
+      className={`fixed left-0 w-64 bg-gradient-to-b from-white via-white to-gray-50/80 dark:from-gray-800 dark:via-gray-800 dark:to-gray-850 border-r border-gray-200/80 dark:border-gray-700/60 overflow-y-auto shadow-xl lg:shadow-lg dark:lg:shadow-none z-40 transition-transform duration-300 ease-bounce-in ${
         isOpen ? 'translate-x-0' : '-translate-x-full'
       }`}
+      style={{
+        top: 'calc(4rem + env(safe-area-inset-top, 0px))',
+        height: 'calc(100vh - 4rem - env(safe-area-inset-top, 0px))',
+      }}
     >
       {/* Mobile close button */}
       {isMobile && (
