@@ -755,16 +755,18 @@ export default function Reports() {
               </select>
             )}
 
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-800 dark:text-white"
-            >
-              <option value="">All Statuses</option>
-              <option value="approved">Approved</option>
-              <option value="rejected">Rejected</option>
-              <option value="waiting_for_approval">Pending</option>
-            </select>
+            {activeReport !== 'detail-approved' && (
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-800 dark:text-white"
+              >
+                <option value="">All Statuses</option>
+                <option value="approved">Approved</option>
+                <option value="rejected">Rejected</option>
+                <option value="waiting_for_approval">Pending</option>
+              </select>
+            )}
 
             {activeReport.startsWith('detail') && (
               <div className="relative">

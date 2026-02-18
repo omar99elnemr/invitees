@@ -1200,8 +1200,8 @@ export default function Users() {
                 </div>
               )}
               {formData.role === 'admin' && (
-                <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
-                  <p className="text-sm text-purple-700">
+                <div className="p-3 bg-purple-50 dark:bg-purple-900/30 border border-purple-200 dark:border-purple-700 rounded-lg">
+                  <p className="text-sm text-purple-700 dark:text-purple-300">
                     Admin users do not belong to any inviter group. They have full system access.
                   </p>
                 </div>
@@ -1319,8 +1319,8 @@ export default function Users() {
                 </div>
               )}
               {formData.role === 'admin' && (
-                <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
-                  <p className="text-sm text-purple-700">
+                <div className="p-3 bg-purple-50 dark:bg-purple-900/30 border border-purple-200 dark:border-purple-700 rounded-lg">
+                  <p className="text-sm text-purple-700 dark:text-purple-300">
                     Admin users do not belong to any inviter group. They have full system access.
                   </p>
                 </div>

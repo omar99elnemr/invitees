@@ -5,7 +5,7 @@
  * - Director (Approver): Approval workflow focus
  * - Organizer (Inviter): Invitation management focus
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { DashboardSkeleton } from '../components/common/LoadingSkeleton';
@@ -33,6 +33,16 @@ import {
   Award,
   ListChecks,
   UserCheck,
+  Sun,
+  Moon,
+  CloudSun,
+  CloudMoon,
+  Cloud,
+  CloudRain,
+  CloudDrizzle,
+  CloudSnow,
+  CloudLightning,
+  CloudFog,
 } from 'lucide-react';
 import { formatDateEgypt, formatDateTimeEgypt } from '../utils/formatters';
 
@@ -84,6 +94,162 @@ export default function Dashboard() {
 }
 
 // ============================================================================
+// SHARED WELCOME HEADER — live clock, weather, time-aware greeting
+// ============================================================================
+
+// Egypt time helper — backend stores Egypt time with 'Z'; strip 'Z' for local display
+const EGYPT_TZ = 'UTC';   // matches formatters.ts convention
+
+function getEgyptNow(): Date {
+  // Create a Date whose UTC fields equal Egypt local time
+  const s = new Date().toLocaleString('en-US', { timeZone: EGYPT_TZ });
+  return new Date(s);
+}
+
+// WMO weather code → { icon component, label }
+function weatherMeta(code: number, isNight: boolean) {
+  if (code === 0)                          return { Icon: isNight ? Moon : Sun,            label: 'Clear' };
+  if (code === 1)                          return { Icon: isNight ? Moon : Sun,            label: 'Mostly clear' };
+  if (code === 2)                          return { Icon: isNight ? CloudMoon : CloudSun,  label: 'Partly cloudy' };
+  if (code === 3)                          return { Icon: Cloud,                           label: 'Overcast' };
+  if (code === 45 || code === 48)          return { Icon: CloudFog,                        label: 'Foggy' };
+  if ([51, 53, 55].includes(code))         return { Icon: CloudDrizzle,                    label: 'Drizzle' };
+  if ([61, 63, 65, 80, 81, 82].includes(code)) return { Icon: CloudRain,                  label: 'Rain' };
+  if ([71, 73, 75, 77, 85, 86].includes(code)) return { Icon: CloudSnow,                  label: 'Snow' };
+  if ([95, 96, 99].includes(code))         return { Icon: CloudLightning,                  label: 'Thunderstorm' };
+  return { Icon: Cloud, label: 'Cloudy' };
+}
+
+const greetingMessages: Record<string, string[]> = {
+  admin: [
+    'Your system is running smoothly.',
+    'Stay on top of events and approvals.',
+    'Monitor, manage, and lead with confidence.',
+    'Everything is under your control.',
+    'Ready to make today productive.',
+  ],
+  director: [
+    'Review pending approvals and keep things moving.',
+    'Your decisions shape every event.',
+    'Stay ahead of the approval queue.',
+    'Great leaders make timely decisions.',
+    'Your team is counting on you.',
+  ],
+  organizer: [
+    'Manage your invitations efficiently.',
+    'Keep your guest lists up to date.',
+    'Every invite counts — make them matter.',
+    'Stay organised, stay ahead.',
+    'Your events are looking great.',
+  ],
+};
+
+interface WelcomeHeaderProps {
+  user: any;
+  gradientClasses: string;
+  blurColor: string;
+  accentTextColor: string;
+  badgeIcon: React.ElementType;
+  badgeLabel: string;
+}
+
+function DashboardWelcomeHeader({ user, gradientClasses, blurColor, accentTextColor, badgeIcon: BadgeIcon, badgeLabel }: WelcomeHeaderProps) {
+  const [now, setNow] = useState(getEgyptNow);
+  const [weather, setWeather] = useState<{ temp: number; code: number } | null>(null);
+  const weatherFetched = useRef(false);
+
+  // Tick every second
+  useEffect(() => {
+    const timer = setInterval(() => setNow(getEgyptNow()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Fetch weather once
+  useEffect(() => {
+    if (weatherFetched.current) return;
+    weatherFetched.current = true;
+    fetch('https://api.open-meteo.com/v1/forecast?latitude=30.05&longitude=31.25&current=temperature_2m,weather_code&timezone=Africa%2FCairo')
+      .then(r => r.json())
+      .then(data => {
+        if (data?.current) {
+          setWeather({ temp: Math.round(data.current.temperature_2m), code: data.current.weather_code });
+        }
+      })
+      .catch(() => {/* silent — weather is optional */});
+  }, []);
+
+  const hour = now.getHours();
+  const isNight = hour < 5 || hour >= 19;
+  const greeting =
+    hour >= 5 && hour < 12 ? 'Good morning' :
+    hour >= 12 && hour < 17 ? 'Good afternoon' :
+    hour >= 17 && hour < 21 ? 'Good evening' : 'Good night';
+
+  const role = user?.role || 'organizer';
+  const msgs = greetingMessages[role] || greetingMessages.organizer;
+  const dayOfYear = Math.floor((now.getTime() - new Date(now.getFullYear(), 0, 0).getTime()) / 86400000);
+  const subtitle = msgs[dayOfYear % msgs.length];
+
+  const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+  const dateStr = now.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' });
+
+  const wm = weather ? weatherMeta(weather.code, isNight) : null;
+  const TimeIcon = isNight ? Moon : Sun;
+
+  return (
+    <div className={`relative overflow-hidden ${gradientClasses} rounded-2xl p-4 sm:p-6 lg:p-8 text-white`}>
+      <div className={`absolute top-0 right-0 w-64 sm:w-96 h-64 sm:h-96 ${blurColor} rounded-full blur-3xl -translate-y-1/2 translate-x-1/2`}></div>
+      <div className="absolute bottom-0 left-0 w-48 sm:w-64 h-48 sm:h-64 bg-purple-500/20 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2"></div>
+      <div className="relative z-10 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+        {/* Left — greeting */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="p-2 bg-white/10 backdrop-blur rounded-lg">
+              <BadgeIcon className="w-5 h-5 sm:w-6 sm:h-6" />
+            </div>
+            <span className={`${accentTextColor} text-sm font-medium`}>{badgeLabel}</span>
+          </div>
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold mb-1">
+            {greeting}, {user?.full_name || user?.username}!
+          </h1>
+          <p className={`${accentTextColor} max-w-xl text-sm sm:text-base`}>{subtitle}</p>
+        </div>
+
+        {/* Right — clock + weather */}
+        <div className="flex items-center gap-4 sm:gap-5 shrink-0">
+          {/* Weather */}
+          {wm && weather && (
+            <div className="hidden sm:flex flex-col items-center gap-1">
+              <wm.Icon className="w-8 h-8 text-white/90" />
+              <span className="text-lg font-semibold leading-none">{weather.temp}°C</span>
+              <span className="text-[11px] text-white/70 leading-none">{wm.label}</span>
+            </div>
+          )}
+
+          {/* Divider */}
+          {wm && <div className="hidden sm:block w-px h-14 bg-white/20 rounded-full" />}
+
+          {/* Clock */}
+          <div className="flex flex-col items-end sm:items-center gap-0.5">
+            <div className="flex items-center gap-2">
+              <TimeIcon className="w-4 h-4 text-white/70 hidden sm:block" />
+              <span className="text-xl sm:text-2xl font-bold tabular-nums tracking-tight">{timeStr}</span>
+            </div>
+            <span className="text-xs sm:text-sm text-white/70">{dateStr}</span>
+            {/* Compact weather on mobile */}
+            {wm && weather && (
+              <span className="text-xs text-white/70 sm:hidden flex items-center gap-1 mt-0.5">
+                <wm.Icon className="w-3.5 h-3.5" /> {weather.temp}°C · {wm.label}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
 // ADMIN DASHBOARD
 // ============================================================================
 interface DashboardProps {
@@ -99,25 +265,14 @@ function AdminDashboard({ stats, events, recentActivity, navigate, user }: Dashb
   
   return (
     <div className="space-y-6">
-      {/* Welcome Header with Gradient */}
-      <div className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-indigo-900 to-purple-900 rounded-2xl p-4 sm:p-6 lg:p-8 text-white">
-        <div className="absolute top-0 right-0 w-64 sm:w-96 h-64 sm:h-96 bg-indigo-500/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
-        <div className="absolute bottom-0 left-0 w-48 sm:w-64 h-48 sm:h-64 bg-purple-500/20 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2"></div>
-        <div className="relative z-10">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-white/10 backdrop-blur rounded-lg">
-              <Shield className="w-5 h-5 sm:w-6 sm:h-6" />
-            </div>
-            <span className="text-indigo-200 text-sm font-medium">System Administrator</span>
-          </div>
-          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold mb-2">
-            Welcome back, {user?.full_name || user?.username}!
-          </h1>
-          <p className="text-indigo-200 max-w-xl text-sm sm:text-base">
-            Monitor system health, manage users, and oversee all events from your central command dashboard.
-          </p>
-        </div>
-      </div>
+      <DashboardWelcomeHeader
+        user={user}
+        gradientClasses="bg-gradient-to-br from-slate-900 via-indigo-900 to-purple-900"
+        blurColor="bg-indigo-500/20"
+        accentTextColor="text-indigo-200"
+        badgeIcon={Shield}
+        badgeLabel="System Administrator"
+      />
 
       {/* Stats Overview */}
       <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
@@ -274,24 +429,14 @@ function ApproverDashboard({ stats, events, recentActivity, navigate, user }: Da
   
   return (
     <div className="space-y-6">
-      {/* Welcome Header */}
-      <div className="relative overflow-hidden bg-gradient-to-br from-emerald-600 via-teal-600 to-cyan-700 rounded-2xl p-4 sm:p-6 lg:p-8 text-white">
-        <div className="absolute top-0 right-0 w-64 sm:w-96 h-64 sm:h-96 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
-        <div className="relative z-10">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-white/10 backdrop-blur rounded-lg">
-              <ClipboardCheck className="w-5 h-5 sm:w-6 sm:h-6" />
-            </div>
-            <span className="text-emerald-100 text-sm font-medium">Approval Manager</span>
-          </div>
-          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold mb-2">
-            Welcome back, {user?.full_name || user?.username}!
-          </h1>
-          <p className="text-emerald-100 max-w-xl text-sm sm:text-base">
-            Review pending invitations, manage approvals, and keep your events on track.
-          </p>
-        </div>
-      </div>
+      <DashboardWelcomeHeader
+        user={user}
+        gradientClasses="bg-gradient-to-br from-emerald-600 via-teal-600 to-cyan-700"
+        blurColor="bg-white/10"
+        accentTextColor="text-emerald-100"
+        badgeIcon={ClipboardCheck}
+        badgeLabel="Approval Manager"
+      />
 
       {/* Priority Alert */}
       {pendingCount > 0 && (
@@ -459,24 +604,14 @@ function InviterDashboard({ stats, events, recentActivity, navigate, user, showE
 
   return (
     <div className="space-y-6">
-      {/* Welcome Header */}
-      <div className="relative overflow-hidden bg-gradient-to-br from-blue-600 via-indigo-600 to-violet-700 rounded-2xl p-4 sm:p-6 lg:p-8 text-white">
-        <div className="absolute top-0 right-0 w-64 sm:w-96 h-64 sm:h-96 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
-        <div className="relative z-10">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-white/10 backdrop-blur rounded-lg">
-              <Send className="w-5 h-5 sm:w-6 sm:h-6" />
-            </div>
-            <span className="text-blue-100 text-sm font-medium">Invitation Manager</span>
-          </div>
-          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold mb-2">
-            Welcome back, {user?.full_name || user?.username}!
-          </h1>
-          <p className="text-blue-100 max-w-xl text-sm sm:text-base">
-            Manage your invitations, track approvals, and submit new guests for upcoming events.
-          </p>
-        </div>
-      </div>
+      <DashboardWelcomeHeader
+        user={user}
+        gradientClasses="bg-gradient-to-br from-blue-600 via-indigo-600 to-violet-700"
+        blurColor="bg-white/10"
+        accentTextColor="text-blue-100"
+        badgeIcon={Send}
+        badgeLabel="Invitation Manager"
+      />
 
       {/* Stats Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
