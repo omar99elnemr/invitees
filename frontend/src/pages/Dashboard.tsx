@@ -155,7 +155,7 @@ interface WelcomeHeaderProps {
 
 function DashboardWelcomeHeader({ user, gradientClasses, blurColor, accentTextColor, badgeIcon: BadgeIcon, badgeLabel }: WelcomeHeaderProps) {
   const [now, setNow] = useState(getEgyptNow);
-  const [weather, setWeather] = useState<{ temp: number; code: number } | null>(null);
+  const [weather, setWeather] = useState<{ temp: number; code: number; isDay: boolean } | null>(null);
   const weatherFetched = useRef(false);
 
   // Tick every second
@@ -168,18 +168,19 @@ function DashboardWelcomeHeader({ user, gradientClasses, blurColor, accentTextCo
   useEffect(() => {
     if (weatherFetched.current) return;
     weatherFetched.current = true;
-    fetch('https://api.open-meteo.com/v1/forecast?latitude=30.05&longitude=31.25&current=temperature_2m,weather_code&timezone=Africa%2FCairo')
+    fetch('https://api.open-meteo.com/v1/forecast?latitude=30.05&longitude=31.25&current=temperature_2m,weather_code,is_day&timezone=Africa%2FCairo')
       .then(r => r.json())
       .then(data => {
         if (data?.current) {
-          setWeather({ temp: Math.round(data.current.temperature_2m), code: data.current.weather_code });
+          setWeather({ temp: Math.round(data.current.temperature_2m), code: data.current.weather_code, isDay: data.current.is_day === 1 });
         }
       })
       .catch(() => {/* silent — weather is optional */});
   }, []);
 
   const hour = now.getHours();
-  const isNight = hour < 5 || hour >= 19;
+  // Use API's is_day (based on actual Cairo sunrise/sunset) when available; fallback to hour estimate
+  const isNight = weather ? !weather.isDay : (hour < 6 || hour >= 18);
   const greeting =
     hour >= 5 && hour < 12 ? 'Good morning' :
     hour >= 12 && hour < 17 ? 'Good afternoon' :
