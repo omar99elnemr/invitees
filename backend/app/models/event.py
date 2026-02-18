@@ -247,10 +247,8 @@ class Event(db.Model):
         Returns: tuple (ongoing_count, ended_count) - number of events updated
         """
         from app import db
-        import logging
         
         now = get_egypt_time()
-        logging.info(f"Updating event statuses at Egypt time: {now}")
         
         # Update events that should be 'ongoing' (started but not ended)
         # Only update if current status is 'upcoming'
@@ -267,12 +265,10 @@ class Event(db.Model):
             Event.end_date <= now
         ).update({'status': 'ended', 'updated_at': now}, synchronize_session=False)
         
-        if ongoing_count > 0 or ended_count > 0:
-            logging.info(f"Updated {ongoing_count} events to 'ongoing', {ended_count} events to 'ended'")
-        
         db.session.commit()
         # Expire all session objects so subsequent queries re-read fresh data from DB.
-        # This is required because synchronize_session=False means in-memory objects
-        # still hold the old status values after the bulk UPDATE.
+        # Required because synchronize_session=False means in-memory objects still hold
+        # old status values after the bulk UPDATE. expire_all() in before_request also
+        # handles cross-thread stale cache under Waitress multi-threading.
         db.session.expire_all()
         return (ongoing_count, ended_count)
