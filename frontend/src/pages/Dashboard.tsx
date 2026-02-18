@@ -97,12 +97,14 @@ export default function Dashboard() {
 // SHARED WELCOME HEADER — live clock, weather, time-aware greeting
 // ============================================================================
 
-// Egypt time helper — backend stores Egypt time with 'Z'; strip 'Z' for local display
-const EGYPT_TZ = 'UTC';   // matches formatters.ts convention
+// Live clock uses the real IANA timezone so it shows actual Egypt time.
+// (Note: formatters.ts uses 'UTC' for a different reason — backend dates are
+// already Egypt-local with a fake 'Z' suffix, so 'UTC' displays them as-is.
+// That convention does NOT apply to a live clock.)
+const LIVE_CLOCK_TZ = 'Africa/Cairo';
 
 function getEgyptNow(): Date {
-  // Create a Date whose UTC fields equal Egypt local time
-  const s = new Date().toLocaleString('en-US', { timeZone: EGYPT_TZ });
+  const s = new Date().toLocaleString('en-US', { timeZone: LIVE_CLOCK_TZ });
   return new Date(s);
 }
 
