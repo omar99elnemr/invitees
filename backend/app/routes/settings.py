@@ -187,7 +187,7 @@ def backup_data():
                 'end_date': to_utc_isoformat(e.end_date),
                 'venue': e.venue,
                 'description': e.description,
-                'invitee_count': e.event_invitees.count() if hasattr(e, 'event_invitees') else 0,
+                'invitee_count': e._non_rejected_count(),
                 'is_all_groups': e.is_all_groups,
                 'inviter_group_names': g_names,
                 'creator_name': e.creator.username if e.creator else None,

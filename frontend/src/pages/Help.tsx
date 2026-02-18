@@ -1351,7 +1351,8 @@ export default function Help() {
             Click the <strong>key icon</strong> on a user row. A modal appears where you enter
             a new password. Click "Reset Password" to save. The user will need to use the new password on their next login.
           </P>
-          <Screenshot name="users-reset-password" caption="Reset Password modal — set a new password for the user" />
+          <Screenshot name="users-reset-password" caption="User actions menu — Edit, Reset Password, Activate/Deactivate" />
+          <Screenshot name="users-reset-password01" caption="Reset Password modal — enter new password and confirm" />
 
           <P><strong>Activate / Deactivate a User</strong></P>
           <P>

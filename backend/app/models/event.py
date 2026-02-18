@@ -91,6 +91,11 @@ class Event(db.Model):
         # or via explicit calls to update_status()
         return self.status
     
+    def _non_rejected_count(self):
+        """Count invitees excluding rejected ones (only pending + approved count)"""
+        from app.models.event_invitee import EventInvitee
+        return self.event_invitees.filter(EventInvitee.status != 'rejected').count()
+    
     def to_dict(self):
         """Convert event to dictionary"""
         # Use the actual stored status from database
@@ -120,7 +125,7 @@ class Event(db.Model):
             'creator_name': self.creator.username if self.creator else None,
             'created_at': to_utc_isoformat(self.created_at),
             'updated_at': to_utc_isoformat(self.updated_at),
-            'invitee_count': self.event_invitees.count() if hasattr(self, 'event_invitees') else 0,
+            'invitee_count': self._non_rejected_count(),
             'is_all_groups': self.is_all_groups,
             'inviter_group_ids': inviter_group_ids,
             'inviter_group_names': inviter_group_names,
