@@ -1114,15 +1114,21 @@ export default function Help() {
           </P>
           <StepList steps={[
             'Select invitees who have been sent their invitations.',
-            'Click "Mark Sent" from the bulk actions.',
-            'Or click the send icon on individual rows.',
-            'The "Sent" column updates to show a green checkmark.',
+            'Click "Mark Sent" from the bulk actions dropdown.',
+            'A modal appears asking you to select the delivery method: Physical (Hand-delivered), Email, WhatsApp, or SMS.',
+            'Select the method and click "Confirm".',
+            'The "Status" column updates to show "Invited" and the delivery method is recorded.',
           ]} />
+          <P>
+            You can also click the send icon on individual rows to mark a single invitee.
+          </P>
           <P>
             You can <strong>undo "Mark Sent"</strong> if you made a mistake — select the invitees and click
             "Undo Sent", or click the undo icon on individual rows.
           </P>
-          <Screenshot name="attendance-mark-sent" caption="Mark invitations as sent — bulk or individual" />
+          <Screenshot name="attendance-mark-sent" caption="Bulk actions dropdown — select Mark as Sent" />
+          <Screenshot name="attendance-mark-sent01" caption="Select delivery method — Physical, Email, WhatsApp, or SMS" />
+          <Screenshot name="attendance-mark-sent02" caption="After marking sent — Status column shows 'Invited'" />
 
           <H3>Step 4: Track Confirmations</H3>
           <P>
@@ -1251,7 +1257,9 @@ export default function Help() {
             {isViewAdmin && <Li><strong>User filter</strong> (Activity Log, Admin only) — Filter by which user performed the action.</Li>}
             {isViewAdmin && <Li><strong>Inviter filter</strong> (Historical Data, Admin only) — Filter by specific inviter.</Li>}
           </Ul>
-          <Screenshot name="reports-filters" caption="Report filters — vary by report type" />
+          <Screenshot name="reports-filters" caption="Invitees by Group — event and status filters" />
+          <Screenshot name="reports-filters01" caption="Invitees by Inviter — event, inviter, and status filters" />
+          <Screenshot name="reports-filters02" caption="Detailed Invitees — event, inviter, status filters with search bar" />
 
           <H3>Report Results Table</H3>
           <P>
@@ -1475,25 +1483,26 @@ export default function Help() {
 
           <P><strong>Image Editor</strong></P>
           <P>
-            After uploading or clicking "Edit" on an existing logo, the Image Editor modal opens. It allows you to:
+            After uploading or clicking "Edit" on an existing logo, the Edit Logo modal opens with two tabs:
           </P>
           <Ul>
-            <Li><strong>Crop</strong> — Drag the crop area to select the portion of the image you want.</Li>
-            <Li><strong>Resize</strong> — Adjust the output dimensions.</Li>
-            <Li>Click "Apply" to save your edits, or "Cancel" to discard.</Li>
+            <Li><strong>Crop</strong> — Drag to reposition the image, use the slider or scroll to zoom, and drag corners to adjust the crop area.</Li>
+            <Li><strong>Background</strong> — Adjust or remove the image background.</Li>
+            <Li>Click <strong>"Preview"</strong> to see the result, then click <strong>"Use This Image"</strong> to apply, or "Cancel" to discard.</Li>
           </Ul>
-          <Screenshot name="settings-image-editor" caption="Image Editor — crop and resize your logo" />
+          <Screenshot name="settings-image-editor" caption="Edit Logo — Crop tab with zoom slider and crop area" />
 
           <P><strong>Logo Scale & Vertical Extension</strong></P>
           <P>
-            Below the logo cards, a shared sizing panel lets you adjust how logos appear on exports:
+            Below the logo cards, a <strong>"Logo Size & Position"</strong> panel lets you adjust how logos appear on exports:
           </P>
           <Ul>
-            <Li><strong>Scale</strong> — A slider (60% to 200%) to increase or decrease the logo size. Default is 100%.</Li>
+            <Li><strong>Logo Scale</strong> — A slider (60% to 200%) to increase or decrease the logo size. Default is 100%.</Li>
             <Li><strong>Extend Up</strong> — A slider (0–30px) that extends the logo upward in the export header.</Li>
             <Li><strong>Extend Down</strong> — A slider (0–30px) that extends the logo downward in the export header.</Li>
           </Ul>
-          <P>A "Reset to defaults" link appears when any value differs from the default. Changes are reflected in the <strong>Live Preview</strong> section.</P>
+          <P>A <strong>"Reset to defaults"</strong> link appears when any value differs from the default. Changes are reflected in the <strong>Live Preview</strong> section.</P>
+          <Screenshot name="settings-image-editor01" caption="Logo Size & Position — Scale, Extend Up, and Extend Down sliders" />
 
           <P><strong>Remove a Logo</strong></P>
           <P>
@@ -1606,7 +1615,8 @@ export default function Help() {
           Each requirement has a visual indicator that turns from red ✗ to green ✓ as you type.
           The "Change Password" button is only enabled when all requirements are met and both password fields match.
         </P>
-        <Screenshot name="profile-password" caption="Change password — requirements validated in real-time" />
+        <Screenshot name="profile-password" caption="Security section — click Change Password to expand the form" />
+        <Screenshot name="profile-password01" caption="Password form — all requirements met (green checks), ready to save" />
 
         <H3>Application Maintenance</H3>
         <P>At the bottom of the Profile page, two utility buttons are available:</P>
