@@ -57,14 +57,21 @@ def refresh_event_statuses():
                 pass
 
         events = EventService.get_events_for_user(current_user)
-        return jsonify({
+        
+        response_data = {
             'events': [event.to_dict() for event in events],
             'updated': {
                 'ongoing': ongoing_count,
                 'ended': ended_count
             },
             'server_time': get_egypt_time().isoformat()
-        }), 200
+        }
+        
+        response = jsonify(response_data)
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        return response, 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -73,7 +80,11 @@ def refresh_event_statuses():
 def get_events():
     """Get all events (filtered by role)"""
     events = EventService.get_events_for_user(current_user)
-    return jsonify([event.to_dict() for event in events]), 200
+    response = jsonify([event.to_dict() for event in events])
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response, 200
 
 @events_bp.route('/<int:event_id>', methods=['GET'])
 @login_required

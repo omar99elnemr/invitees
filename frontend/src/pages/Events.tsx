@@ -114,15 +114,20 @@ export default function Events() {
       // Log if any events were updated (for debugging)
       const { updated } = response.data;
       if (updated.ongoing > 0 || updated.ended > 0) {
-        console.log(`Status refresh: ${updated.ongoing} events now ongoing, ${updated.ended} events now ended`);
+        console.log(`Events updated: ${updated.ongoing} ongoing, ${updated.ended} ended`);
+        toast.success(`Updated: ${updated.ongoing} ongoing, ${updated.ended} ended`);
       }
     } catch (error: any) {
+      console.error('Failed to refresh events:', error);
       // Fallback to regular getAll if refresh fails
       try {
         const response = await eventsAPI.getAll();
         setEvents(response.data);
-      } catch (fallbackError: any) {
-        toast.error(fallbackError.response?.data?.error || 'Failed to load events');
+      } catch (fallbackError) {
+        console.error('Failed to fetch events:', fallbackError);
+        toast.error('Failed to load events');
+      } finally {
+        setLoading(false);
       }
     } finally {
       setLoading(false);

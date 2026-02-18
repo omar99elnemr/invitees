@@ -163,16 +163,18 @@ class Event(db.Model):
             # Admins see all events
             return Event.query.order_by(Event.start_date.desc()).all()
         else:
-            # Organizers and directors only see active events assigned to their inviter group
-            # OR events where is_all_groups is True
+            # Organizers and directors see active events + recently ended events (within 2 hours)
+            # This allows them to see when events transition to 'ended' status
             if user.inviter_group_id:
+                two_hours_ago = get_egypt_time() - timedelta(hours=2)
                 return Event.query.filter(
-                    Event.status.in_(['upcoming', 'ongoing']),
+                    Event.status.in_(['upcoming', 'ongoing', 'ended']),
+                    Event.end_date >= two_hours_ago,  # Only show events that ended within last 2 hours
                     or_(
                         Event.is_all_groups == True,
                         Event.inviter_groups.any(id=user.inviter_group_id)
                     )
-                ).order_by(Event.start_date).all()
+                ).order_by(Event.start_date.desc()).all()
             else:
                 # User has no group - return empty
                 return []
