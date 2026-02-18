@@ -161,7 +161,11 @@ export function Sidebar({ isOpen, isMobile, onClose }: SidebarProps) {
           </div>
         </div>
         <div className="mt-3 pt-2 border-t border-gray-100 dark:border-gray-700/40">
-          <p className="text-[10px] text-gray-300 dark:text-gray-600 text-center tracking-wider">EIMS v2.0</p>
+          <p className="text-[10px] text-gray-400 dark:text-gray-500 text-center leading-relaxed">
+            Powered by <span className="font-semibold text-gray-500 dark:text-gray-400">The Cluster IT Team</span>
+            <br />
+            <span className="text-gray-300 dark:text-gray-600">Hyatt Cairo West</span>
+          </p>
         </div>
       </div>
     </aside>

@@ -232,9 +232,14 @@ export default function Login() {
           </div>
 
           {/* Footer */}
-          <p className="text-center text-gray-400 dark:text-gray-500 text-sm mt-6">
-            Event Invitees Management System © {new Date().getFullYear()}
-          </p>
+          <div className="text-center mt-6 space-y-1">
+            <p className="text-gray-400 dark:text-gray-500 text-sm">
+              Event Invitees Management System © {new Date().getFullYear()}
+            </p>
+            <p className="text-gray-400/70 dark:text-gray-600 text-xs">
+              Powered by <span className="font-medium">The Cluster IT Team</span> · Hyatt Cairo West
+            </p>
+          </div>
         </div>
       </div>
 
