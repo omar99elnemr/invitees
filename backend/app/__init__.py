@@ -71,8 +71,15 @@ def create_app(config_class=Config):
         PWA long-lived sessions are handled via Flask-Login's remember
         cookie (auto-set on PWA login), not by mutating the shared
         app.permanent_session_lifetime (which is thread-unsafe under
-        Waitress's multi-threaded model)."""
+        Waitress's multi-threaded model).
+        
+        Also expire all SQLAlchemy ORM objects so this thread's session
+        re-reads from the DB on first access. This is critical under
+        Waitress multi-threading: bulk UPDATE with synchronize_session=False
+        only expires the session in the thread that ran it — other threads
+        keep stale cached objects indefinitely until their session is expired."""
         session.permanent = True
+        db.session.expire_all()
     
     @app.after_request
     def set_api_cache_headers(response):
