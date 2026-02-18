@@ -4,15 +4,15 @@ Represents events that can have invitees
 """
 from app import db
 from datetime import datetime, timezone, timedelta
+from zoneinfo import ZoneInfo
 from app.utils.helpers import to_utc_isoformat
 
-# Egypt timezone is UTC+2
-EGYPT_TZ_OFFSET = timedelta(hours=2)
+# IANA timezone for Egypt — automatically handles DST (UTC+2 standard, UTC+3 summer)
+EGYPT_TZ = ZoneInfo('Africa/Cairo')
 
 def get_egypt_time():
-    """Get current time in Egypt timezone (UTC+2)"""
-    utc_now = datetime.now(timezone.utc)
-    egypt_now = utc_now + EGYPT_TZ_OFFSET
+    """Get current time in Egypt timezone (handles DST automatically)"""
+    egypt_now = datetime.now(EGYPT_TZ)
     # Return naive datetime for comparison with database timestamps
     return egypt_now.replace(tzinfo=None)
 
