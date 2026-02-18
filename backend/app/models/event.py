@@ -271,4 +271,8 @@ class Event(db.Model):
             logging.info(f"Updated {ongoing_count} events to 'ongoing', {ended_count} events to 'ended'")
         
         db.session.commit()
+        # Expire all session objects so subsequent queries re-read fresh data from DB.
+        # This is required because synchronize_session=False means in-memory objects
+        # still hold the old status values after the bulk UPDATE.
+        db.session.expire_all()
         return (ongoing_count, ended_count)
