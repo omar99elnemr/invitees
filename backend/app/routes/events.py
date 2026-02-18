@@ -21,8 +21,6 @@ def refresh_event_statuses():
     Sends system notifications when events auto-transition (upcoming→ongoing, ongoing→ended).
     """
     try:
-        from app import db as _db
-
         # Detect which events WILL transition before the bulk update
         now = get_egypt_time()
         going_live = Event.query.filter(
@@ -35,26 +33,32 @@ def refresh_event_statuses():
             Event.end_date <= now
         ).all()
 
-        # Build transition list: (event, old_status, new_status)
-        transitioned = []
+        # Build lightweight transition info for background notifications
+        transition_info = []
+        seen_ids = set()
         for ev in going_live:
-            transitioned.append((ev, ev.status, 'ongoing'))
+            transition_info.append({'id': ev.id, 'name': ev.name, 'old': ev.status, 'new': 'ongoing'})
+            seen_ids.add(ev.id)
         for ev in going_ended:
-            # Avoid duplicates if an event appears in both queries
-            if not any(t[0].id == ev.id for t in transitioned):
-                transitioned.append((ev, ev.status, 'ended'))
+            if ev.id not in seen_ids:
+                transition_info.append({'id': ev.id, 'name': ev.name, 'old': ev.status, 'new': 'ended'})
 
         # Now do the actual bulk status update
         ongoing_count, ended_count = Event.update_all_statuses()
 
-        # Send system notifications for auto-transitions (best effort)
-        if transitioned:
-            try:
-                from app.services.notification_service import notify_event_auto_transitions
-                notify_event_auto_transitions(transitioned)
-                _db.session.commit()
-            except Exception:
-                pass
+        # Send notifications in background thread so response is not blocked
+        if transition_info:
+            import threading
+            from flask import current_app
+            app = current_app._get_current_object()
+            def _send_notifications(app_obj, info):
+                try:
+                    with app_obj.app_context():
+                        from app.services.notification_service import notify_event_auto_transitions_by_info
+                        notify_event_auto_transitions_by_info(info)
+                except Exception:
+                    pass
+            threading.Thread(target=_send_notifications, args=(app, transition_info), daemon=True).start()
 
         events = EventService.get_events_for_user(current_user)
         

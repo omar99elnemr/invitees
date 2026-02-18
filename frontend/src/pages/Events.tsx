@@ -86,10 +86,10 @@ export default function Events() {
     fetchEvents();
     fetchInviterGroups();
     
-    // Set up auto-refresh every minute (60000ms)
+    // Set up auto-refresh every 15 seconds for responsive status updates
     const refreshInterval = setInterval(() => {
       refreshEventStatuses();
-    }, 60000);
+    }, 15000);
     
     // Cleanup interval on unmount
     return () => clearInterval(refreshInterval);

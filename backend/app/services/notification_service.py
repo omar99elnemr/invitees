@@ -374,6 +374,64 @@ def notify_event_auto_transitions(transitioned_events):
             create_bulk_notifications(list(user_ids), title, message, type='event_status', link=link)
 
 
+def notify_event_auto_transitions_by_info(transition_info):
+    """Background-thread-safe version of notify_event_auto_transitions.
+    Works with plain dicts instead of ORM objects.
+    transition_info: list of dicts with keys: id, name, old, new."""
+    from app.models.user import User
+    from app.models.inviter_group import InviterGroup
+    from app.models.event import Event
+
+    status_labels = {
+        'upcoming': 'Upcoming',
+        'ongoing': 'Now Live',
+        'ended': 'Ended',
+    }
+
+    for info in transition_info:
+        new_status = info['new']
+        event_name = info['name']
+        event_id = info['id']
+        label = status_labels.get(new_status, new_status)
+        if new_status == 'ongoing':
+            title = 'Event Now Live'
+            message = f'"{event_name}" has started and is now live.'
+        elif new_status == 'ended':
+            title = 'Event Ended'
+            message = f'"{event_name}" has ended.'
+        else:
+            title = f'Event {label}'
+            message = f'"{event_name}" is now {label.lower()}.'
+
+        link = '/events'
+
+        # Fetch event fresh in this thread's session
+        event = Event.query.get(event_id)
+        if not event:
+            continue
+
+        user_ids = set()
+        admins = User.query.filter_by(role='admin', is_active=True).all()
+        user_ids.update(u.id for u in admins)
+
+        if event.is_all_groups:
+            groups = InviterGroup.query.all()
+        else:
+            groups = event.inviter_groups
+
+        for group in groups:
+            group_users = User.query.filter_by(inviter_group_id=group.id, is_active=True).all()
+            user_ids.update(u.id for u in group_users)
+
+        if user_ids:
+            create_bulk_notifications(list(user_ids), title, message, type='event_status', link=link)
+
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+
+
 def notify_event_details_updated(event, exclude_user_id=None):
     """Notify assigned group members when event details are updated by admin."""
     from app.models.user import User
