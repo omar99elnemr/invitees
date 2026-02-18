@@ -3,8 +3,11 @@
  */
 import { format, parseISO } from 'date-fns';
 
-// Egypt timezone constant
-const EGYPT_TIMEZONE = 'Africa/Cairo';
+// The backend stores dates as Egypt local time (naive) but to_utc_isoformat()
+// appends 'Z', falsely labeling them as UTC. Using 'Africa/Cairo' would add +2h
+// on top of already-Egypt values. Using 'UTC' displays the raw stored value as-is,
+// which IS the correct Egypt time. This also works regardless of browser timezone.
+const EGYPT_TIMEZONE = 'UTC';
 
 /**
  * Format date/time for display (local timezone)

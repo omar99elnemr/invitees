@@ -101,10 +101,11 @@ export default function Portal() {
     setChangingResponse(false);
   };
 
+  // Backend stores Egypt local time but appends 'Z'. Using 'UTC' displays as-is.
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
     return date.toLocaleDateString('en-EG', {
-      timeZone: 'Africa/Cairo',
+      timeZone: 'UTC',
       weekday: 'long',
       year: 'numeric',
       month: 'long',

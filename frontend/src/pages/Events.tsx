@@ -157,10 +157,11 @@ export default function Events() {
     return matchesSearch && matchesStatus;
   });
 
-  // Format date for display in Egypt timezone
+  // Format date for display — backend stores Egypt local time but appends 'Z'.
+  // Using 'UTC' displays the raw stored value, which IS correct Egypt time.
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-EG', {
-      timeZone: 'Africa/Cairo',
+      timeZone: 'UTC',
       year: 'numeric',
       month: 'short',
       day: 'numeric',
