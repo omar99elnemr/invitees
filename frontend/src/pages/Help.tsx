@@ -201,7 +201,8 @@ function PermissionTable({ highlight }: { highlight: ViewRole }) {
   const rows = [
     { feature: 'Dashboard', organizer: true, director: true, admin: true },
     { feature: 'Invitees & Contacts', organizer: true, director: true, admin: true },
-    { feature: 'Approve / Reject', organizer: false, director: true, admin: true },
+    { feature: 'Approvals (view)', organizer: false, director: true, admin: true },
+    { feature: 'Approve / Reject actions', organizer: false, director: true, admin: false },
     { feature: 'Reports', organizer: false, director: true, admin: true },
     { feature: 'Events Management', organizer: false, director: false, admin: true },
     { feature: 'Attendance & Check-in', organizer: false, director: false, admin: true },
@@ -568,112 +569,91 @@ export default function Help() {
         {/* ── EVENTS TAB ── */}
         <H3><Calendar className="w-5 h-5 text-indigo-500" /> Events Tab</H3>
         <P>
-          This tab lets you submit contacts as invitees to a specific event and track their approval status.
+          This tab lets you select an event, see your group's contacts, and submit them for approval.
+          {isViewAdmin && <> <strong>Note:</strong> Admins can view this tab but cannot submit contacts — only Organizers and Directors can submit.</>}
         </P>
 
         <P><strong>Step 1: Select an Event</strong></P>
         <P>
-          Use the <strong>"Select Event"</strong> dropdown at the top to choose which event you want to work with.
-          Only events assigned to your group appear in this list.
-          Once selected, the page loads all invitees submitted to that event.
+          At the top, assigned events are displayed as <strong>clickable cards</strong> in a grid.
+          Each card shows the event name, status, start date, and venue.
+          Only active events (Upcoming or Ongoing) assigned to your inviter group appear.
+          Click a card to select it.
         </P>
-        <Screenshot name="invitees-event-select" caption="Select an event from the dropdown to view its invitees" />
+        <Screenshot name="invitees-event-select" caption="Select an event card to work with" />
 
-        <P><strong>Quota Bar</strong></P>
+        <P><strong>Event Info Header</strong></P>
         <P>
-          If your group has a quota for the selected event, a progress bar appears below the event selector showing
-          how many slots you have used vs. available (e.g., "12 / 50 used"). The bar changes color as you approach
-          the limit. If you've hit the quota, the "Add Invitee" button is disabled and you'll need to contact your Admin.
+          After selecting an event, an info header shows the event name, date, venue, and assigned groups
+          (click the groups badge to see all assigned groups in a popup).
+          Three stat counters show <strong>Pending</strong>, <strong>Approved</strong>, and <strong>Rejected</strong> counts.
+          Clicking "Pending" or "Approved" navigates to the Approvals page (Directors/Admins only).
+          Clicking "Rejected" filters the contact list below to show only rejected contacts.
         </P>
-        <Screenshot name="invitees-quota" caption="Quota progress bar — shows used vs. available invitee slots" />
+        <Screenshot name="invitees-event-header" caption="Event info header with stats — pending, approved, rejected counts" />
 
-        <P><strong>Step 2: View Invitees</strong></P>
-        <P>
-          The invitees table shows all submissions for the selected event. Each row displays:
-        </P>
-        <Ul>
-          <Li><strong>Name</strong> — The invitee's full name.</Li>
-          <Li><strong>Inviter</strong> — Who submitted this invitee.</Li>
-          <Li><strong>Category</strong> — The classification (e.g., VIP, Media, Staff).</Li>
-          <Li><strong>Guests</strong> — Number of plus-ones allowed.</Li>
-          <Li><strong>Status badge</strong> — Current approval status.</Li>
-          <Li><strong>Actions</strong> — Buttons depending on the status.</Li>
-        </Ul>
-        <div className="flex flex-wrap gap-2 my-3">
-          <Badge color="yellow">Pending</Badge>
-          <Badge color="green">Approved</Badge>
-          <Badge color="red">Rejected</Badge>
-          <Badge color="blue">Resubmitted</Badge>
-        </div>
-        <Screenshot name="invitees-events-tab" caption="Events tab — invitee list with status badges and actions" />
+        {!isViewAdmin && (
+          <>
+            <P><strong>Quota Bar</strong> (Organizers & Directors)</P>
+            <P>
+              If your group has a quota for the selected event, a progress bar appears showing
+              how many slots you have used vs. available (e.g., "Group Quota: 12 / 50"). The bar changes color:
+              indigo when within limit, amber when close to the limit (≤5 remaining), and red when the quota is reached.
+              When quota is reached, the "Submit for Approval" button is disabled.
+            </P>
+            <Screenshot name="invitees-quota" caption="Quota progress bar — shows used vs. available slots" />
+          </>
+        )}
 
-        <P><strong>Step 3: Add an Invitee</strong></P>
+        <P><strong>Step 2: Submit Contacts for Approval</strong></P>
         <P>
-          Click the <strong>"+ Add Invitee"</strong> button (top-right). A modal opens where you can:
+          Below the event info, you see a table of your group's contacts that are available to submit
+          (contacts already approved or pending for this event are excluded). To submit:
         </P>
         <StepList steps={[
-          'Select an existing contact from the "Select Contact" dropdown, OR type a new name manually.',
-          'The contact\'s details (phone, email, company, etc.) auto-fill if you pick an existing contact.',
-          'Choose the Inviter (defaults to your assigned inviter).',
-          'Select a Category from the dropdown.',
-          'Set the number of Guests Allowed (plus-ones).',
-          'Optionally add Notes.',
-          'Click "Submit for Approval" to send the invitee for director review.',
+          'Use checkboxes to select one or more contacts from the table.',
+          'Alternatively, use the top checkbox to select/deselect all visible contacts.',
+          'Click "Submit for Approval" at the bottom of the section.',
+          'A success toast confirms how many contacts were submitted.',
+          'The submitted contacts move to "Pending" status and disappear from the available list.',
         ]} />
-        <Screenshot name="invitees-add-modal" caption="Add Invitee modal — select contact, set details, submit for approval" />
+        {!isViewAdmin && (
+          <P>
+            You can also click the <strong>"Submit"</strong> link on an individual contact row to submit just that one contact instantly.
+          </P>
+        )}
+        {isViewAdmin && (
+          <InfoBox>
+            Admins cannot submit contacts for approval. This tab shows a message: "Admins cannot submit contacts - assign organizers to do this."
+            Admins can still view the event data and contacts.
+          </InfoBox>
+        )}
+        <Screenshot name="invitees-submit" caption="Select contacts and submit for approval" />
 
-        <P><strong>Resubmit a Rejected Invitee</strong></P>
+        <P><strong>Rejected Contacts</strong></P>
         <P>
-          If an invitee was rejected, a <strong>"Resubmit"</strong> button appears next to them.
-          Click it to open a modal where you can add a <strong>note explaining why</strong> the invitee
-          should be reconsidered. Click "Resubmit" to send them back for approval. The status changes to
-          <Badge color="blue">Resubmitted</Badge>.
+          When viewing the contact list, rejected contacts appear with a <strong>red ✗ icon</strong> next to their name.
+          Click the red ✗ icon to open a <strong>"Rejection Details"</strong> modal showing:
         </P>
-        <Screenshot name="invitees-resubmit" caption="Resubmit modal — add a note and resubmit a rejected invitee" />
-
-        <P><strong>Remove a Pending Invitee</strong></P>
-        <P>
-          For invitees still in <Badge color="yellow">Pending</Badge> status, click the <strong>trash icon</strong> to
-          remove the submission. A confirmation dialog appears before deletion.
-        </P>
-
-        <P><strong>Filters & Search</strong></P>
         <Ul>
-          <Li><strong>Search bar</strong> — Type to search by invitee name (filters as you type with a short delay).</Li>
-          <Li><strong>Status filter</strong> — Dropdown to filter by: All, Pending, Approved, Rejected, Resubmitted.</Li>
+          <Li><strong>Invitee name</strong></Li>
+          <Li><strong>Rejected by</strong> — The director/admin who rejected</Li>
+          <Li><strong>Rejection note</strong> — The reason provided for the rejection</Li>
+        </Ul>
+        <P>
+          To resubmit a rejected contact, click the <strong>"Rejected"</strong> stat counter in the event header
+          to filter to rejected contacts. Then select them with checkboxes and click "Submit for Approval" again.
+        </P>
+        <Screenshot name="invitees-rejection-details" caption="Rejection Details modal — see who rejected and why" />
+
+        <P><strong>Events Tab Filters</strong></P>
+        <Ul>
+          <Li><strong>Search bar</strong> — Type to search by name, email, phone, or company.</Li>
           <Li><strong>Inviter filter</strong> — Dropdown to filter by specific inviter.</Li>
-          {isViewAdmin && <Li><strong>Group filter</strong> (Admin only) — Filter by inviter group.</Li>}
+          <Li><strong>Category filter</strong> — Dropdown to filter by category.</Li>
           <Li><strong>Sort</strong> — Click any column header to sort ascending/descending.</Li>
         </Ul>
-        <Screenshot name="invitees-filters" caption="Search, status, and inviter filters on the Events tab" />
-
-        <P><strong>Export</strong></P>
-        <P>
-          Click the <strong>"Export"</strong> dropdown button to download the current view as:
-        </P>
-        <div className="flex flex-wrap gap-2 my-3">
-          <Badge color="green">Excel (.xlsx)</Badge>
-          <Badge color="blue">CSV</Badge>
-          <Badge color="red">PDF</Badge>
-          <Badge color="gray">Print</Badge>
-        </div>
-        <P>PDF and Excel exports include configured logos (see Export Settings).</P>
-        <Screenshot name="invitees-export" caption="Export dropdown — Excel, CSV, PDF, or Print" />
-
-        <P><strong>Bulk Import (Events Tab)</strong></P>
-        <P>
-          Click the <strong>"Import"</strong> button to open the import modal. This lets you submit
-          many invitees at once from a spreadsheet.
-        </P>
-        <StepList steps={[
-          'Click "Import" to open the import modal.',
-          'Click "Download Template" to get a pre-formatted .xlsx file with all required columns.',
-          'Fill in the template in Excel with your invitee data.',
-          'Drag and drop the filled file onto the upload area, or click "Browse" to select it.',
-          'The system validates the file and shows a preview of rows to import.',
-          'Click "Import Contacts" to submit all invitees for approval.',
-        ]} />
-        <Screenshot name="invitees-import" caption="Bulk import modal — download template, fill, upload, and import" />
+        <Screenshot name="invitees-filters" caption="Search, inviter, and category filters on the Events tab" />
 
         {/* ── CONTACTS TAB ── */}
         <H3><Users className="w-5 h-5 text-indigo-500" /> Contacts Tab</H3>
@@ -683,9 +663,12 @@ export default function Help() {
         </P>
         <Screenshot name="invitees-contacts-tab" caption="Contacts tab — your group's reusable contact directory" />
 
-        <P><strong>Add a New Contact</strong></P>
+        <P><strong>Add a New Contact</strong>{!isViewAdmin && ' (Organizers & Directors)'}</P>
         <P>
-          Click <strong>"+ Add Contact"</strong> to open the contact form modal with these fields:
+          {isViewAdmin
+            ? <>Admins do not see the "Add Contact" button. Only Organizers and Directors can add contacts to their group.</>
+            : <>Click <strong>"+ Add Contact"</strong> to open the contact form modal with these fields:</>
+          }
         </P>
         <div className="overflow-x-auto my-3">
           <table className="w-full text-sm border-collapse">
@@ -699,8 +682,8 @@ export default function Help() {
             <tbody className="text-gray-600 dark:text-gray-400">
               <tr><td className="px-3 py-2 border-b border-gray-100 dark:border-gray-700/50 font-medium">Inviter</td><td className="text-center px-3 py-2 border-b border-gray-100 dark:border-gray-700/50 text-green-500">✓</td><td className="px-3 py-2 border-b border-gray-100 dark:border-gray-700/50">Select the inviter this contact belongs to</td></tr>
               <tr><td className="px-3 py-2 border-b border-gray-100 dark:border-gray-700/50 font-medium">Full Name</td><td className="text-center px-3 py-2 border-b border-gray-100 dark:border-gray-700/50 text-green-500">✓</td><td className="px-3 py-2 border-b border-gray-100 dark:border-gray-700/50">Contact's full name</td></tr>
-              <tr><td className="px-3 py-2 border-b border-gray-100 dark:border-gray-700/50 font-medium">Email</td><td className="text-center px-3 py-2 border-b border-gray-100 dark:border-gray-700/50 text-gray-400">—</td><td className="px-3 py-2 border-b border-gray-100 dark:border-gray-700/50">Email address</td></tr>
-              <tr><td className="px-3 py-2 border-b border-gray-100 dark:border-gray-700/50 font-medium">Phone</td><td className="text-center px-3 py-2 border-b border-gray-100 dark:border-gray-700/50 text-gray-400">—</td><td className="px-3 py-2 border-b border-gray-100 dark:border-gray-700/50">Primary phone number</td></tr>
+              <tr><td className="px-3 py-2 border-b border-gray-100 dark:border-gray-700/50 font-medium">Email</td><td className="text-center px-3 py-2 border-b border-gray-100 dark:border-gray-700/50 text-green-500">✓</td><td className="px-3 py-2 border-b border-gray-100 dark:border-gray-700/50">Email address (must be a valid format)</td></tr>
+              <tr><td className="px-3 py-2 border-b border-gray-100 dark:border-gray-700/50 font-medium">Phone</td><td className="text-center px-3 py-2 border-b border-gray-100 dark:border-gray-700/50 text-green-500">✓</td><td className="px-3 py-2 border-b border-gray-100 dark:border-gray-700/50">Primary phone number (must start with 20, 12 digits, e.g. 201012345678)</td></tr>
               <tr><td className="px-3 py-2 border-b border-gray-100 dark:border-gray-700/50 font-medium">Secondary Phone</td><td className="text-center px-3 py-2 border-b border-gray-100 dark:border-gray-700/50 text-gray-400">—</td><td className="px-3 py-2 border-b border-gray-100 dark:border-gray-700/50">Alternative phone number</td></tr>
               <tr><td className="px-3 py-2 border-b border-gray-100 dark:border-gray-700/50 font-medium">Category</td><td className="text-center px-3 py-2 border-b border-gray-100 dark:border-gray-700/50 text-gray-400">—</td><td className="px-3 py-2 border-b border-gray-100 dark:border-gray-700/50">Classification (VIP, Media, etc.)</td></tr>
               <tr><td className="px-3 py-2 border-b border-gray-100 dark:border-gray-700/50 font-medium">Guests Allowed</td><td className="text-center px-3 py-2 border-b border-gray-100 dark:border-gray-700/50 text-gray-400">—</td><td className="px-3 py-2 border-b border-gray-100 dark:border-gray-700/50">Number of plus-ones (default 0)</td></tr>
@@ -744,7 +727,7 @@ export default function Help() {
           <Li><strong>Guests</strong> — Number of plus-ones allowed.</Li>
           <Li><strong>Position</strong> — Job title.</Li>
           <Li><strong>Company</strong> — Organization.</Li>
-          <Li><strong>Events</strong> — Number of events this contact has been submitted to.</Li>
+          <Li><strong>Events</strong> — Three colored count badges showing: <span className="text-green-600">approved</span>, <span className="text-yellow-600">pending</span>, and <span className="text-red-600">rejected</span> event counts.</Li>
           <Li><strong>Actions</strong> — History, Edit, Delete buttons.</Li>
         </Ul>
 
@@ -765,18 +748,37 @@ export default function Help() {
           and total count are displayed. Use the arrow buttons to move between pages.
         </P>
 
-        <P><strong>Contacts Export</strong></P>
-        <P>
-          Click the <strong>"Export"</strong> dropdown to download the contact list as Excel, CSV, PDF, or Print.
-          Exports include all filtered data with configured logos.
-        </P>
-        <Screenshot name="invitees-contacts-export" caption="Export contacts — choose Excel, CSV, PDF, or Print" />
-
-        <P><strong>Contacts Import</strong></P>
-        <P>
-          Click <strong>"Import"</strong> to bulk-add contacts from a spreadsheet. Works the same as the Events tab import:
-          download the template, fill it in, upload, and import.
-        </P>
+        {isViewAdmin ? (
+          <>
+            <P><strong>Contacts Export</strong> (Admin only)</P>
+            <P>
+              Admins see an <strong>"Export"</strong> dropdown button on the Contacts tab toolbar. Click it to download the contact list as:
+            </P>
+            <div className="flex flex-wrap gap-2 my-3">
+              <Badge color="blue">CSV</Badge>
+              <Badge color="green">Excel (.xlsx)</Badge>
+              <Badge color="red">PDF</Badge>
+              <Badge color="gray">Print</Badge>
+            </div>
+            <P>PDF and Print exports include configured logos from Export Settings. Print opens a new window with a formatted table for printing.</P>
+            <Screenshot name="invitees-contacts-export" caption="Export contacts — choose CSV, Excel, PDF, or Print" />
+          </>
+        ) : (
+          <>
+            <P><strong>Contacts Import</strong> (Organizers & Directors)</P>
+            <P>
+              Click <strong>"Import"</strong> to bulk-add contacts from a spreadsheet:
+            </P>
+            <StepList steps={[
+              'Click "Import" to open the Bulk Import Contacts modal.',
+              'Step 1: Click "Download Template (.xlsx)" to get a pre-formatted template.',
+              'Fill in the template in Excel/Sheets with your contact data.',
+              'Step 2: Drag and drop the filled file onto the upload area, or click to browse. Supports .xlsx, .xls, and .csv files.',
+              'Click "Import Contacts" to upload and process the file.',
+            ]} />
+            <Screenshot name="invitees-import" caption="Bulk Import modal — download template, fill, upload, and import" />
+          </>
+        )}
 
         {isViewAdmin && (
           <>
@@ -821,59 +823,60 @@ export default function Help() {
       {roleHas(viewRole, ['admin', 'director']) && (
         <Section id="approvals" icon={CheckSquare} title="Approvals" badge="Director & Admin">
           <P>
-            The Approvals page lets Directors and Admins review and process invitee submissions.
+            The Approvals page shows all invitee submissions for review.
             It has <strong>two tabs</strong>: <Badge color="yellow">Pending</Badge> and <Badge color="green">Approved</Badge>.
           </P>
+          {isViewAdmin && (
+            <InfoBox>
+              Admins have <strong>read-only access</strong> on the Approvals page. You can view and filter all pending and approved invitees
+              across all groups, but you cannot approve, reject, or cancel approvals. Only Directors can take these actions.
+            </InfoBox>
+          )}
 
           <H3>Pending Tab</H3>
           <P>
-            Shows all invitations waiting for your review. Each row displays the invitee name, event,
-            inviter{isViewAdmin ? ', inviter group' : ''}, category, guests allowed, submission date, and notes.
+            Shows all invitations waiting for review. Each row displays the invitee name, event,
+            inviter{isViewAdmin ? ', inviter group' : ''}, submitted by, submission date{!isViewAdmin && ', and action buttons'}.
           </P>
-          <Screenshot name="approvals-pending" caption="Pending tab — invitees awaiting your review" />
+          <Screenshot name="approvals-pending" caption="Pending tab — invitees awaiting review" />
 
-          <P><strong>Approve a Single Invitee</strong></P>
-          <StepList steps={[
-            'Find the invitee in the Pending tab.',
-            'Click the green checkmark (✓) button in the Actions column.',
-            'A confirmation modal appears asking "Approve this invitee?".',
-            'Optionally add a note.',
-            'Click "Approve" to confirm. The invitee moves to the Approved tab.',
-          ]} />
-          <Screenshot name="approvals-approve-single" caption="Approve modal — confirm approval with optional note" />
+          {isViewDirector && (
+            <>
+              <P><strong>Quick Approve (Director)</strong></P>
+              <P>
+                Each row has a <strong>green checkmark (✓)</strong> button in the Actions column.
+                Click it to <strong>instantly approve</strong> the invitee without any modal — a success toast confirms the action.
+              </P>
 
-          <P><strong>Quick Approve</strong></P>
-          <P>
-            For faster processing, click the quick approve button (green check) to instantly approve without a modal confirmation.
-          </P>
+              <P><strong>Reject a Single Invitee (Director)</strong></P>
+              <StepList steps={[
+                'Click the red ✗ button on the invitee row.',
+                'A modal appears with a text area for the rejection note.',
+                'Optionally enter a reason explaining why the invitee was rejected.',
+                'Click "Reject". The invitee is marked as rejected and the organizer will see your reason on the Events tab.',
+              ]} />
+              <Screenshot name="approvals-reject" caption="Reject modal — provide an optional reason for the organizer" />
 
-          <P><strong>Reject a Single Invitee</strong></P>
-          <StepList steps={[
-            'Click the red X button on the invitee row.',
-            'A modal appears with a text area for the rejection reason.',
-            'Enter a reason (required) explaining why the invitee was rejected.',
-            'Click "Reject". The invitee is marked as rejected and the organizer will see your reason.',
-          ]} />
-          <Screenshot name="approvals-reject" caption="Reject modal — provide a reason for the organizer" />
+              <P><strong>Bulk Approve (Director)</strong></P>
+              <StepList steps={[
+                'Use the checkboxes on the left of each row to select multiple invitees.',
+                'Use the top checkbox to select/deselect all visible invitees.',
+                'Click the "Approve Selected" button that appears above the table.',
+                'A confirmation modal shows how many invitees will be approved.',
+                'Optionally add a note.',
+                'Click "Approve All" to approve them all at once.',
+              ]} />
+              <Screenshot name="approvals-bulk-approve" caption="Bulk approve — select multiple and approve at once" />
 
-          <P><strong>Bulk Approve</strong></P>
-          <StepList steps={[
-            'Use the checkboxes on the left of each row to select multiple invitees.',
-            'Use the top checkbox to select/deselect all visible invitees.',
-            'Click the "Approve Selected" button that appears above the table.',
-            'A confirmation modal shows how many invitees will be approved.',
-            'Optionally add a note.',
-            'Click "Approve All" to approve them all at once.',
-          ]} />
-          <Screenshot name="approvals-bulk-approve" caption="Bulk approve — select multiple and approve at once" />
-
-          <P><strong>Bulk Reject</strong></P>
-          <StepList steps={[
-            'Select multiple invitees using checkboxes.',
-            'Click the "Reject Selected" button.',
-            'Enter a rejection reason (required).',
-            'Click "Reject All" to reject them all.',
-          ]} />
+              <P><strong>Bulk Reject (Director)</strong></P>
+              <StepList steps={[
+                'Select multiple invitees using checkboxes.',
+                'Click the "Reject Selected" button.',
+                'Enter a rejection reason in the modal.',
+                'Click "Reject All" to reject them all.',
+              ]} />
+            </>
+          )}
 
           <P><strong>Pending Tab Filters</strong></P>
           <Ul>
@@ -888,24 +891,31 @@ export default function Help() {
           <H3>Approved Tab</H3>
           <P>
             Shows all approved invitees across all events. Each row displays name, event, inviter,
-            {isViewAdmin ? ' group,' : ''} category, guests, approval date, and who approved them.
+            {isViewAdmin ? ' group,' : ''} category, submitted by, approved by{!isViewAdmin && ', and action buttons'}.
           </P>
           <Screenshot name="approvals-approved" caption="Approved tab — list of all approved invitees" />
 
-          <P><strong>Cancel an Approval</strong></P>
-          <P>
-            If an approved invitee needs to be revoked, click the <strong>"Cancel Approval"</strong> button (undo icon)
-            on their row. A confirmation modal appears. Click "Cancel Approval" to revert them to pending status.
-            You can also select multiple approved invitees and click "Cancel Selected" for bulk cancellation.
-          </P>
-          <Screenshot name="approvals-cancel" caption="Cancel approval — revert an approved invitee back to pending" />
+          {isViewDirector && (
+            <>
+              <P><strong>Cancel an Approval (Director)</strong></P>
+              <P>
+                If an approved invitee needs to be revoked, click the <strong>"Cancel Approval"</strong> button (undo icon)
+                on their row. A confirmation modal appears asking for a rejection reason (required).
+                Click "Cancel Approval" to revert them to rejected status.
+                You can also select multiple approved invitees and click "Cancel Selected" for bulk cancellation.
+              </P>
+              <Screenshot name="approvals-cancel" caption="Cancel approval — revert an approved invitee" />
+            </>
+          )}
 
           <P><strong>Approved Tab Filters</strong></P>
-          <P>Same filters as the Pending tab: search, event, group (admin), and category.</P>
+          <P>Same filters as the Pending tab: search, event{isViewAdmin ? ', group' : ''}, and category.</P>
 
-          <Tip>
-            Review pending approvals regularly — Organizers are waiting on your decision! Use bulk approve/reject to process large batches quickly.
-          </Tip>
+          {isViewDirector && (
+            <Tip>
+              Review pending approvals regularly — Organizers are waiting on your decision! Use bulk approve/reject to process large batches quickly.
+            </Tip>
+          )}
         </Section>
       )}
 
@@ -1032,7 +1042,7 @@ export default function Help() {
           <P>
             Click the <strong>trash icon</strong> on the event card. A confirmation dialog warns that
             this will permanently delete the event and <strong>all related data</strong> (invitees, approvals, attendance records).
-            Type the event name to confirm, then click "Delete".
+            If the event has invitees, an amber warning shows how many will be affected. Click "Delete" to confirm.
           </P>
           <Screenshot name="events-delete" caption="Delete confirmation — warns about permanent data loss" />
 
@@ -1443,8 +1453,8 @@ export default function Help() {
       {isViewAdmin && (
         <Section id="settings-section" icon={Settings} title="Export Settings" badge="Admin Only">
           <P>
-            The Export Settings page lets Admins configure the logos that appear on exported reports
-            (PDF, Excel, and Print). It has two collapsible sections: <strong>Export Logos</strong> and <strong>Data Backup</strong>.
+            The Export Settings page lets Admins configure export logos and perform full data backups.
+            It has two sections: <strong>Export Logos</strong> (always visible) and a collapsible <strong>Data Backup & Export</strong> section.
           </P>
 
           <H3><ImageIcon className="w-5 h-5 text-indigo-500" /> Export Logos</H3>
@@ -1455,17 +1465,17 @@ export default function Help() {
 
           <P><strong>Upload a Logo</strong></P>
           <StepList steps={[
-            'Click the "Upload" button under the Left Logo or Right Logo section.',
-            'Select an image file (PNG, JPG, or SVG, max 5 MB).',
-            'The image appears as a preview with a "Pending" status badge.',
+            'Click the "Upload" button under the Left Logo or Right Logo card.',
+            'Select an image file (PNG, JPEG, WebP, or SVG — max 2 MB).',
+            'The image appears as a preview with an orange "Pending Upload" status badge.',
             'Optionally click "Edit" to open the Image Editor for cropping and resizing.',
-            'Click "Save Changes" at the bottom of the page to upload to the server.',
+            'Click "Save Changes" in the sticky bar at the bottom to upload to the server.',
           ]} />
           <Screenshot name="settings-upload-logo" caption="Upload a logo — select file, preview, and save" />
 
           <P><strong>Image Editor</strong></P>
           <P>
-            After uploading or clicking "Edit" on an existing logo, the Image Editor opens. It allows you to:
+            After uploading or clicking "Edit" on an existing logo, the Image Editor modal opens. It allows you to:
           </P>
           <Ul>
             <Li><strong>Crop</strong> — Drag the crop area to select the portion of the image you want.</Li>
@@ -1474,37 +1484,81 @@ export default function Help() {
           </Ul>
           <Screenshot name="settings-image-editor" caption="Image Editor — crop and resize your logo" />
 
-          <P><strong>Logo Scale & Padding</strong></P>
+          <P><strong>Logo Scale & Vertical Extension</strong></P>
           <P>
-            Below each logo, you can adjust:
+            Below the logo cards, a shared sizing panel lets you adjust how logos appear on exports:
           </P>
           <Ul>
-            <Li><strong>Scale</strong> — A slider to increase or decrease the logo size on exports.</Li>
-            <Li><strong>Padding</strong> — A slider to add space around the logo.</Li>
+            <Li><strong>Scale</strong> — A slider (60% to 200%) to increase or decrease the logo size. Default is 100%.</Li>
+            <Li><strong>Extend Up</strong> — A slider (0–30px) that extends the logo upward in the export header.</Li>
+            <Li><strong>Extend Down</strong> — A slider (0–30px) that extends the logo downward in the export header.</Li>
           </Ul>
-          <P>Changes are reflected in the <strong>Live Preview</strong> section below.</P>
+          <P>A "Reset to defaults" link appears when any value differs from the default. Changes are reflected in the <strong>Live Preview</strong> section.</P>
 
           <P><strong>Remove a Logo</strong></P>
           <P>
             Click the <strong>"Remove"</strong> button under a logo to mark it for deletion.
-            The logo shows a "Will be removed" status. Click "Save Changes" to confirm the removal,
-            or "Cancel" to undo.
+            The logo shows a red "Will Be Removed" status. Click "Save Changes" to confirm the removal,
+            or "Discard" to undo.
           </P>
 
           <P><strong>Live Preview</strong></P>
           <P>
             At the bottom of the Export Logos section, a live preview shows how the left and right logos
-            will appear on your exported reports, with the current scale and padding settings applied.
+            will appear on your exported reports, with the current scale and extension settings applied in real time.
           </P>
           <Screenshot name="settings-preview" caption="Live preview — see how logos appear on exported reports" />
 
           <P><strong>Saving Changes</strong></P>
           <P>
-            Click the <strong>"Save Changes"</strong> button to upload all pending logo changes to the server.
+            When you have unsaved changes, a sticky <strong>"You have unsaved changes"</strong> bar appears at the bottom
+            with "Discard" and "Save Changes" buttons. Click "Save Changes" to upload all pending logo changes to the server.
             A success toast confirms the save. All future exports will use the updated logos.
           </P>
 
-          <Tip>Use transparent PNG logos for the best results on exports. The Image Editor lets you crop away any unwanted whitespace.</Tip>
+          <H3><Download className="w-5 h-5 text-emerald-500" /> Data Backup & Export</H3>
+          <P>
+            Below the Export Logos section, a collapsible <strong>"Data Backup & Export"</strong> accordion section
+            lets you download a full backup of your system data for migration or archival purposes.
+          </P>
+
+          <P><strong>Step 1: Select Data Tables</strong></P>
+          <P>
+            Choose which data tables to include in the backup. Click individual table cards or use "Select All" / "Deselect All":
+          </P>
+          <Ul>
+            <Li><strong>Users</strong> — All user accounts and roles.</Li>
+            <Li><strong>Inviter Groups</strong> — Department/team groups.</Li>
+            <Li><strong>Inviters</strong> — Individual inviters within groups.</Li>
+            <Li><strong>Contacts</strong> — All invitee/contact records.</Li>
+            <Li><strong>Events</strong> — All event definitions.</Li>
+            <Li><strong>Event Assignments</strong> — Event-invitee links, statuses, attendance data.</Li>
+            <Li><strong>Categories</strong> — Invitee categories.</Li>
+          </Ul>
+          <Screenshot name="settings-backup-tables" caption="Select data tables to include in the backup" />
+
+          <P><strong>Step 2: Options</strong></P>
+          <P>
+            An amber security panel provides the option to <strong>"Include password hashes"</strong> — enable this
+            only if you need a full system migration. Keep the exported file secure.
+          </P>
+
+          <P><strong>Step 3: Choose Export Format</strong></P>
+          <P>
+            Three export format buttons are available:
+          </P>
+          <div className="flex flex-wrap gap-2 my-3">
+            <Badge color="green">JSON — Full structure</Badge>
+            <Badge color="blue">CSV — One file per table</Badge>
+            <Badge color="purple">Excel — Multi-sheet workbook</Badge>
+          </div>
+          <P>
+            Click an export button to download the backup. A loading toast appears while the data is prepared.
+            After download, a green info bar shows the last backup date and record counts per table.
+          </P>
+          <Screenshot name="settings-backup-export" caption="Data Backup — choose JSON, CSV, or Excel export format" />
+
+          <Tip>Use transparent PNG logos for the best results on exports. The Image Editor lets you crop away any unwanted whitespace. Use the Data Backup section regularly to keep offline copies of your system data.</Tip>
         </Section>
       )}
 
@@ -1735,7 +1789,7 @@ export default function Help() {
             <H3><Users className="w-5 h-5 text-blue-500" /> For Organizers</H3>
             <Ul>
               <Li>Use <strong>bulk import</strong> for large guest lists — download the template, fill it in Excel, and upload. It's much faster than adding contacts one by one.</Li>
-              <Li>Always add <strong>notes when resubmitting</strong> a rejected invitee — it helps the Director understand why and increases the chance of approval.</Li>
+              <Li>If an invitee is rejected, click the <strong>red ✗ icon</strong> to read the rejection reason, then <strong>resubmit</strong> by selecting the contact and clicking "Submit for Approval" again.</Li>
               <Li>Keep your <strong>Contacts tab</strong> up to date — contacts persist across events, so maintaining accurate data saves time for future events.</Li>
               <Li>Watch the <strong>quota bar</strong> on the Events tab — submit invitees early before your group's allocated slots run out.</Li>
               <Li>Use the <strong>search and filter tools</strong> to quickly find specific invitees by name, status, or inviter.</Li>
