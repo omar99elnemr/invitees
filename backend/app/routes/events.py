@@ -2,7 +2,8 @@
 Event management routes
 Endpoints for managing events
 """
-from flask import Blueprint, request, jsonify
+import threading
+from flask import Blueprint, request, jsonify, current_app
 from flask_login import login_required, current_user
 from app.utils.decorators import admin_required
 from app.services.event_service import EventService
@@ -10,6 +11,23 @@ from app.models.event import Event, get_egypt_time
 from app import db
 
 events_bp = Blueprint('events', __name__, url_prefix='/api/events')
+
+
+def _background_notify(fn, *args, **kwargs):
+    """Run a notification function in a background thread so the HTTP response is not blocked.
+    The function receives its own app context and a fresh DB session."""
+    app = current_app._get_current_object()
+    def _run():
+        try:
+            with app.app_context():
+                fn(*args, **kwargs)
+                db.session.commit()
+        except Exception:
+            try:
+                db.session.rollback()
+            except Exception:
+                pass
+    threading.Thread(target=_run, daemon=True).start()
 
 @events_bp.route('/refresh-statuses', methods=['POST'])
 @login_required
@@ -48,17 +66,8 @@ def refresh_event_statuses():
 
         # Send notifications in background thread so response is not blocked
         if transition_info:
-            import threading
-            from flask import current_app
-            app = current_app._get_current_object()
-            def _send_notifications(app_obj, info):
-                try:
-                    with app_obj.app_context():
-                        from app.services.notification_service import notify_event_auto_transitions_by_info
-                        notify_event_auto_transitions_by_info(info)
-                except Exception:
-                    pass
-            threading.Thread(target=_send_notifications, args=(app, transition_info), daemon=True).start()
+            from app.services.notification_service import notify_event_auto_transitions_by_info
+            _background_notify(notify_event_auto_transitions_by_info, transition_info)
 
         events = EventService.get_events_for_user(current_user)
         
@@ -139,35 +148,33 @@ def create_event():
     if error:
         return jsonify({'error': error}), 400
     
-    # Notify assigned group members about the new event
-    try:
+    # Notify assigned group members about the new event (background - non-blocking)
+    event_id = event.id
+    creator_id = current_user.id
+    def _notify_create(eid, uid):
         from app.services.notification_service import notify_group_assigned_to_event, create_bulk_notifications
         from app.models.user import User
         from app.models.inviter_group import InviterGroup as IG
-
-        if event.is_all_groups:
+        ev = Event.query.get(eid)
+        if not ev:
+            return
+        if ev.is_all_groups:
             groups = IG.query.all()
         else:
-            groups = event.inviter_groups
-
+            groups = list(ev.inviter_groups)
         for group in groups:
-            notify_group_assigned_to_event(event, group, exclude_user_id=current_user.id)
-
-        # Also notify other admins about the new event
+            notify_group_assigned_to_event(ev, group, exclude_user_id=uid)
         admin_ids = {u.id for u in User.query.filter_by(role='admin', is_active=True).all()}
-        admin_ids.discard(current_user.id)
+        admin_ids.discard(uid)
         if admin_ids:
             create_bulk_notifications(
                 list(admin_ids),
                 'New Event Created',
-                f'"{event.name}" has been created and assigned to {"all groups" if event.is_all_groups else f"{len(groups)} group(s)"}.',
+                f'"{ev.name}" has been created and assigned to {"all groups" if ev.is_all_groups else f"{len(groups)} group(s)"}.',
                 type='event_status',
                 link='/events',
             )
-
-        db.session.commit()
-    except Exception:
-        pass
+    _background_notify(_notify_create, event_id, creator_id)
     
     return jsonify(event.to_dict()), 201
 
@@ -209,29 +216,30 @@ def update_event(event_id):
         status_code = 404 if 'not found' in error.lower() else 400
         return jsonify({'error': error}), status_code
     
-    # Notify only NEWLY assigned group members (avoid re-notifying existing)
-    try:
+    # Notify in background (non-blocking)
+    _evt_id = event.id
+    _updater_id = current_user.id
+    _old_gids = old_group_ids
+    _new_gids_raw = inviter_group_ids
+    _is_all = event.is_all_groups
+    def _notify_update(eid, uid, old_gids, new_gids_raw, is_all):
         from app.services.notification_service import notify_group_assigned_to_event, notify_event_details_updated
         from app.models.inviter_group import InviterGroup as IG
-
-        if event.is_all_groups:
-            new_group_ids = {g.id for g in IG.query.all()} - old_group_ids
-        elif inviter_group_ids is not None:
-            new_group_ids = set(inviter_group_ids) - old_group_ids
+        ev = Event.query.get(eid)
+        if not ev:
+            return
+        if is_all:
+            new_group_ids_set = {g.id for g in IG.query.all()} - old_gids
+        elif new_gids_raw is not None:
+            new_group_ids_set = set(new_gids_raw) - old_gids
         else:
-            new_group_ids = set()
-
-        if new_group_ids:
-            new_groups = IG.query.filter(IG.id.in_(new_group_ids)).all()
+            new_group_ids_set = set()
+        if new_group_ids_set:
+            new_groups = IG.query.filter(IG.id.in_(new_group_ids_set)).all()
             for group in new_groups:
-                notify_group_assigned_to_event(event, group, exclude_user_id=current_user.id)
-
-        # Notify existing assigned groups about the detail changes
-        notify_event_details_updated(event, exclude_user_id=current_user.id)
-
-        db.session.commit()
-    except Exception:
-        pass
+                notify_group_assigned_to_event(ev, group, exclude_user_id=uid)
+        notify_event_details_updated(ev, exclude_user_id=uid)
+    _background_notify(_notify_update, _evt_id, _updater_id, _old_gids, _new_gids_raw, _is_all)
     
     return jsonify(event.to_dict()), 200
 
@@ -255,14 +263,15 @@ def update_event_status(event_id):
         status_code = 404 if 'not found' in error.lower() else 400
         return jsonify({'error': error}), status_code
     
-    # Notify relevant users about event status change
-    try:
+    # Notify in background (non-blocking)
+    _sid = event.id
+    _suid = current_user.id
+    def _notify_status(eid, uid):
         from app.services.notification_service import notify_event_status_changed
-        from app import db as _db
-        notify_event_status_changed(event, exclude_user_id=current_user.id)
-        _db.session.commit()
-    except Exception:
-        pass
+        ev = Event.query.get(eid)
+        if ev:
+            notify_event_status_changed(ev, exclude_user_id=uid)
+    _background_notify(_notify_status, _sid, _suid)
     
     return jsonify(event.to_dict()), 200
 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { CardGridSkeleton, InlineListSkeleton } from '../components/common/LoadingSkeleton';
 import { 
   Calendar, 
@@ -81,19 +81,53 @@ export default function Events() {
 
   const isAdmin = user?.role === 'admin';
 
+  // Server time offset (server_egypt_ms - local_ms) to sync client-side status computation
+  const serverOffsetRef = useRef(0);
+
+  // Compute event status client-side from dates for instant visual feedback.
+  // Backend dates are Egypt time with 'Z' suffix; strip 'Z' so JS parses as local time.
+  const computeClientStatus = useCallback((event: Event): Event['status'] => {
+    if (event.status === 'cancelled' || event.status === 'on_hold') return event.status;
+    const nowMs = Date.now() + serverOffsetRef.current;
+    const startMs = new Date(event.start_date.replace('Z', '')).getTime();
+    const endMs = new Date(event.end_date.replace('Z', '')).getTime();
+    if (nowMs < startMs) return 'upcoming';
+    if (nowMs < endMs) return 'ongoing';
+    return 'ended';
+  }, []);
+
   // Fetch events, inviter groups and refresh statuses
   useEffect(() => {
     fetchEvents();
     fetchInviterGroups();
     
-    // Set up auto-refresh every 15 seconds for responsive status updates
+    // Set up auto-refresh every 30 seconds to sync with backend
     const refreshInterval = setInterval(() => {
       refreshEventStatuses();
-    }, 15000);
+    }, 30000);
     
-    // Cleanup interval on unmount
-    return () => clearInterval(refreshInterval);
-  }, []);
+    // Client-side status ticker — updates every second for instant transitions
+    const statusTicker = setInterval(() => {
+      setEvents(prev => {
+        let changed = false;
+        const updated = prev.map(ev => {
+          const computed = computeClientStatus(ev);
+          if (computed !== ev.status) {
+            changed = true;
+            return { ...ev, status: computed };
+          }
+          return ev;
+        });
+        return changed ? updated : prev;
+      });
+    }, 1000);
+    
+    // Cleanup intervals on unmount
+    return () => {
+      clearInterval(refreshInterval);
+      clearInterval(statusTicker);
+    };
+  }, [computeClientStatus]);
 
   const fetchInviterGroups = async () => {
     try {
@@ -110,6 +144,12 @@ export default function Events() {
       // Use refresh endpoint to update statuses and get events
       const response = await eventsAPI.refreshStatuses();
       setEvents(response.data.events);
+      
+      // Sync server time offset for client-side status computation
+      if (response.data.server_time) {
+        const serverMs = new Date(response.data.server_time.replace('Z', '')).getTime();
+        serverOffsetRef.current = serverMs - Date.now();
+      }
       
       // Log if any events were updated (for debugging)
       const { updated } = response.data;
@@ -139,6 +179,12 @@ export default function Events() {
     try {
       const response = await eventsAPI.refreshStatuses();
       setEvents(response.data.events);
+      
+      // Sync server time offset
+      if (response.data.server_time) {
+        const serverMs = new Date(response.data.server_time.replace('Z', '')).getTime();
+        serverOffsetRef.current = serverMs - Date.now();
+      }
       
       // Show toast only if events were updated
       const { updated } = response.data;
