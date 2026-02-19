@@ -22,9 +22,7 @@ def get_summary_per_event():
     Groups by Event → Inviter Group → Status
     """
     filters = get_filters_from_request()
-    # Directors can only see their own group's data
-    if current_user.role == 'director' and current_user.inviter_group_id:
-        filters['inviter_group_id'] = current_user.inviter_group_id
+    # Directors see ALL groups for this report (same as admin)
     report_data = ReportService.get_summary_per_event(filters)
     return jsonify(report_data), 200
 

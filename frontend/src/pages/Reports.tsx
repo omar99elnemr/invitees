@@ -158,12 +158,17 @@ export default function Reports() {
     }
   }, [canViewReports]);
 
-  // For directors: auto-set group filter to their group and default to a relevant report
+  // For directors: auto-set group filter to their group for most reports,
+  // but clear it for summary-group so they see all groups (same as admin)
   useEffect(() => {
     if (isDirector && user?.inviter_group_id) {
-      setGroupFilter(String(user.inviter_group_id));
+      if (activeReport === 'summary-group') {
+        setGroupFilter('');
+      } else {
+        setGroupFilter(String(user.inviter_group_id));
+      }
     }
-  }, [isDirector, user?.inviter_group_id]);
+  }, [isDirector, user?.inviter_group_id, activeReport]);
 
   const loadFilters = async () => {
     try {
@@ -700,7 +705,7 @@ export default function Reports() {
               )}
             </select>
 
-            {isAdmin && (
+            {(isAdmin || (isDirector && activeReport === 'summary-group')) && (
               <select
                 value={groupFilter}
                 onChange={(e) => setGroupFilter(e.target.value)}
