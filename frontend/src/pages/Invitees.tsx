@@ -26,6 +26,7 @@ import {
   Trash,
   Printer,
   Gauge,
+  MapPin,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
@@ -34,7 +35,7 @@ import type { Event, EventInvitee, Inviter, InviteeWithStats, InviteeFormData, C
 import CategoryManager from '../components/categories/CategoryManager';
 import TablePagination from '../components/common/TablePagination';
 import SortableColumnHeader, { applySorting, type SortDirection } from '../components/common/SortableColumnHeader';
-import { formatDateEgypt } from '../utils/formatters';
+import { formatDateEgypt, formatDateTimeEgypt } from '../utils/formatters';
 import { exportToExcel, exportToPDF, exportToCSV } from '../utils/exportHelpers';
 
 // Status display helpers
@@ -1132,10 +1133,14 @@ export default function Invitees() {
                   <div className="min-w-0">
                     <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white truncate">{selectedEvent.name}</h2>
                     <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
-                      {formatDateEgypt(selectedEvent.start_date)} - {formatDateEgypt(selectedEvent.end_date)}
+                      <Calendar className="w-3.5 h-3.5 mr-1.5 inline" />
+                      {formatDateTimeEgypt(selectedEvent.start_date)} - {formatDateTimeEgypt(selectedEvent.end_date)}
                     </p>
                     {selectedEvent.venue && (
-                      <p className="text-sm text-gray-400 dark:text-gray-500 truncate">{selectedEvent.venue}</p>
+                      <p className="text-sm text-gray-400 dark:text-gray-500 truncate">
+                        <MapPin className="w-3.5 h-3.5 mr-1.5 inline" />
+                        {selectedEvent.venue}
+                      </p>
                     )}
                     {selectedEvent.inviter_group_names && selectedEvent.inviter_group_names.length > 0 && (
                       <div className="flex items-center gap-2 mt-2">
