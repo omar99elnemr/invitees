@@ -83,4 +83,15 @@ export async function initNativePlugins(): Promise<void> {
   } catch {
     // Keyboard plugin not available
   }
+
+  // ── Local Notifications (Android 13+ permission) ──────────
+  try {
+    const { LocalNotifications } = await import('@capacitor/local-notifications');
+    const permStatus = await LocalNotifications.checkPermissions();
+    if (permStatus.display === 'prompt' || permStatus.display === 'prompt-with-rationale') {
+      await LocalNotifications.requestPermissions();
+    }
+  } catch {
+    // Local notifications plugin not available
+  }
 }

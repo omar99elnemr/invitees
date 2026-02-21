@@ -29,7 +29,7 @@ export default function Login() {
     setLoading(true);
 
     try {
-      await login(username, password, remember);
+      await login(username.trim(), password, remember);
       navigate('/dashboard');
     } catch (error) {
       // Error is handled by AuthContext with toast
@@ -157,7 +157,7 @@ export default function Login() {
                     id="username"
                     type="text"
                     value={username}
-                    onChange={(e) => setUsername(e.target.value)}
+                    onChange={(e) => setUsername(e.target.value.trim())}
                     className="input pl-10"
                     placeholder="Enter your username"
                     required

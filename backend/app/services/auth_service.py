@@ -19,6 +19,7 @@ class AuthService:
         Authenticate user with username and password
         Returns user object if successful, None otherwise
         """
+        username = username.strip()
         user = User.query.filter_by(username=username).first()
         
         if not user:
