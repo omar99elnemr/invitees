@@ -1132,10 +1132,17 @@ export default function Invitees() {
                 <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
                   <div className="min-w-0">
                     <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white truncate">{selectedEvent.name}</h2>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
-                      <Calendar className="w-3.5 h-3.5 mr-1.5 inline" />
-                      {formatDateTimeEgypt(selectedEvent.start_date)} - {formatDateTimeEgypt(selectedEvent.end_date)}
-                    </p>
+                    <div className="text-sm text-gray-500 dark:text-gray-400">
+                      <div className="sm:hidden">
+                        {formatDateTimeEgypt(selectedEvent.start_date)}
+                      </div>
+                      <div className="sm:hidden text-gray-400 dark:text-gray-500">
+                        to {formatDateTimeEgypt(selectedEvent.end_date)}
+                      </div>
+                      <div className="hidden sm:block truncate">
+                        {formatDateTimeEgypt(selectedEvent.start_date)} - {formatDateTimeEgypt(selectedEvent.end_date)}
+                      </div>
+                    </div>
                     {selectedEvent.venue && (
                       <p className="text-sm text-gray-400 dark:text-gray-500 truncate">
                         <MapPin className="w-3.5 h-3.5 mr-1.5 inline" />
