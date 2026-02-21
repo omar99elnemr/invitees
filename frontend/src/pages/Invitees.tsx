@@ -1132,8 +1132,11 @@ export default function Invitees() {
                   <div className="min-w-0">
                     <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white truncate">{selectedEvent.name}</h2>
                     <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
-                      {formatDateEgypt(selectedEvent.start_date)} - {selectedEvent.venue}
+                      {formatDateEgypt(selectedEvent.start_date)} - {formatDateEgypt(selectedEvent.end_date)}
                     </p>
+                    {selectedEvent.venue && (
+                      <p className="text-sm text-gray-400 dark:text-gray-500 truncate">{selectedEvent.venue}</p>
+                    )}
                     {selectedEvent.inviter_group_names && selectedEvent.inviter_group_names.length > 0 && (
                       <div className="flex items-center gap-2 mt-2">
                         <span className="text-xs text-gray-500 dark:text-gray-400">Assigned Groups:</span>
