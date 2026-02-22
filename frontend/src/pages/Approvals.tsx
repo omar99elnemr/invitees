@@ -544,6 +544,7 @@ export default function Approvals() {
                       <SortableColumnHeader field="invitee_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Invitee</SortableColumnHeader>
                       <SortableColumnHeader field="event_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Event</SortableColumnHeader>
                       <SortableColumnHeader field="inviter_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden md:table-cell">Invited By</SortableColumnHeader>
+                      <SortableColumnHeader field="invitee_position" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden lg:table-cell">Position / Company</SortableColumnHeader>
                       <SortableColumnHeader field="submitter_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden lg:table-cell">Submitted</SortableColumnHeader>
                       {!isAdmin && (
                         <th className="px-2 sm:px-4 py-2 sm:py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
@@ -578,15 +579,11 @@ export default function Approvals() {
                               <div className="text-xs sm:text-sm font-medium text-gray-900 dark:text-white truncate max-w-[120px] sm:max-w-none">
                                 {approval.invitee_name}
                               </div>
-                              {(approval.invitee_position || approval.invitee_company) && (
-                                <div className="hidden sm:block text-xs text-gray-500 dark:text-gray-400 truncate max-w-[180px]">
-                                  {[approval.invitee_position, approval.invitee_company].filter(Boolean).join(' · ')}
-                                </div>
-                              )}
                               {/* Mobile-only summary tags for hidden columns */}
                               <div className="flex flex-wrap gap-1 mt-0.5 md:hidden">
                                 {approval.inviter_name && <span className="text-[10px] px-1.5 py-0 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded">{approval.inviter_name}</span>}
                                 {isAdmin && approval.inviter_group_name && <span className="text-[10px] px-1.5 py-0 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 rounded">{approval.inviter_group_name}</span>}
+                                {(approval.invitee_position || approval.invitee_company) && <span className="text-[10px] px-1.5 py-0 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded">{[approval.invitee_position, approval.invitee_company].filter(Boolean).join(' · ')}</span>}
                               </div>
                             </div>
                           </div>
@@ -607,6 +604,17 @@ export default function Approvals() {
                               <Building className="w-3 h-3" />
                               {approval.inviter_group_name}
                             </div>
+                          )}
+                        </td>
+                        <td className="hidden lg:table-cell px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap">
+                          {approval.invitee_position && (
+                            <div className="text-xs sm:text-sm text-gray-900 dark:text-white truncate max-w-[160px]">{approval.invitee_position}</div>
+                          )}
+                          {approval.invitee_company && (
+                            <div className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[160px]">{approval.invitee_company}</div>
+                          )}
+                          {!approval.invitee_position && !approval.invitee_company && (
+                            <div className="text-xs sm:text-sm text-gray-400 dark:text-gray-500">-</div>
                           )}
                         </td>
                         <td className="hidden lg:table-cell px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap">
@@ -685,6 +693,7 @@ export default function Approvals() {
                       <SortableColumnHeader field="invitee_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Invitee</SortableColumnHeader>
                       <SortableColumnHeader field="event_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Event</SortableColumnHeader>
                       <SortableColumnHeader field="inviter_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden md:table-cell">Invited By</SortableColumnHeader>
+                      <SortableColumnHeader field="invitee_position" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden lg:table-cell">Position / Company</SortableColumnHeader>
                       <SortableColumnHeader field="submitter_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden lg:table-cell">Submitted</SortableColumnHeader>
                       <SortableColumnHeader field="approved_by_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden xl:table-cell">Approved By</SortableColumnHeader>
                       {!isAdmin && (
@@ -716,15 +725,11 @@ export default function Approvals() {
                             </div>
                             <div className="sm:ml-4 min-w-0">
                               <div className="text-xs sm:text-sm font-medium text-gray-900 dark:text-white truncate max-w-[120px] sm:max-w-none">{invitee.invitee_name}</div>
-                              {(invitee.invitee_position || invitee.invitee_company) && (
-                                <div className="hidden sm:block text-xs text-gray-500 dark:text-gray-400 truncate max-w-[180px]">
-                                  {[invitee.invitee_position, invitee.invitee_company].filter(Boolean).join(' · ')}
-                                </div>
-                              )}
                               {/* Mobile-only summary tags for hidden columns */}
                               <div className="flex flex-wrap gap-1 mt-0.5 md:hidden">
                                 {(invitee.inviter_name || invitee.submitter_name) && <span className="text-[10px] px-1.5 py-0 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded">{invitee.inviter_name || invitee.submitter_name}</span>}
                                 {isAdmin && invitee.inviter_group_name && <span className="text-[10px] px-1.5 py-0 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 rounded">{invitee.inviter_group_name}</span>}
+                                {(invitee.invitee_position || invitee.invitee_company) && <span className="text-[10px] px-1.5 py-0 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded">{[invitee.invitee_position, invitee.invitee_company].filter(Boolean).join(' · ')}</span>}
                                 {invitee.category && <span className="text-[10px] px-1.5 py-0 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-400 rounded">{invitee.category}</span>}
                               </div>
                             </div>
@@ -748,6 +753,17 @@ export default function Approvals() {
                               <Building className="w-3 h-3" />
                               {invitee.inviter_group_name}
                             </div>
+                          )}
+                        </td>
+                        <td className="hidden lg:table-cell px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap">
+                          {invitee.invitee_position && (
+                            <div className="text-xs sm:text-sm text-gray-900 dark:text-white truncate max-w-[160px]">{invitee.invitee_position}</div>
+                          )}
+                          {invitee.invitee_company && (
+                            <div className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[160px]">{invitee.invitee_company}</div>
+                          )}
+                          {!invitee.invitee_position && !invitee.invitee_company && (
+                            <div className="text-xs sm:text-sm text-gray-400 dark:text-gray-500">-</div>
                           )}
                         </td>
                         <td className="hidden lg:table-cell px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap">
