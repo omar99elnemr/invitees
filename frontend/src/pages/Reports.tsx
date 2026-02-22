@@ -952,7 +952,7 @@ export default function Reports() {
                 >
                   <div className="flex items-center gap-3 min-w-0">
                     <Calendar className="w-5 h-5 text-primary shrink-0" />
-                    <span className="font-medium text-gray-900 dark:text-white truncate">{group.event_name}</span>
+                    <span className="font-medium text-gray-900 dark:text-white whitespace-normal break-words">{group.event_name}</span>
                   </div>
                   <div className="flex items-center gap-2 sm:gap-4 shrink-0">
                     <div className="flex items-center gap-1 sm:gap-2 flex-wrap justify-end">
@@ -1006,7 +1006,7 @@ export default function Reports() {
                                 {activeReport === 'summary-inviter' ? (
                                   <>
                                     <User className="w-3 h-3 sm:w-4 sm:h-4 text-gray-400 flex-shrink-0" />
-                                    <span className="text-xs sm:text-sm text-gray-900 dark:text-white truncate">{item.inviter_name}</span>
+                                    <span className="text-xs sm:text-sm text-gray-900 dark:text-white whitespace-normal break-words">{item.inviter_name}</span>
                                     {item.inviter_group_name && (
                                       <span className="hidden sm:inline text-xs text-gray-500 dark:text-gray-400">({item.inviter_group_name})</span>
                                     )}
@@ -1014,7 +1014,7 @@ export default function Reports() {
                                 ) : (
                                   <>
                                     <Building className="w-3 h-3 sm:w-4 sm:h-4 text-gray-400 flex-shrink-0" />
-                                    <span className="text-xs sm:text-sm text-gray-900 dark:text-white truncate">{item.inviter_group_name}</span>
+                                    <span className="text-xs sm:text-sm text-gray-900 dark:text-white whitespace-normal break-words">{item.inviter_group_name}</span>
                                   </>
                                 )}
                               </div>
@@ -1168,23 +1168,23 @@ export default function Reports() {
                       const paginated = dataToDisplay.slice(startIndex, startIndex + detailPageSize);
                       return paginated.map((item) => (
                         <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                          <td className="px-2 py-2 max-w-[140px]">
-                            <div className="truncate text-sm font-medium text-gray-900 dark:text-white" title={item.invitee_name}>{item.invitee_name}</div>
-                            {isAdmin && <div className="truncate text-xs text-gray-500 dark:text-gray-400" title={item.invitee_email}>{item.invitee_email}</div>}
+                          <td className="px-2 py-2">
+                            <div className="whitespace-normal break-words text-sm font-medium text-gray-900 dark:text-white" title={item.invitee_name}>{item.invitee_name}</div>
+                            {isAdmin && <div className="whitespace-normal break-words text-xs text-gray-500 dark:text-gray-400" title={item.invitee_email}>{item.invitee_email}</div>}
                           </td>
-                          <td className="px-2 py-2 text-sm text-gray-900 dark:text-white max-w-[100px] truncate" title={item.event_name}>
+                          <td className="px-2 py-2 text-sm text-gray-900 dark:text-white whitespace-normal break-words" title={item.event_name}>
                             {item.event_name}
                           </td>
-                          <td className="hidden lg:table-cell px-2 py-2 max-w-[120px]">
-                            <div className="truncate text-sm text-gray-900 dark:text-white" title={item.inviter_name}>{item.inviter_name}</div>
+                          <td className="hidden lg:table-cell px-2 py-2">
+                            <div className="whitespace-normal break-words text-sm text-gray-900 dark:text-white" title={item.inviter_name}>{item.inviter_name}</div>
                             {item.inviter_group_name && (
-                              <div className="truncate text-xs text-gray-500 dark:text-gray-400" title={item.inviter_group_name}>{item.inviter_group_name}</div>
+                              <div className="whitespace-normal break-words text-xs text-gray-500 dark:text-gray-400" title={item.inviter_group_name}>{item.inviter_group_name}</div>
                             )}
                           </td>
-                          <td className="hidden xl:table-cell px-2 py-2 text-sm text-gray-500 dark:text-gray-400 max-w-[80px] truncate" title={item.category || ''}>
+                          <td className="hidden xl:table-cell px-2 py-2 text-sm text-gray-500 dark:text-gray-400 whitespace-normal break-words" title={item.category || ''}>
                             {item.category || '—'}
                           </td>
-                          <td className="hidden md:table-cell px-2 py-2 text-sm text-gray-900 dark:text-white max-w-[110px] truncate" title={item.submitter_name || ''}>
+                          <td className="hidden md:table-cell px-2 py-2 text-sm text-gray-900 dark:text-white whitespace-normal break-words" title={item.submitter_name || ''}>
                             {item.submitter_name || '—'}
                           </td>
                           <td className="px-2 py-2">
@@ -1201,13 +1201,13 @@ export default function Reports() {
                             </span>
                           </td>
                           {activeReport === 'detail-event' && (
-                            <td className="hidden lg:table-cell px-2 py-2 text-sm text-gray-900 dark:text-white max-w-[110px] truncate" title={item.approved_by_name || ''}>
+                            <td className="hidden lg:table-cell px-2 py-2 text-sm text-gray-900 dark:text-white whitespace-normal break-words" title={item.approved_by_name || ''}>
                               {item.approved_by_name || '—'}
                             </td>
                           )}
                           {activeReport === 'detail-approved' && (
                             <>
-                              <td className="hidden md:table-cell px-2 py-2 text-sm text-gray-900 dark:text-white max-w-[110px] truncate" title={item.approved_by_name || ''}>
+                              <td className="hidden md:table-cell px-2 py-2 text-sm text-gray-900 dark:text-white whitespace-normal break-words" title={item.approved_by_name || ''}>
                                 {item.approved_by_name || '—'}
                               </td>
                               {isAdmin && (
@@ -1347,11 +1347,11 @@ export default function Reports() {
                       const paginated = dataToDisplay.slice(startIndex, startIndex + activityPageSize);
                       return paginated.map((item) => (
                         <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer" onClick={() => setSelectedActivity(item)}>
-                          <td className="px-2 py-2 text-sm text-gray-500 dark:text-gray-400 truncate" title={item.timestamp ? formatDateTimeEgypt(item.timestamp) : ''}>
+                          <td className="px-2 py-2 text-sm text-gray-500 dark:text-gray-400 whitespace-normal break-words" title={item.timestamp ? formatDateTimeEgypt(item.timestamp) : ''}>
                             {item.timestamp ? formatDateTimeEgypt(item.timestamp) : '—'}
                           </td>
                           <td className="px-2 py-2">
-                            <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium truncate max-w-full ${
+                            <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium whitespace-normal break-words ${
                               item.action.includes('approve') ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
                               item.action.includes('reject') ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' :
                               item.action.includes('delete') ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' :
@@ -1363,7 +1363,7 @@ export default function Reports() {
                               {formatActionName(item.action)}
                             </span>
                           </td>
-                          <td className="px-2 py-2 text-sm text-gray-900 dark:text-white truncate" title={item.username || 'System'}>
+                          <td className="px-2 py-2 text-sm text-gray-900 dark:text-white whitespace-normal break-words" title={item.username || 'System'}>
                             {item.username || 'System'}
                           </td>
                           <td className="px-2 py-2">
@@ -1379,10 +1379,10 @@ export default function Reports() {
                               <span className="text-gray-400 dark:text-gray-500">—</span>
                             )}
                           </td>
-                          <td className="px-2 py-2 text-sm text-gray-500 dark:text-gray-400 truncate" title={item.inviter_group_name || ''}>
+                          <td className="px-2 py-2 text-sm text-gray-500 dark:text-gray-400 whitespace-normal break-words" title={item.inviter_group_name || ''}>
                             {item.inviter_group_name || '—'}
                           </td>
-                          <td className="px-2 py-2 text-sm text-gray-500 dark:text-gray-400 truncate" title={item.table_name}>
+                          <td className="px-2 py-2 text-sm text-gray-500 dark:text-gray-400 whitespace-normal break-words" title={item.table_name}>
                             {item.table_name}
                           </td>
                           <td className="px-2 py-2 text-sm text-gray-500 dark:text-gray-400">
@@ -1390,11 +1390,11 @@ export default function Reports() {
                           </td>
                           <td className="px-2 py-2 text-sm text-gray-500 dark:text-gray-400">
                             <div className="flex items-center gap-1.5">
-                              <div className="max-w-[260px] truncate">
+                              <div className="whitespace-normal break-words">
                                 {(() => {
                                   const details = item.formatted_details || item.new_value;
                                   if (!details) return '—';
-                                  return details.length > 60 ? details.substring(0, 60) + '…' : details;
+                                  return details;
                                 })()}
                               </div>
                               <button
@@ -1605,19 +1605,19 @@ export default function Reports() {
                       const paginated = dataToDisplay.slice(startIndex, startIndex + historicalPageSize);
                       return paginated.map((item) => (
                         <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                          <td className="px-2 py-2 text-sm text-gray-900 dark:text-white max-w-[120px] truncate" title={item.event_name}>
+                          <td className="px-2 py-2 text-sm text-gray-900 dark:text-white whitespace-normal break-words" title={item.event_name}>
                             {item.event_name}
                           </td>
-                          <td className="px-2 py-2 text-sm text-gray-900 dark:text-white max-w-[150px] truncate" title={item.invitee_name}>
+                          <td className="px-2 py-2 text-sm text-gray-900 dark:text-white whitespace-normal break-words" title={item.invitee_name}>
                             {item.invitee_name}
                           </td>
-                          <td className="px-2 py-2 text-sm text-gray-500 dark:text-gray-400 max-w-[120px] truncate" title={item.position || ''}>
+                          <td className="px-2 py-2 text-sm text-gray-500 dark:text-gray-400 whitespace-normal break-words" title={item.position || ''}>
                             {item.position || '—'}
                           </td>
-                          <td className="px-2 py-2 text-sm text-gray-900 dark:text-white max-w-[120px] truncate" title={item.inviter_name}>
+                          <td className="px-2 py-2 text-sm text-gray-900 dark:text-white whitespace-normal break-words" title={item.inviter_name}>
                             {item.inviter_name}
                           </td>
-                          <td className="px-2 py-2 text-sm text-gray-500 dark:text-gray-400 max-w-[100px] truncate" title={item.inviter_group_name || ''}>
+                          <td className="px-2 py-2 text-sm text-gray-500 dark:text-gray-400 whitespace-normal break-words" title={item.inviter_group_name || ''}>
                             {item.inviter_group_name || '—'}
                           </td>
                           <td className="px-2 py-2">

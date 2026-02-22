@@ -576,7 +576,7 @@ export default function Approvals() {
                               </span>
                             </div>
                             <div className="sm:ml-4 min-w-0">
-                              <div className="text-xs sm:text-sm font-medium text-gray-900 dark:text-white truncate max-w-[120px] sm:max-w-none">
+                              <div className="text-xs sm:text-sm font-medium text-gray-900 dark:text-white whitespace-normal break-words">
                                 {approval.invitee_name}
                               </div>
                               {/* Mobile-only summary tags for hidden columns */}
@@ -589,7 +589,7 @@ export default function Approvals() {
                           </div>
                         </td>
                         <td className="px-2 sm:px-4 py-2 sm:py-3">
-                          <div className="text-xs sm:text-sm text-gray-900 dark:text-white truncate max-w-[100px] sm:max-w-none">{approval.event_name}</div>
+                          <div className="text-xs sm:text-sm text-gray-900 dark:text-white whitespace-normal break-words">{approval.event_name}</div>
                           {approval.category && (
                             <div className="text-xs text-gray-500 dark:text-gray-400">{approval.category}</div>
                           )}
@@ -606,12 +606,12 @@ export default function Approvals() {
                             </div>
                           )}
                         </td>
-                        <td className="hidden lg:table-cell px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap">
+                        <td className="hidden lg:table-cell px-2 sm:px-4 py-2 sm:py-3 whitespace-normal">
                           {approval.invitee_position && (
-                            <div className="text-xs sm:text-sm text-gray-900 dark:text-white truncate max-w-[160px]">{approval.invitee_position}</div>
+                            <div className="text-xs sm:text-sm text-gray-900 dark:text-white whitespace-normal break-words">{approval.invitee_position}</div>
                           )}
                           {approval.invitee_company && (
-                            <div className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[160px]">{approval.invitee_company}</div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400 whitespace-normal break-words">{approval.invitee_company}</div>
                           )}
                           {!approval.invitee_position && !approval.invitee_company && (
                             <div className="text-xs sm:text-sm text-gray-400 dark:text-gray-500">-</div>
@@ -724,7 +724,7 @@ export default function Approvals() {
                               <User className="h-5 w-5 text-green-600 dark:text-green-400" />
                             </div>
                             <div className="sm:ml-4 min-w-0">
-                              <div className="text-xs sm:text-sm font-medium text-gray-900 dark:text-white truncate max-w-[120px] sm:max-w-none">{invitee.invitee_name}</div>
+                              <div className="text-xs sm:text-sm font-medium text-gray-900 dark:text-white whitespace-normal break-words">{invitee.invitee_name}</div>
                               {/* Mobile-only summary tags for hidden columns */}
                               <div className="flex flex-wrap gap-1 mt-0.5 md:hidden">
                                 {(invitee.inviter_name || invitee.submitter_name) && <span className="text-[10px] px-1.5 py-0 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded">{invitee.inviter_name || invitee.submitter_name}</span>}
@@ -736,7 +736,7 @@ export default function Approvals() {
                           </div>
                         </td>
                         <td className="px-2 sm:px-4 py-2 sm:py-3">
-                          <div className="text-xs sm:text-sm text-gray-900 dark:text-white truncate max-w-[100px] sm:max-w-none">{invitee.event_name}</div>
+                          <div className="text-xs sm:text-sm text-gray-900 dark:text-white whitespace-normal break-words">{invitee.event_name}</div>
                           {invitee.category && (
                             <span className={`inline-flex items-center px-1.5 py-0 rounded text-[10px] font-medium mt-0.5 ${invitee.category === 'Gold' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'}`}>
                               {invitee.category}
@@ -755,12 +755,12 @@ export default function Approvals() {
                             </div>
                           )}
                         </td>
-                        <td className="hidden lg:table-cell px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap">
+                        <td className="hidden lg:table-cell px-2 sm:px-4 py-2 sm:py-3 whitespace-normal">
                           {invitee.invitee_position && (
-                            <div className="text-xs sm:text-sm text-gray-900 dark:text-white truncate max-w-[160px]">{invitee.invitee_position}</div>
+                            <div className="text-xs sm:text-sm text-gray-900 dark:text-white whitespace-normal break-words">{invitee.invitee_position}</div>
                           )}
                           {invitee.invitee_company && (
-                            <div className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[160px]">{invitee.invitee_company}</div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400 whitespace-normal break-words">{invitee.invitee_company}</div>
                           )}
                           {!invitee.invitee_position && !invitee.invitee_company && (
                             <div className="text-xs sm:text-sm text-gray-400 dark:text-gray-500">-</div>
