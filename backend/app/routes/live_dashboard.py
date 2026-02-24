@@ -89,14 +89,21 @@ def get_event_live_stats(event_code):
     # Calculate totals based on configured metric
     if etm == 'approved':
         expected_attendees = total_approved
+        expected_guests = total_plus_one_allowed
         expected_with_guests = total_approved + total_plus_one_allowed
     elif etm == 'invited':
         total_invited = EventInvitee.query.filter_by(event_id=event_id).count()
+        # For invited, sum plus_one across ALL invitees (not just approved)
+        invited_plus_one = db.session.query(func.sum(EventInvitee.plus_one)).filter(
+            EventInvitee.event_id == event_id
+        ).scalar() or 0
         expected_attendees = total_invited
-        expected_with_guests = total_invited  # invited count includes everyone
+        expected_guests = invited_plus_one
+        expected_with_guests = total_invited + invited_plus_one
     else:  # 'confirmed' (default)
-        expected_attendees = confirmed_coming  # People who confirmed they're coming
-        expected_with_guests = expected_attendees + total_confirmed_guests  # Including their guests
+        expected_attendees = confirmed_coming
+        expected_guests = total_confirmed_guests
+        expected_with_guests = expected_attendees + total_confirmed_guests
     
     actual_arrived = checked_in_count  # Invitees who checked in
     total_arrived = checked_in_count + total_actual_guests  # Including actual guests
@@ -124,7 +131,7 @@ def get_event_live_stats(event_code):
             
             # Expected attendance
             'expected_attendees': expected_attendees,
-            'expected_guests': total_confirmed_guests,
+            'expected_guests': expected_guests,
             'expected_total': expected_with_guests,
             
             # Actual attendance (check-ins)

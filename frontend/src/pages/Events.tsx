@@ -79,6 +79,7 @@ export default function Events() {
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [selectedCalDay, setSelectedCalDay] = useState<Date | null>(null);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -272,12 +273,12 @@ export default function Events() {
     return sortDir === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-indigo-500" /> : <ArrowDown className="w-3.5 h-3.5 text-indigo-500" />;
   };
 
-  // Calendar: click day → open create modal with date pre-filled
-  const handleCalendarDayClick = (date: Date) => {
-    if (!isAdmin) return;
-    const yyyy = date.getFullYear();
-    const mm = String(date.getMonth() + 1).padStart(2, '0');
-    const dd = String(date.getDate()).padStart(2, '0');
+  // Calendar: create event on the selected day
+  const handleCreateOnSelectedDay = () => {
+    if (!isAdmin || !selectedCalDay) return;
+    const yyyy = selectedCalDay.getFullYear();
+    const mm = String(selectedCalDay.getMonth() + 1).padStart(2, '0');
+    const dd = String(selectedCalDay.getDate()).padStart(2, '0');
     const dateStr = `${yyyy}-${mm}-${dd}T10:00`;
     const endStr = `${yyyy}-${mm}-${dd}T18:00`;
     setFormData({
@@ -727,10 +728,30 @@ export default function Events() {
 
       {/* Calendar View */}
       {viewMode === 'calendar' && isAdmin && (
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-5 sm:p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4 sm:p-5">
+          {/* Create Event button — visible when a day is selected */}
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              {selectedCalDay
+                ? selectedCalDay.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
+                : 'Click a day to select it'}
+            </p>
+            <button
+              onClick={handleCreateOnSelectedDay}
+              disabled={!selectedCalDay}
+              className={`inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg transition-all ${
+                selectedCalDay
+                  ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:from-indigo-700 hover:to-purple-700 shadow-sm'
+                  : 'bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'
+              }`}
+            >
+              <Plus className="w-4 h-4" />
+              Create Event{selectedCalDay ? ` on ${selectedCalDay.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` : ''}
+            </button>
+          </div>
           <EventCalendar
             events={filteredEvents}
-            onDayClick={handleCalendarDayClick}
+            onDaySelect={setSelectedCalDay}
             onEventClick={(ev) => openEditModal(ev)}
           />
         </div>
@@ -785,7 +806,7 @@ export default function Events() {
                 {sortedEvents.map((event) => (
                   <div
                     key={event.id}
-                    className="group sm:grid sm:grid-cols-12 gap-2 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors items-center"
+                    className="group sm:grid sm:grid-cols-12 gap-2 px-4 py-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors items-center"
                   >
                     {/* Name + Groups */}
                     <div className="col-span-3 min-w-0">

@@ -1,16 +1,21 @@
 /**
  * EventCalendar — shared calendar component for Dashboard and Events page.
- * Renders a month grid with event dots. Supports navigation, day click, event click.
+ *
+ * Two visual modes controlled by the `compact` prop:
+ *  • compact  – Dashboard widget: small dots, no event titles on grid.
+ *  • full     – Events page:  event titles shown in each day cell,
+ *               fixed-height grid (no scrolling to see the whole month),
+ *               clicking a day only selects it (no direct create action).
+ *
+ * Both modes support month/year navigation and event click callbacks.
  */
 import { useState, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, MapPin, Clock } from 'lucide-react';
-import { getHour12 } from '../utils/formatters';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import type { Event } from '../types';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
 function parseEventDate(d: string): Date {
-  // Backend stores Egypt local time with 'Z' suffix. Strip 'Z' → JS parses as local.
   return new Date(d.replace('Z', ''));
 }
 
@@ -23,13 +28,13 @@ function getDaysInMonth(year: number, month: number) {
 }
 
 function getFirstDayOfWeek(year: number, month: number) {
-  return new Date(year, month, 1).getDay(); // 0=Sun
+  return new Date(year, month, 1).getDay();
 }
 
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-const DAY_LABELS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-const statusColors: Record<string, string> = {
+const statusDot: Record<string, string> = {
   upcoming: 'bg-blue-500',
   ongoing: 'bg-green-500',
   ended: 'bg-gray-400',
@@ -37,43 +42,31 @@ const statusColors: Record<string, string> = {
   on_hold: 'bg-yellow-500',
 };
 
-const statusBadge: Record<string, string> = {
-  upcoming: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
-  ongoing: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
-  ended: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300',
-  cancelled: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
-  on_hold: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
+const statusTextColor: Record<string, string> = {
+  upcoming: 'text-blue-600 dark:text-blue-400',
+  ongoing: 'text-green-600 dark:text-green-400',
+  ended: 'text-gray-500 dark:text-gray-400',
+  cancelled: 'text-red-500 dark:text-red-400',
+  on_hold: 'text-yellow-600 dark:text-yellow-400',
 };
 
-const statusLabel: Record<string, string> = {
-  upcoming: 'Upcoming',
-  ongoing: 'Live',
-  ended: 'Ended',
-  cancelled: 'Cancelled',
-  on_hold: 'On Hold',
+const statusBorder: Record<string, string> = {
+  upcoming: 'border-l-2 border-blue-500',
+  ongoing: 'border-l-2 border-green-500',
+  ended: 'border-l-2 border-gray-400',
+  cancelled: 'border-l-2 border-red-500',
+  on_hold: 'border-l-2 border-yellow-500',
 };
-
-function formatCalDate(d: string) {
-  return new Date(d).toLocaleDateString('en-EG', {
-    timeZone: 'UTC',
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: getHour12(),
-  });
-}
 
 // ── types ────────────────────────────────────────────────────────────────────
 
 export interface EventCalendarProps {
   events: Event[];
-  /** Called when user clicks a day (used in Events page to open Create modal) */
-  onDayClick?: (date: Date) => void;
   /** Called when user clicks an event */
   onEventClick?: (event: Event) => void;
-  /** Compact mode for Dashboard widget (smaller cells, fewer details) */
+  /** Expose the currently selected day to the parent */
+  onDaySelect?: (date: Date | null) => void;
+  /** Compact mode for Dashboard widget (smaller cells, dots only) */
   compact?: boolean;
   /** Extra className on the wrapper */
   className?: string;
@@ -81,7 +74,7 @@ export interface EventCalendarProps {
 
 // ── component ────────────────────────────────────────────────────────────────
 
-export default function EventCalendar({ events, onDayClick, onEventClick, compact, className }: EventCalendarProps) {
+export default function EventCalendar({ events, onEventClick, onDaySelect, compact, className }: EventCalendarProps) {
   const today = new Date();
   const [viewYear, setViewYear] = useState(today.getFullYear());
   const [viewMonth, setViewMonth] = useState(today.getMonth());
@@ -93,7 +86,6 @@ export default function EventCalendar({ events, onDayClick, onEventClick, compac
     events.forEach(ev => {
       const start = parseEventDate(ev.start_date);
       const end = parseEventDate(ev.end_date);
-      // Mark every day the event spans
       const cursor = new Date(start.getFullYear(), start.getMonth(), start.getDate());
       const endDay = new Date(end.getFullYear(), end.getMonth(), end.getDate());
       while (cursor <= endDay) {
@@ -116,72 +108,150 @@ export default function EventCalendar({ events, onDayClick, onEventClick, compac
   const goPrevYear = () => setViewYear(y => y - 1);
   const goNextYear = () => setViewYear(y => y + 1);
 
-  // Events for the selected day
-  const selectedDayEvents = useMemo(() => {
-    if (!selectedDay) return [];
-    const key = `${selectedDay.getFullYear()}-${selectedDay.getMonth()}-${selectedDay.getDate()}`;
-    return eventsByDate[key] || [];
-  }, [selectedDay, eventsByDate]);
-
   const handleDayClick = (day: number) => {
     const date = new Date(viewYear, viewMonth, day);
-    setSelectedDay(prev => prev && isSameDay(prev, date) ? null : date);
+    const newSel = selectedDay && isSameDay(selectedDay, date) ? null : date;
+    setSelectedDay(newSel);
+    onDaySelect?.(newSel);
   };
 
   // Build cells
   const cells: (number | null)[] = [];
   for (let i = 0; i < firstDay; i++) cells.push(null);
   for (let d = 1; d <= daysInMonth; d++) cells.push(d);
-  // Pad to full weeks
   while (cells.length % 7 !== 0) cells.push(null);
+  const totalRows = cells.length / 7;
 
+  // ──────────────────────────────────────────────────────────────────────────
+  // COMPACT MODE — Dashboard widget (dots only, no event titles)
+  // ──────────────────────────────────────────────────────────────────────────
+  if (compact) {
+    return (
+      <div className={className}>
+        {/* Nav */}
+        <div className="flex items-center justify-between mb-2">
+          <button onClick={goPrev} className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 transition-colors">
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
+              {MONTH_NAMES[viewMonth]} {viewYear}
+            </h3>
+            <button onClick={goToday} className="px-2 py-0.5 text-[10px] font-medium rounded-md bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors">
+              Today
+            </button>
+          </div>
+          <button onClick={goNext} className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 transition-colors">
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Day headers */}
+        <div className="grid grid-cols-7 mb-0.5">
+          {DAY_LABELS.map(d => (
+            <div key={d} className="text-center text-[10px] font-medium text-gray-400 dark:text-gray-500 py-0.5">{d.slice(0, 2)}</div>
+          ))}
+        </div>
+
+        {/* Grid */}
+        <div className="grid grid-cols-7 gap-px">
+          {cells.map((day, idx) => {
+            if (day === null) return <div key={`e${idx}`} className="aspect-square" />;
+            const cellDate = new Date(viewYear, viewMonth, day);
+            const key = `${viewYear}-${viewMonth}-${day}`;
+            const dayEvents = eventsByDate[key] || [];
+            const isToday = isSameDay(cellDate, today);
+            const isSelected = selectedDay && isSameDay(cellDate, selectedDay);
+            const isPast = cellDate < new Date(today.getFullYear(), today.getMonth(), today.getDate());
+            const hasEvents = dayEvents.length > 0;
+
+            return (
+              <button
+                key={key}
+                onClick={() => handleDayClick(day)}
+                className={`
+                  aspect-square flex flex-col items-center justify-center relative rounded-md transition-all duration-100
+                  ${isSelected ? 'bg-indigo-100 dark:bg-indigo-900/40 ring-1.5 ring-indigo-500' : ''}
+                  ${isToday && !isSelected ? 'bg-indigo-50 dark:bg-indigo-900/20' : ''}
+                  ${!isSelected && !isToday ? 'hover:bg-gray-50 dark:hover:bg-gray-700/50' : ''}
+                  ${isPast && !isToday && !isSelected ? 'text-gray-400 dark:text-gray-500' : 'text-gray-700 dark:text-gray-200'}
+                  ${hasEvents ? 'cursor-pointer' : 'cursor-pointer'}
+                `}
+              >
+                <span className={`text-xs leading-none ${isToday ? 'text-indigo-600 dark:text-indigo-400 font-bold' : ''}`}>
+                  {day}
+                </span>
+                {hasEvents && (
+                  <div className="flex gap-0.5 mt-0.5">
+                    {dayEvents.slice(0, 3).map(ev => (
+                      <span key={ev.id} className={`w-1 h-1 rounded-full ${statusDot[ev.status] || 'bg-gray-400'}`} />
+                    ))}
+                    {dayEvents.length > 3 && <span className="text-[7px] text-gray-400 leading-none">+{dayEvents.length - 3}</span>}
+                  </div>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // FULL MODE — Events page (event titles on cells, fixed-height, no scroll)
+  // ──────────────────────────────────────────────────────────────────────────
   return (
     <div className={className}>
       {/* Navigation Header */}
       <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-1">
-          {!compact && (
-            <button onClick={goPrevYear} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors" title="Previous year">
-              <ChevronLeft className="w-4 h-4" /><ChevronLeft className="w-4 h-4 -ml-3" />
-            </button>
-          )}
+        <div className="flex items-center gap-0.5">
+          <button onClick={goPrevYear} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors" title="Previous year">
+            <ChevronLeft className="w-4 h-4" /><ChevronLeft className="w-4 h-4 -ml-3" />
+          </button>
           <button onClick={goPrev} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors" title="Previous month">
             <ChevronLeft className="w-4 h-4" />
           </button>
         </div>
 
         <div className="flex items-center gap-2">
-          <h3 className={`font-semibold text-gray-900 dark:text-white ${compact ? 'text-sm' : 'text-base'}`}>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
             {MONTH_NAMES[viewMonth]} {viewYear}
           </h3>
-          <button onClick={goToday} className="px-2 py-0.5 text-xs font-medium rounded-md bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors">
+          <button onClick={goToday} className="px-2.5 py-1 text-xs font-medium rounded-lg bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors">
             Today
           </button>
         </div>
 
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-0.5">
           <button onClick={goNext} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors" title="Next month">
             <ChevronRight className="w-4 h-4" />
           </button>
-          {!compact && (
-            <button onClick={goNextYear} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors" title="Next year">
-              <ChevronRight className="w-4 h-4" /><ChevronRight className="w-4 h-4 -ml-3" />
-            </button>
-          )}
+          <button onClick={goNextYear} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors" title="Next year">
+            <ChevronRight className="w-4 h-4" /><ChevronRight className="w-4 h-4 -ml-3" />
+          </button>
         </div>
       </div>
 
       {/* Day-of-week header */}
-      <div className="grid grid-cols-7 mb-1">
-        {DAY_LABELS.map(d => (
-          <div key={d} className={`text-center font-medium text-gray-400 dark:text-gray-500 ${compact ? 'text-[10px] py-1' : 'text-xs py-1.5'}`}>{d}</div>
+      <div className="grid grid-cols-7 border-b border-gray-200 dark:border-gray-700">
+        {DAY_LABELS.map((d, i) => (
+          <div
+            key={d}
+            className={`text-center text-xs font-semibold py-2 text-gray-500 dark:text-gray-400 uppercase tracking-wider ${
+              i === 0 || i === 6 ? 'text-red-400 dark:text-red-500/70' : ''
+            }`}
+          >
+            {d}
+          </div>
         ))}
       </div>
 
-      {/* Calendar grid */}
-      <div className="grid grid-cols-7">
+      {/* Calendar grid — fixed height: each row stretches equally */}
+      <div className="grid grid-cols-7 border-l border-gray-200 dark:border-gray-700" style={{ minHeight: `${totalRows * 5.5}rem` }}>
         {cells.map((day, idx) => {
-          if (day === null) return <div key={`e${idx}`} className="aspect-square" />;
+          if (day === null) {
+            return <div key={`e${idx}`} className="border-r border-b border-gray-100 dark:border-gray-700/50 bg-gray-50/50 dark:bg-gray-800/30" />;
+          }
 
           const cellDate = new Date(viewYear, viewMonth, day);
           const key = `${viewYear}-${viewMonth}-${day}`;
@@ -189,93 +259,56 @@ export default function EventCalendar({ events, onDayClick, onEventClick, compac
           const isToday = isSameDay(cellDate, today);
           const isSelected = selectedDay && isSameDay(cellDate, selectedDay);
           const isPast = cellDate < new Date(today.getFullYear(), today.getMonth(), today.getDate());
-          const hasEvents = dayEvents.length > 0;
 
           return (
             <button
               key={key}
-              onClick={() => {
-                handleDayClick(day);
-                if (!hasEvents && onDayClick) onDayClick(cellDate);
-              }}
+              onClick={() => handleDayClick(day)}
               className={`
-                aspect-square flex flex-col items-center justify-center relative rounded-lg transition-all duration-150 text-sm
-                ${isSelected ? 'bg-indigo-100 dark:bg-indigo-900/40 ring-2 ring-indigo-500' : ''}
-                ${isToday && !isSelected ? 'bg-indigo-50 dark:bg-indigo-900/20 font-bold' : ''}
-                ${!isSelected && !isToday ? 'hover:bg-gray-50 dark:hover:bg-gray-700/50' : ''}
-                ${isPast && !isToday && !isSelected ? 'text-gray-400 dark:text-gray-500' : 'text-gray-700 dark:text-gray-200'}
-                ${hasEvents ? 'cursor-pointer' : onDayClick ? 'cursor-pointer' : 'cursor-default'}
+                relative border-r border-b border-gray-100 dark:border-gray-700/50 p-1 text-left flex flex-col
+                transition-colors duration-100 cursor-pointer group
+                ${isSelected ? 'bg-indigo-50 dark:bg-indigo-900/20 ring-2 ring-inset ring-indigo-500' : 'hover:bg-gray-50 dark:hover:bg-gray-700/30'}
+                ${isPast && !isToday && !isSelected ? 'bg-gray-50/30 dark:bg-gray-800/20' : ''}
               `}
+              style={{ minHeight: `${5.5}rem` }}
             >
-              <span className={`${compact ? 'text-xs' : 'text-sm'} ${isToday ? 'text-indigo-600 dark:text-indigo-400 font-bold' : ''}`}>
+              {/* Day number */}
+              <span className={`
+                text-xs font-medium leading-none mb-0.5 self-end w-6 h-6 flex items-center justify-center rounded-full
+                ${isToday ? 'bg-indigo-600 text-white font-bold' : ''}
+                ${isSelected && !isToday ? 'bg-indigo-200 dark:bg-indigo-800 text-indigo-700 dark:text-indigo-300 font-bold' : ''}
+                ${!isToday && !isSelected && isPast ? 'text-gray-400 dark:text-gray-500' : ''}
+                ${!isToday && !isSelected && !isPast ? 'text-gray-700 dark:text-gray-300' : ''}
+              `}>
                 {day}
               </span>
-              {/* Event dots */}
-              {hasEvents && (
-                <div className="flex gap-0.5 mt-0.5">
-                  {dayEvents.slice(0, compact ? 2 : 3).map(ev => (
-                    <span key={ev.id} className={`w-1.5 h-1.5 rounded-full ${statusColors[ev.status] || 'bg-gray-400'}`} />
-                  ))}
-                  {dayEvents.length > (compact ? 2 : 3) && (
-                    <span className="text-[8px] text-gray-400 leading-none">+{dayEvents.length - (compact ? 2 : 3)}</span>
-                  )}
-                </div>
-              )}
+
+              {/* Event titles */}
+              <div className="flex-1 space-y-px overflow-hidden">
+                {dayEvents.slice(0, 2).map(ev => (
+                  <div
+                    key={ev.id}
+                    onClick={(e) => { e.stopPropagation(); onEventClick?.(ev); }}
+                    className={`
+                      text-[10px] leading-tight truncate px-1 py-0.5 rounded cursor-pointer
+                      hover:opacity-80 transition-opacity font-medium
+                      ${statusTextColor[ev.status] || 'text-gray-500'}
+                      ${statusBorder[ev.status] || ''}
+                      bg-gray-50 dark:bg-gray-700/50
+                    `}
+                    title={ev.name}
+                  >
+                    {ev.name}
+                  </div>
+                ))}
+                {dayEvents.length > 2 && (
+                  <span className="text-[9px] text-gray-400 dark:text-gray-500 pl-1">+{dayEvents.length - 2} more</span>
+                )}
+              </div>
             </button>
           );
         })}
       </div>
-
-      {/* Selected day event list */}
-      {selectedDay && selectedDayEvents.length > 0 && (
-        <div className="mt-3 border-t border-gray-200 dark:border-gray-700 pt-3">
-          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">
-            {selectedDay.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
-            {' · '}{selectedDayEvents.length} event{selectedDayEvents.length !== 1 ? 's' : ''}
-          </p>
-          <div className="space-y-2 max-h-48 overflow-y-auto">
-            {selectedDayEvents.map(ev => (
-              <button
-                key={ev.id}
-                onClick={(e) => { e.stopPropagation(); onEventClick?.(ev); }}
-                className="w-full text-left p-2.5 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-600 hover:bg-indigo-50/50 dark:hover:bg-indigo-900/20 transition-all group"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 dark:text-white truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
-                      {ev.name}
-                    </p>
-                    <div className="flex items-center gap-3 mt-1 text-xs text-gray-500 dark:text-gray-400">
-                      <span className="flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
-                        {formatCalDate(ev.start_date)}
-                      </span>
-                      {!compact && ev.venue && (
-                        <span className="flex items-center gap-1 truncate">
-                          <MapPin className="w-3 h-3" />
-                          {ev.venue}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <span className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-medium ${statusBadge[ev.status] || ''}`}>
-                    {statusLabel[ev.status] || ev.status}
-                  </span>
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Empty selected day — prompt to create (Events page) */}
-      {selectedDay && selectedDayEvents.length === 0 && onDayClick && (
-        <div className="mt-3 border-t border-gray-200 dark:border-gray-700 pt-3 text-center">
-          <p className="text-xs text-gray-400 dark:text-gray-500">
-            No events on {selectedDay.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
-          </p>
-        </div>
-      )}
     </div>
   );
 }

@@ -307,7 +307,12 @@ class AttendanceService:
             if invitee.checked_in:
                 skipped_checked_in += 1
                 continue
-            invitee.confirm_attendance(is_coming, guest_count)
+            # When confirming as coming and no explicit guest_count provided,
+            # default to the invitee's maximum allowed guests (plus_one)
+            effective_guest_count = guest_count
+            if is_coming and effective_guest_count is None:
+                effective_guest_count = invitee.plus_one or 0
+            invitee.confirm_attendance(is_coming, effective_guest_count)
             updated_count += 1
         
         db.session.commit()

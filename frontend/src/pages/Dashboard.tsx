@@ -5,7 +5,7 @@
  * - Director (Approver): Approval workflow focus
  * - Organizer (Inviter): Invitation management focus
  */
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { DashboardSkeleton } from '../components/common/LoadingSkeleton';
@@ -265,7 +265,20 @@ interface DashboardProps {
 }
 
 function AdminDashboard({ stats, events, recentActivity, navigate, user, selectedCalEvent, setSelectedCalEvent }: DashboardProps) {
-  
+  const [selectedDashDay, setSelectedDashDay] = useState<Date | null>(null);
+  const activeEvents = useMemo(() => events.filter(e => e.status === 'upcoming' || e.status === 'ongoing'), [events]);
+  const displayedEvents = useMemo(() => {
+    if (!selectedDashDay) return activeEvents;
+    return events.filter(ev => {
+      const start = new Date(ev.start_date.replace('Z', ''));
+      const end = new Date(ev.end_date.replace('Z', ''));
+      const sDay = new Date(selectedDashDay.getFullYear(), selectedDashDay.getMonth(), selectedDashDay.getDate());
+      const startDay = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+      const endDay = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+      return sDay >= startDay && sDay <= endDay;
+    });
+  }, [events, activeEvents, selectedDashDay]);
+
   return (
     <div className="space-y-6">
       <DashboardWelcomeHeader
@@ -356,27 +369,70 @@ function AdminDashboard({ stats, events, recentActivity, navigate, user, selecte
           </div>
         </div>
 
-        {/* Events Calendar */}
-        <div className="lg:col-span-2">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 h-full">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                <CalendarDays className="w-5 h-5 text-indigo-500" />
-                Events Calendar
-              </h2>
-              <button
-                onClick={() => navigate('/events')}
-                className="text-sm text-indigo-600 hover:text-indigo-700 font-medium flex items-center gap-1"
-              >
-                View all
-                <ArrowRight className="w-4 h-4" />
-              </button>
-            </div>
+        {/* Calendar */}
+        <div className="lg:col-span-1">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4 h-full">
+            <h2 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2 mb-3">
+              <CalendarDays className="w-4 h-4 text-indigo-500" />
+              Calendar
+            </h2>
             <EventCalendar
               events={events}
               compact
+              onDaySelect={setSelectedDashDay}
               onEventClick={(ev) => setSelectedCalEvent(ev)}
             />
+          </div>
+        </div>
+
+        {/* Active Events */}
+        <div className="lg:col-span-1">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4 h-full flex flex-col">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                <Activity className="w-4 h-4 text-emerald-500" />
+                {selectedDashDay ? selectedDashDay.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'Active Events'}
+              </h2>
+              {selectedDashDay ? (
+                <button onClick={() => setSelectedDashDay(null)} className="text-xs text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 font-medium">
+                  Show all
+                </button>
+              ) : (
+                <button onClick={() => navigate('/events')} className="text-xs text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 font-medium flex items-center gap-1">
+                  View all <ArrowRight className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+            <div className="flex-1 space-y-2 overflow-y-auto max-h-64">
+              {displayedEvents.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-8 text-gray-400 dark:text-gray-500">
+                  <Calendar className="w-8 h-8 mb-2" />
+                  <p className="text-xs">{selectedDashDay ? 'No events on this day' : 'No active events'}</p>
+                </div>
+              ) : (
+                displayedEvents.map(ev => (
+                  <button
+                    key={ev.id}
+                    onClick={() => setSelectedCalEvent(ev)}
+                    className="w-full text-left p-2.5 rounded-lg border border-gray-100 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-600 hover:bg-indigo-50/50 dark:hover:bg-indigo-900/20 transition-all group"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-sm font-medium text-gray-900 dark:text-white truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                        {ev.name}
+                      </p>
+                      <span className={`shrink-0 px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                        ev.status === 'upcoming' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
+                        ev.status === 'ongoing' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+                        'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'
+                      }`}>
+                        {ev.status === 'ongoing' ? 'Live' : ev.status === 'upcoming' ? 'Soon' : ev.status}
+                      </span>
+                    </div>
+                    {ev.venue && <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5 truncate">{ev.venue}</p>}
+                  </button>
+                ))
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -421,7 +477,20 @@ function ApproverDashboard({ stats, events, recentActivity, navigate, user, sele
   const pendingCount = stats?.pending_approvals || 0;
   const approvedToday = stats?.total_approved_today || 0;
   const myInvitations = stats?.my_invitations_this_month || 0;
-  
+  const [selectedDashDay, setSelectedDashDay] = useState<Date | null>(null);
+  const activeEvents = useMemo(() => events.filter(e => e.status === 'upcoming' || e.status === 'ongoing'), [events]);
+  const displayedEvents = useMemo(() => {
+    if (!selectedDashDay) return activeEvents;
+    return events.filter(ev => {
+      const start = new Date(ev.start_date.replace('Z', ''));
+      const end = new Date(ev.end_date.replace('Z', ''));
+      const sDay = new Date(selectedDashDay.getFullYear(), selectedDashDay.getMonth(), selectedDashDay.getDate());
+      const startDay = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+      const endDay = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+      return sDay >= startDay && sDay <= endDay;
+    });
+  }, [events, activeEvents, selectedDashDay]);
+
   return (
     <div className="space-y-6">
       <DashboardWelcomeHeader
@@ -491,7 +560,7 @@ function ApproverDashboard({ stats, events, recentActivity, navigate, user, sele
         />
       </div>
 
-      {/* Main Content */}
+      {/* Main Content — Calendar + Events + Quick Actions */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Quick Actions */}
         <div className="lg:col-span-1">
@@ -527,51 +596,97 @@ function ApproverDashboard({ stats, events, recentActivity, navigate, user, sele
           </div>
         </div>
 
-        {/* Recent Decisions */}
-        <div className="lg:col-span-2">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 h-full">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                <ListChecks className="w-5 h-5 text-emerald-500" />
-                Recent Decisions
+        {/* Calendar */}
+        <div className="lg:col-span-1">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4 h-full">
+            <h2 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2 mb-3">
+              <CalendarDays className="w-4 h-4 text-teal-500" />
+              Calendar
+            </h2>
+            <EventCalendar
+              events={events}
+              compact
+              onDaySelect={setSelectedDashDay}
+              onEventClick={(ev) => setSelectedCalEvent(ev)}
+            />
+          </div>
+        </div>
+
+        {/* Assigned Events */}
+        <div className="lg:col-span-1">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4 h-full flex flex-col">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                <Activity className="w-4 h-4 text-emerald-500" />
+                {selectedDashDay ? selectedDashDay.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'Active Events'}
               </h2>
-              <button
-                onClick={() => navigate('/approvals')}
-                className="text-sm text-emerald-600 hover:text-emerald-700 font-medium flex items-center gap-1"
-              >
-                View all
-                <ArrowRight className="w-4 h-4" />
-              </button>
+              {selectedDashDay && (
+                <button onClick={() => setSelectedDashDay(null)} className="text-xs text-teal-600 hover:text-teal-700 dark:text-teal-400 font-medium">
+                  Show all
+                </button>
+              )}
             </div>
-            {recentActivity.length === 0 ? (
-              <div className="text-center py-12">
-                <ClipboardCheck className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
-                <p className="text-gray-500 dark:text-gray-400">No recent decisions</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {recentActivity.slice(0, 5).map((item, index) => (
-                  <ApprovalActivityItem key={index} item={item} />
-                ))}
-              </div>
-            )}
+            <div className="flex-1 space-y-2 overflow-y-auto max-h-64">
+              {displayedEvents.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-8 text-gray-400 dark:text-gray-500">
+                  <Calendar className="w-8 h-8 mb-2" />
+                  <p className="text-xs">{selectedDashDay ? 'No events on this day' : 'No active events'}</p>
+                </div>
+              ) : (
+                displayedEvents.map(ev => (
+                  <button
+                    key={ev.id}
+                    onClick={() => setSelectedCalEvent(ev)}
+                    className="w-full text-left p-2.5 rounded-lg border border-gray-100 dark:border-gray-700 hover:border-teal-300 dark:hover:border-teal-600 hover:bg-teal-50/50 dark:hover:bg-teal-900/20 transition-all group"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-sm font-medium text-gray-900 dark:text-white truncate group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors">
+                        {ev.name}
+                      </p>
+                      <span className={`shrink-0 px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                        ev.status === 'upcoming' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
+                        ev.status === 'ongoing' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+                        'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'
+                      }`}>
+                        {ev.status === 'ongoing' ? 'Live' : ev.status === 'upcoming' ? 'Soon' : ev.status}
+                      </span>
+                    </div>
+                    {ev.venue && <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5 truncate">{ev.venue}</p>}
+                  </button>
+                ))
+              )}
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Events Calendar */}
+      {/* Recent Decisions */}
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-            <CalendarDays className="w-5 h-5 text-teal-500" />
-            My Events Calendar
+            <ListChecks className="w-5 h-5 text-emerald-500" />
+            Recent Decisions
           </h2>
+          <button
+            onClick={() => navigate('/approvals')}
+            className="text-sm text-emerald-600 hover:text-emerald-700 font-medium flex items-center gap-1"
+          >
+            View all
+            <ArrowRight className="w-4 h-4" />
+          </button>
         </div>
-        <EventCalendar
-          events={events}
-          compact
-          onEventClick={(ev) => setSelectedCalEvent(ev)}
-        />
+        {recentActivity.length === 0 ? (
+          <div className="text-center py-12">
+            <ClipboardCheck className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+            <p className="text-gray-500 dark:text-gray-400">No recent decisions</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {recentActivity.slice(0, 5).map((item, index) => (
+              <ApprovalActivityItem key={index} item={item} />
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Event Detail Modal */}
@@ -597,6 +712,19 @@ function InviterDashboard({ stats, events, recentActivity, navigate, user, showE
   const successRate = approvedThisMonth + rejectedThisMonth > 0
     ? Math.round((approvedThisMonth / (approvedThisMonth + rejectedThisMonth)) * 100)
     : 100;
+  const [selectedDashDay, setSelectedDashDay] = useState<Date | null>(null);
+  const activeEvents = useMemo(() => events.filter(e => e.status === 'upcoming' || e.status === 'ongoing'), [events]);
+  const displayedEvents = useMemo(() => {
+    if (!selectedDashDay) return activeEvents;
+    return events.filter(ev => {
+      const start = new Date(ev.start_date.replace('Z', ''));
+      const end = new Date(ev.end_date.replace('Z', ''));
+      const sDay = new Date(selectedDashDay.getFullYear(), selectedDashDay.getMonth(), selectedDashDay.getDate());
+      const startDay = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+      const endDay = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+      return sDay >= startDay && sDay <= endDay;
+    });
+  }, [events, activeEvents, selectedDashDay]);
 
   return (
     <div className="space-y-6">
@@ -679,29 +807,70 @@ function InviterDashboard({ stats, events, recentActivity, navigate, user, showE
           </div>
         </div>
 
-        {/* My Events Calendar */}
-        <div className="lg:col-span-2">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 h-full">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                <CalendarDays className="w-5 h-5 text-indigo-500" />
-                My Events Calendar
-              </h2>
-              {events.length > 0 && (
-                <button
-                  onClick={() => setShowEventsModal(true)}
-                  className="text-sm text-indigo-600 hover:text-indigo-700 font-medium flex items-center gap-1"
-                >
-                  View all ({events.length})
-                  <ArrowRight className="w-4 h-4" />
-                </button>
-              )}
-            </div>
+        {/* Calendar */}
+        <div className="lg:col-span-1">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4 h-full">
+            <h2 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2 mb-3">
+              <CalendarDays className="w-4 h-4 text-indigo-500" />
+              Calendar
+            </h2>
             <EventCalendar
               events={events}
               compact
+              onDaySelect={setSelectedDashDay}
               onEventClick={(ev) => setSelectedCalEvent(ev)}
             />
+          </div>
+        </div>
+
+        {/* My Events */}
+        <div className="lg:col-span-1">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4 h-full flex flex-col">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                <Activity className="w-4 h-4 text-indigo-500" />
+                {selectedDashDay ? selectedDashDay.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'My Events'}
+              </h2>
+              {selectedDashDay ? (
+                <button onClick={() => setSelectedDashDay(null)} className="text-xs text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 font-medium">
+                  Show all
+                </button>
+              ) : events.length > 0 ? (
+                <button onClick={() => setShowEventsModal(true)} className="text-xs text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 font-medium flex items-center gap-1">
+                  View all ({events.length}) <ArrowRight className="w-3 h-3" />
+                </button>
+              ) : null}
+            </div>
+            <div className="flex-1 space-y-2 overflow-y-auto max-h-64">
+              {displayedEvents.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-8 text-gray-400 dark:text-gray-500">
+                  <Calendar className="w-8 h-8 mb-2" />
+                  <p className="text-xs">{selectedDashDay ? 'No events on this day' : 'No active events'}</p>
+                </div>
+              ) : (
+                displayedEvents.map(ev => (
+                  <button
+                    key={ev.id}
+                    onClick={() => setSelectedCalEvent(ev)}
+                    className="w-full text-left p-2.5 rounded-lg border border-gray-100 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-600 hover:bg-indigo-50/50 dark:hover:bg-indigo-900/20 transition-all group"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-sm font-medium text-gray-900 dark:text-white truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                        {ev.name}
+                      </p>
+                      <span className={`shrink-0 px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                        ev.status === 'upcoming' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
+                        ev.status === 'ongoing' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+                        'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'
+                      }`}>
+                        {ev.status === 'ongoing' ? 'Live' : ev.status === 'upcoming' ? 'Soon' : ev.status}
+                      </span>
+                    </div>
+                    {ev.venue && <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5 truncate">{ev.venue}</p>}
+                  </button>
+                ))
+              )}
+            </div>
           </div>
         </div>
       </div>

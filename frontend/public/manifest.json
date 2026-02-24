@@ -2,7 +2,7 @@
   "name": "Event Invitees Management System",
   "short_name": "Invitees",
   "description": "Manage event invitees, approvals, attendance, and reports",
-  "start_url": "/",
+  "start_url": ".",
   "display": "standalone",
   "background_color": "#0f172a",
   "theme_color": "#0f172a",
