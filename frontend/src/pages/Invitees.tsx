@@ -35,7 +35,7 @@ import type { Event, EventInvitee, Inviter, InviteeWithStats, InviteeFormData, C
 import CategoryManager from '../components/categories/CategoryManager';
 import TablePagination from '../components/common/TablePagination';
 import SortableColumnHeader, { applySorting, type SortDirection } from '../components/common/SortableColumnHeader';
-import { formatDateEgypt, formatDateTimeEgypt } from '../utils/formatters';
+import { formatDateEgypt, formatEventDateTime, formatEventDate } from '../utils/formatters';
 import { exportToExcel, exportToPDF, exportToCSV } from '../utils/exportHelpers';
 
 // Status display helpers
@@ -1113,7 +1113,7 @@ export default function Invitees() {
                       </span>
                     </div>
                     <p className="text-sm text-gray-500 dark:text-gray-400">
-                      {formatDateEgypt(event.start_date)}
+                      {formatEventDate(event.start_date)}
                     </p>
                     {event.venue && (
                       <p className="text-sm text-gray-400 truncate mt-1">{event.venue}</p>
@@ -1134,13 +1134,13 @@ export default function Invitees() {
                     <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white truncate">{selectedEvent.name}</h2>
                     <div className="text-sm text-gray-500 dark:text-gray-400">
                       <div className="sm:hidden">
-                        {formatDateTimeEgypt(selectedEvent.start_date)}
+                        {formatEventDateTime(selectedEvent.start_date)}
                       </div>
                       <div className="sm:hidden text-gray-400 dark:text-gray-500">
-                        to {formatDateTimeEgypt(selectedEvent.end_date)}
+                        to {formatEventDateTime(selectedEvent.end_date)}
                       </div>
                       <div className="hidden sm:block truncate">
-                        {formatDateTimeEgypt(selectedEvent.start_date)} - {formatDateTimeEgypt(selectedEvent.end_date)}
+                        {formatEventDateTime(selectedEvent.start_date)} - {formatEventDateTime(selectedEvent.end_date)}
                       </div>
                     </div>
                     {selectedEvent.venue && (

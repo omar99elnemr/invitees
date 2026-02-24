@@ -352,10 +352,196 @@ export default function Reports() {
     return actionLabels[action] || action.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
   };
 
+  const formatActivityDetails = (details: string | null | undefined) => {
+    if (!details) return '—';
+
+    const trimmed = details.trim();
+    if (!trimmed) return '—';
+
+    const tryParse = (raw: string) => {
+      try {
+        return JSON.parse(raw);
+      } catch {
+        return null;
+      }
+    };
+
+    const normalizePythonLikeJson = (raw: string) => {
+      let s = raw;
+      s = s.replace(/\bNone\b/g, 'null');
+      s = s.replace(/\bTrue\b/g, 'true');
+      s = s.replace(/\bFalse\b/g, 'false');
+      s = s.replace(/'/g, '"');
+      return s;
+    };
+
+    const extractListPayload = (raw: string) => {
+      const idx = raw.indexOf('[');
+      if (idx < 0) return null;
+      return raw.slice(idx).trim();
+    };
+
+    const getGroupName = (groupId: number) => {
+      const g = inviterGroups.find(x => x.id === groupId);
+      return g?.name || `Inviter Group ${groupId}`;
+    };
+
+    const parseQuotaList = (raw: string): Array<{ inviter_group_id: number; quota: number }> => {
+      const parsed = tryParse(raw) || tryParse(normalizePythonLikeJson(raw));
+      if (Array.isArray(parsed)) {
+        const items = parsed
+          .filter((x) => x && typeof x === 'object')
+          .map((x: any) => ({
+            inviter_group_id: Number(x.inviter_group_id ?? x.group_id ?? x.inviterGroupId),
+            quota: x.quota == null ? null : Number(x.quota),
+          }))
+          .filter((x): x is { inviter_group_id: number; quota: number } => (
+            Number.isFinite(x.inviter_group_id) && x.quota !== null && Number.isFinite(x.quota)
+          ));
+
+        return items;
+      }
+
+      // Regex fallback for python-like reprs (very defensive)
+      const results: Array<{ inviter_group_id: number; quota: number }> = [];
+      const re = /inviter_group_id\s*['\"]?\s*:\s*(\d+)\s*,\s*quota\s*['\"]?\s*:\s*(\d+)/g;
+      let m: RegExpExecArray | null;
+      while ((m = re.exec(raw)) !== null) {
+        const gid = Number(m[1]);
+        const q = Number(m[2]);
+        if (Number.isFinite(gid) && Number.isFinite(q)) results.push({ inviter_group_id: gid, quota: q });
+      }
+      return results;
+    };
+
+    // Special handling: Set Event Quotas payload (list of { inviter_group_id, quota })
+    if (
+      trimmed.includes('inviter_group_id') &&
+      trimmed.includes('quota')
+    ) {
+      const payload = extractListPayload(trimmed) || trimmed;
+      const items = parseQuotaList(payload);
+      if (items.length > 0) {
+        const lines = items.map(({ inviter_group_id, quota }) => `${getGroupName(inviter_group_id)}: ${quota}`);
+        return lines.join('\n');
+      }
+    }
+
+    // Generic: if it's valid JSON/object/array, pretty print it
+    const parsedGeneric = tryParse(trimmed) || tryParse(normalizePythonLikeJson(trimmed));
+    if (parsedGeneric && typeof parsedGeneric === 'object') {
+      try {
+        return JSON.stringify(parsedGeneric, null, 2);
+      } catch {
+        // fallthrough
+      }
+    }
+
+    return details;
+  };
+
+  const getActivityDetailsLines = (item: ActivityLogEntry) => {
+    const rawNew = item.formatted_details || item.new_value;
+    if (!rawNew) return [];
+
+    const trimmedNew = rawNew.trim();
+    const listStart = trimmedNew.indexOf('[');
+    const payloadNew = listStart >= 0 ? trimmedNew.slice(listStart).trim() : trimmedNew;
+    const isQuotaPayload = payloadNew.startsWith('[') && payloadNew.includes('inviter_group_id') && payloadNew.includes('quota');
+    if (!isQuotaPayload) return [];
+
+    const normalizePythonLikeJson = (raw: string) => {
+      let s = raw;
+      s = s.replace(/\bNone\b/g, 'null');
+      s = s.replace(/\bTrue\b/g, 'true');
+      s = s.replace(/\bFalse\b/g, 'false');
+      s = s.replace(/'/g, '"');
+      return s;
+    };
+
+    const tryParse = (raw: string) => {
+      try {
+        return JSON.parse(raw);
+      } catch {
+        return null;
+      }
+    };
+
+    const parseQuotaList = (raw: string): Array<{ inviter_group_id: number; quota: number }> => {
+      const parsed = tryParse(raw) || tryParse(normalizePythonLikeJson(raw));
+      if (Array.isArray(parsed)) {
+        const items = parsed
+          .filter((x) => x && typeof x === 'object')
+          .map((x: any) => ({
+            inviter_group_id: Number(x.inviter_group_id ?? x.group_id ?? x.inviterGroupId),
+            quota: x.quota == null ? null : Number(x.quota),
+          }))
+          .filter((x): x is { inviter_group_id: number; quota: number } => (
+            Number.isFinite(x.inviter_group_id) && x.quota !== null && Number.isFinite(x.quota)
+          ));
+
+        return items;
+      }
+
+      const results: Array<{ inviter_group_id: number; quota: number }> = [];
+      const re = /inviter_group_id\s*['\"]?\s*:\s*(\d+)\s*,\s*quota\s*['\"]?\s*:\s*(\d+)/g;
+      let m: RegExpExecArray | null;
+      while ((m = re.exec(raw)) !== null) {
+        const gid = Number(m[1]);
+        const q = Number(m[2]);
+        if (Number.isFinite(gid) && Number.isFinite(q)) results.push({ inviter_group_id: gid, quota: q });
+      }
+      return results;
+    };
+
+    const getGroupName = (groupId: number) => {
+      const g = inviterGroups.find(x => x.id === groupId);
+      return g?.name || `Inviter Group ${groupId}`;
+    };
+
+    const newItems = parseQuotaList(payloadNew);
+    if (newItems.length === 0) return [];
+
+    const oldRaw = item.old_value?.trim();
+    const oldPayloadStart = oldRaw ? oldRaw.indexOf('[') : -1;
+    const oldPayload = oldRaw ? (oldPayloadStart >= 0 ? oldRaw.slice(oldPayloadStart).trim() : oldRaw) : null;
+    const oldItems = oldPayload ? parseQuotaList(oldPayload) : [];
+    const oldMap = new Map<number, number>();
+    oldItems.forEach(x => oldMap.set(x.inviter_group_id, x.quota));
+
+    const changed = newItems
+      .map(x => {
+        const oldQuota = oldMap.has(x.inviter_group_id) ? oldMap.get(x.inviter_group_id) : undefined;
+        if (oldQuota === undefined) return { ...x, oldQuota: null };
+        if (oldQuota === x.quota) return null;
+        return { ...x, oldQuota };
+      })
+      .filter(Boolean) as Array<{ inviter_group_id: number; quota: number; oldQuota: number | null }>;
+
+    const lines = (oldItems.length > 0 ? changed : newItems.map(x => ({ ...x, oldQuota: null })))
+      .map(x => {
+        const name = getGroupName(x.inviter_group_id);
+        if (x.oldQuota === null) return `${name}: ${x.quota}`;
+        return `${name}: ${x.oldQuota} → ${x.quota}`;
+      });
+
+    return lines;
+  };
+
+  // Sort helper — mirrors the inline sort used in table rendering
+  const sortData = <T extends Record<string, any>>(data: T[], column: string, direction: 'asc' | 'desc'): T[] => {
+    if (!column) return data;
+    return [...data].sort((a, b) => {
+      const aVal = String(a[column] || '').toLowerCase();
+      const bVal = String(b[column] || '').toLowerCase();
+      return direction === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+    });
+  };
+
   // Helper function to get formatted export data
   const getFormattedExportData = () => {
     if (activeReport === 'activity-log') {
-      return activityData.map(item => ({
+      return sortData(activityData, activitySortColumn, activitySortDirection).map(item => ({
         'Timestamp': item.timestamp ? formatDateTimeEgypt(item.timestamp) : '—',
         'Action': formatActionName(item.action),
         'Performed By': item.username || 'System',
@@ -363,12 +549,12 @@ export default function Reports() {
         'Group': item.inviter_group_name || '—',
         'Table': item.table_name,
         'Record ID': item.record_id || '—',
-        'Details': item.formatted_details || item.new_value || '—',
+        'Details': formatActivityDetails(item.formatted_details || item.new_value),
       }));
     }
 
     if (activeReport === 'historical-data') {
-      return historicalData.map(item => ({
+      return sortData(historicalData, historicalSortColumn, historicalSortDirection).map(item => ({
         'Event': item.event_name || '—',
         'Invitee Name': item.invitee_name || '—',
         'Position': item.position || '—',
@@ -387,7 +573,7 @@ export default function Reports() {
     // Transform data based on report type with clean headers and proper column ordering
     if (activeReport === 'detail-approved') {
       // Full Approved Details: columns vary by role
-      return (rawData as EventInvitee[]).map(item => {
+      return sortData(rawData as EventInvitee[], detailSortColumn, detailSortDirection).map(item => {
         const row: Record<string, any> = {
           'Event': item.event_name || '—',
           'Invitee Name': item.invitee_name || '—',
@@ -419,7 +605,7 @@ export default function Reports() {
       });
     } else if (activeReport === 'detail-event') {
       // Detailed Invitees: columns vary by role
-      return (rawData as EventInvitee[]).map(item => {
+      return sortData(rawData as EventInvitee[], detailSortColumn, detailSortDirection).map(item => {
         const row: Record<string, any> = {
           'Event': item.event_name || '—',
           'Invitee Name': item.invitee_name || '—',
@@ -1390,11 +1576,11 @@ export default function Reports() {
                           </td>
                           <td className="px-2 py-2 text-sm text-gray-500 dark:text-gray-400">
                             <div className="flex items-center gap-1.5">
-                              <div className="whitespace-normal break-words">
+                              <div className="whitespace-pre-line break-words">
                                 {(() => {
                                   const details = item.formatted_details || item.new_value;
                                   if (!details) return '—';
-                                  return details;
+                                  return formatActivityDetails(details);
                                 })()}
                               </div>
                               <button
@@ -1492,13 +1678,18 @@ export default function Reports() {
               </div>
 
               {/* Details / Changes */}
-              {selectedActivity.detail_lines && selectedActivity.detail_lines.length > 0 && (
+              {(() => {
+                const quotaLines = getActivityDetailsLines(selectedActivity);
+                const linesToShow = quotaLines.length > 0 ? quotaLines : (selectedActivity.detail_lines || []);
+                if (!linesToShow || linesToShow.length === 0) return null;
+
+                return (
                 <div>
                   <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
                     {selectedActivity.action.includes('update') ? 'Changes' : 'Details'}
                   </p>
                   <div className="space-y-1.5">
-                    {selectedActivity.detail_lines.map((line, idx) => (
+                    {linesToShow.map((line, idx) => (
                       <div key={idx} className="flex items-start gap-2 p-2 bg-gray-50 dark:bg-gray-700/50 rounded text-sm">
                         {selectedActivity.action.includes('update') && line.includes('→') ? (
                           <>
@@ -1512,7 +1703,25 @@ export default function Reports() {
                     ))}
                   </div>
                 </div>
-              )}
+                );
+              })()}
+
+              {(() => {
+                const quotaLines = getActivityDetailsLines(selectedActivity);
+                const hasLines = (selectedActivity.detail_lines && selectedActivity.detail_lines.length > 0) || quotaLines.length > 0;
+                if (hasLines) return null;
+
+                return (
+                <div>
+                  <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Details</p>
+                  <div className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded text-sm">
+                    <span className="text-gray-900 dark:text-white whitespace-pre-line break-words">
+                      {formatActivityDetails(selectedActivity.formatted_details || selectedActivity.new_value)}
+                    </span>
+                  </div>
+                </div>
+                );
+              })()}
 
               {/* IP Address */}
               {selectedActivity.ip_address && (

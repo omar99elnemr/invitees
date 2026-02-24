@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { getHour12 } from '../utils/formatters';
 import { CardGridSkeleton, InlineListSkeleton } from '../components/common/LoadingSkeleton';
 import { 
   Calendar, 
@@ -35,7 +36,7 @@ const statusColors: Record<Event['status'], string> = {
 
 const statusLabels: Record<Event['status'], string> = {
   upcoming: 'Upcoming',
-  ongoing: 'Ongoing',
+  ongoing: 'Live',
   ended: 'Ended',
   cancelled: 'Cancelled',
   on_hold: 'On Hold',
@@ -154,8 +155,8 @@ export default function Events() {
       // Log if any events were updated (for debugging)
       const { updated } = response.data;
       if (updated.ongoing > 0 || updated.ended > 0) {
-        console.log(`Events updated: ${updated.ongoing} ongoing, ${updated.ended} ended`);
-        toast.success(`Updated: ${updated.ongoing} ongoing, ${updated.ended} ended`);
+        console.log(`Events updated: ${updated.ongoing} live, ${updated.ended} ended`);
+        toast.success(`Updated: ${updated.ongoing} live, ${updated.ended} ended`);
       }
     } catch (error: any) {
       console.error('Failed to refresh events:', error);
@@ -189,7 +190,7 @@ export default function Events() {
       // Show toast only if events were updated
       const { updated } = response.data;
       if (updated.ongoing > 0) {
-        toast.success(`${updated.ongoing} event(s) are now ongoing`, { duration: 3000 });
+        toast.success(`${updated.ongoing} event(s) are now live`, { duration: 3000 });
       }
       if (updated.ended > 0) {
         toast.success(`${updated.ended} event(s) have ended`, { duration: 3000 });
@@ -218,6 +219,7 @@ export default function Events() {
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
+      hour12: getHour12(),
     });
   };
 
@@ -530,7 +532,7 @@ export default function Events() {
             </div>
             <div>
               <p className="text-2xl font-bold text-gray-900 dark:text-white">{events.filter(e => e.status === 'ongoing').length}</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">Ongoing</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Live</p>
             </div>
           </div>
         </div>
@@ -569,7 +571,7 @@ export default function Events() {
           >
             <option value="all">All Status</option>
             <option value="upcoming">Upcoming</option>
-            <option value="ongoing">Ongoing</option>
+            <option value="ongoing">Live</option>
             <option value="ended">Ended</option>
             <option value="on_hold">On Hold</option>
             <option value="cancelled">Cancelled</option>
@@ -808,17 +810,17 @@ export default function Events() {
                     )}
                   </div>
 
-                  {/* Venue */}
+                  {/* Location */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Venue
+                      Location
                     </label>
                     <input
                       type="text"
                       value={formData.venue}
                       onChange={(e) => setFormData({ ...formData, venue: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-700 dark:text-white"
-                      placeholder="Enter venue"
+                      placeholder="Enter location"
                     />
                   </div>
 

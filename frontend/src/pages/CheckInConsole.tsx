@@ -22,7 +22,7 @@ import {
 import { checkinAPI, CheckinEventInfo } from '../services/api';
 import type { EventInvitee } from '../types';
 import toast from 'react-hot-toast';
-import { formatDateTimeEgypt, formatTimeEgypt } from '../utils/formatters';
+import { formatTimeEgypt, formatEventDateTime } from '../utils/formatters';
 import { useTheme } from '../context/ThemeContext';
 
 export default function CheckInConsole() {
@@ -416,7 +416,7 @@ export default function CheckInConsole() {
                 Event Time
               </div>
               <div className="text-lg font-semibold text-gray-900 dark:text-white mt-1">
-                {formatDateTimeEgypt(eventInfo.start_date)}
+                {formatEventDateTime(eventInfo.start_date)}
               </div>
             </div>
             {stats && (

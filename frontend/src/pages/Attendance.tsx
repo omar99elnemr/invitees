@@ -36,7 +36,7 @@ import toast from 'react-hot-toast';
 import { exportToExcel, exportToPDF, exportToCSV } from '../utils/exportHelpers';
 import TablePagination from '../components/common/TablePagination';
 import SortableColumnHeader, { applySorting, type SortDirection } from '../components/common/SortableColumnHeader';
-import { formatDateEgypt } from '../utils/formatters';
+import { formatEventDate } from '../utils/formatters';
 
 export default function Attendance() {
   const { user } = useAuth();
@@ -442,7 +442,7 @@ export default function Attendance() {
 
   // Export functions
   const getExportData = () => {
-    return attendees.map(a => ({
+    return sortedAttendees.map(a => ({
       'Name': a.invitee_name || '',
       'Code': a.attendance_code || '',
       'Category': a.category || '',
@@ -650,7 +650,7 @@ export default function Attendance() {
                 <div className="flex flex-wrap gap-4 mt-2 text-sm text-white/80">
                   <span className="flex items-center gap-1.5">
                     <Calendar className="w-4 h-4" />
-                    {formatDateEgypt(selectedEvent.start_date)}
+                    {formatEventDate(selectedEvent.start_date)}
                   </span>
                   {selectedEvent.venue && (
                     <span className="flex items-center gap-1.5">
@@ -1156,7 +1156,7 @@ export default function Attendance() {
           </h3>
           <p className="text-gray-500 dark:text-gray-400">
             {activeEvents.length === 0 && inactiveEvents.length > 0
-              ? <>No upcoming or ongoing events found. Click the <EyeOff className="w-4 h-4 inline -mt-0.5" /> button above to view past events.</>
+              ? <>No upcoming or live events found. Click the <EyeOff className="w-4 h-4 inline -mt-0.5" /> button above to view past events.</>
               : 'Choose an event from the dropdown above to manage attendance'}
           </p>
         </div>

@@ -60,6 +60,56 @@ def update_export_settings():
         return jsonify({'error': str(e)}), 500
 
 
+# --------------- General Settings ---------------
+
+@settings_bp.route('/general', methods=['GET'])
+@login_required
+def get_general_settings():
+    """Get general settings (time_format, etc.). Available to any authenticated user."""
+    try:
+        from app.models.export_setting import ExportSetting
+        time_fmt = ExportSetting.get_setting('time_format')
+        return jsonify({
+            'success': True,
+            'settings': {
+                'time_format': time_fmt.setting_value if time_fmt else '12',
+            },
+        }), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@settings_bp.route('/general', methods=['PUT'])
+@login_required
+@admin_required
+def update_general_settings():
+    """Update general settings. Admin only."""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+
+        from app.models.export_setting import ExportSetting
+
+        if 'time_format' in data:
+            val = data['time_format']
+            if val not in ('12', '24'):
+                return jsonify({'error': 'time_format must be "12" or "24"'}), 400
+            ExportSetting.set_setting('time_format', val, current_user.id)
+
+        time_fmt = ExportSetting.get_setting('time_format')
+        return jsonify({
+            'success': True,
+            'settings': {
+                'time_format': time_fmt.setting_value if time_fmt else '12',
+            },
+        }), 200
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 # --------------- Data Backup ---------------
 
 ALL_TABLES = ['users', 'inviter_groups', 'inviters', 'contacts', 'events', 'event_invitees', 'categories']

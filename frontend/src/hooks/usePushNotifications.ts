@@ -81,7 +81,7 @@ function startNativeNotificationPoller(
             title: n.title,
             body: n.message,
             id: n.id + 100000 + idx, // unique id to avoid collisions
-            smallIcon: 'ic_launcher',
+            smallIcon: 'ic_stat_notify',
           })),
         });
       }

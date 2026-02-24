@@ -25,7 +25,6 @@ import {
   Globe,
   Smartphone,
   Moon,
-  Upload,
   Download,
   Search,
   Key,
@@ -515,7 +514,7 @@ export default function Help() {
               <Li><strong>Welcome header</strong> — Personalized greeting with your name, a subtitle "Here's your system overview", and the current date/time.</Li>
               <Li><strong>Metric cards (top row)</strong> — Four colored cards showing: <Badge color="blue">Total Events</Badge>, <Badge color="green">Total Invitees</Badge>, <Badge color="yellow">Pending Approvals</Badge>, and <Badge color="purple">Approved</Badge>. Clicking "Pending Approvals" navigates to the Approvals page.</Li>
               <Li><strong>Quick Actions</strong> — Three action cards: "Create Event" (links to Events page), "Review Approvals" (links to Approvals page), and "Generate Reports" (links to Reports page).</Li>
-              <Li><strong>Active Events</strong> — A list of all active/upcoming events with name, date, venue, and status badge. Click "View All Events" to go to the Events page. Clicking any event card opens a modal with detailed event info including invitee counts.</Li>
+              <Li><strong>Active Events</strong> — A list of all active/upcoming events with name, date, location, and status badge. Click "View All Events" to go to the Events page. Clicking any event card opens a modal with detailed event info including invitee counts.</Li>
               <Li><strong>Recent Activity</strong> — The latest system actions (approvals, submissions, etc.) with timestamps.</Li>
             </Ul>
             <Screenshot name="dashboard-admin" caption="Admin dashboard — system-wide statistics and quick actions" />
@@ -576,15 +575,15 @@ export default function Help() {
         <P><strong>Step 1: Select an Event</strong></P>
         <P>
           At the top, assigned events are displayed as <strong>clickable cards</strong> in a grid.
-          Each card shows the event name, status, start date, and venue.
-          Only active events (Upcoming or Ongoing) assigned to your inviter group appear.
+          Each card shows the event name, status, start date, and location.
+          Only active events (Upcoming or Live) assigned to your inviter group appear.
           Click a card to select it.
         </P>
         <Screenshot name="invitees-event-select" caption="Select an event card to work with" />
 
         <P><strong>Event Info Header</strong></P>
         <P>
-          After selecting an event, an info header shows the event name, date, venue, and assigned groups
+          After selecting an event, an info header shows the event name, date, location, and assigned groups
           (click the groups badge to see all assigned groups in a popup).
           Three stat counters show <strong>Pending</strong>, <strong>Approved</strong>, and <strong>Rejected</strong> counts.
           Clicking "Pending" or "Approved" navigates to the Approvals page (Directors/Admins only).
@@ -927,21 +926,21 @@ export default function Help() {
           <P>
             The Events page lets Admins create, edit, and manage all events in the system.
             Events are displayed as <strong>cards</strong> in a grid layout. Each card shows the event name,
-            dates, venue, status badge, invitee count, and assigned inviter groups.
+            dates, location, status badge, invitee count, and assigned inviter groups.
           </P>
           <Screenshot name="events-grid" caption="Events page — all events displayed as cards in a grid" />
 
           <H3>Event Search & Filter</H3>
           <Ul>
             <Li><strong>Search bar</strong> — Type to filter events by name (instant filtering).</Li>
-            <Li><strong>Status filter</strong> — Dropdown to filter by event status (All, Upcoming, Ongoing, Ended, On Hold, Cancelled).</Li>
+            <Li><strong>Status filter</strong> — Dropdown to filter by event status (All, Upcoming, Live, Ended, On Hold, Cancelled).</Li>
           </Ul>
           <Screenshot name="events-search" caption="Search and filter events by name and status" />
 
           <H3>Event Statuses</H3>
           <div className="flex flex-wrap gap-2 my-3">
             <Badge color="blue">Upcoming</Badge>
-            <Badge color="green">Ongoing</Badge>
+            <Badge color="green">Live</Badge>
             <Badge color="gray">Ended</Badge>
             <Badge color="yellow">On Hold</Badge>
             <Badge color="red">Cancelled</Badge>
@@ -966,7 +965,7 @@ export default function Help() {
                 <tr><td className="px-3 py-2 border-b border-gray-100 dark:border-gray-700/50 font-medium">Event Name</td><td className="text-center px-3 py-2 border-b border-gray-100 dark:border-gray-700/50 text-green-500">✓</td><td className="px-3 py-2 border-b border-gray-100 dark:border-gray-700/50">The event title displayed everywhere</td></tr>
                 <tr><td className="px-3 py-2 border-b border-gray-100 dark:border-gray-700/50 font-medium">Start Date & Time</td><td className="text-center px-3 py-2 border-b border-gray-100 dark:border-gray-700/50 text-green-500">✓</td><td className="px-3 py-2 border-b border-gray-100 dark:border-gray-700/50">When the event begins (date and time picker)</td></tr>
                 <tr><td className="px-3 py-2 border-b border-gray-100 dark:border-gray-700/50 font-medium">End Date & Time</td><td className="text-center px-3 py-2 border-b border-gray-100 dark:border-gray-700/50 text-green-500">✓</td><td className="px-3 py-2 border-b border-gray-100 dark:border-gray-700/50">When the event ends</td></tr>
-                <tr><td className="px-3 py-2 border-b border-gray-100 dark:border-gray-700/50 font-medium">Venue</td><td className="text-center px-3 py-2 border-b border-gray-100 dark:border-gray-700/50 text-gray-400">—</td><td className="px-3 py-2 border-b border-gray-100 dark:border-gray-700/50">Physical location or venue name</td></tr>
+                <tr><td className="px-3 py-2 border-b border-gray-100 dark:border-gray-700/50 font-medium">Location</td><td className="text-center px-3 py-2 border-b border-gray-100 dark:border-gray-700/50 text-gray-400">—</td><td className="px-3 py-2 border-b border-gray-100 dark:border-gray-700/50">Physical location of the event</td></tr>
                 <tr><td className="px-3 py-2 border-b border-gray-100 dark:border-gray-700/50 font-medium">Description</td><td className="text-center px-3 py-2 border-b border-gray-100 dark:border-gray-700/50 text-gray-400">—</td><td className="px-3 py-2 border-b border-gray-100 dark:border-gray-700/50">Additional event details/notes</td></tr>
                 <tr><td className="px-3 py-2 font-medium">Inviter Groups</td><td className="text-center px-3 py-2 text-green-500">✓</td><td className="px-3 py-2">Choose "All Groups" to assign all, or pick specific groups. Only assigned groups can submit invitees to this event.</td></tr>
               </tbody>
@@ -975,7 +974,7 @@ export default function Help() {
           <StepList steps={[
             'Click "+ Create Event".',
             'Fill in the event name, start date/time, end date/time.',
-            'Optionally add venue and description.',
+            'Optionally add location and description.',
             'Select inviter groups — choose "All Groups" or pick specific ones.',
             'Click "Create Event" to save.',
           ]} />
@@ -993,10 +992,10 @@ export default function Help() {
           <div className="overflow-x-auto my-3">
             <table className="w-full text-sm border-collapse">
               <tbody className="text-gray-600 dark:text-gray-400">
-                <tr className="border-b border-gray-100 dark:border-gray-700/50"><td className="px-3 py-2 font-medium text-gray-700 dark:text-gray-300 w-44">Edit</td><td className="px-3 py-2">Opens the edit modal to modify event name, dates, venue, description, and assigned groups.</td></tr>
+                <tr className="border-b border-gray-100 dark:border-gray-700/50"><td className="px-3 py-2 font-medium text-gray-700 dark:text-gray-300 w-44">Edit</td><td className="px-3 py-2">Opens the edit modal to modify event name, dates, location, description, and assigned groups.</td></tr>
                 <tr className="border-b border-gray-100 dark:border-gray-700/50"><td className="px-3 py-2 font-medium text-gray-700 dark:text-gray-300">Set Quotas</td><td className="px-3 py-2">Opens a modal to set the maximum number of invitees each inviter group can submit for this event.</td></tr>
                 <tr className="border-b border-gray-100 dark:border-gray-700/50"><td className="px-3 py-2 font-medium text-gray-700 dark:text-gray-300">Check-in Settings</td><td className="px-3 py-2">Opens a modal to generate/manage the check-in PIN, view event code, and copy console/live dashboard URLs.</td></tr>
-                <tr className="border-b border-gray-100 dark:border-gray-700/50"><td className="px-3 py-2 font-medium text-gray-700 dark:text-gray-300">Change Status</td><td className="px-3 py-2">Opens a dropdown to manually set the event status (Upcoming, Ongoing, Ended, On Hold, Cancelled).</td></tr>
+                <tr className="border-b border-gray-100 dark:border-gray-700/50"><td className="px-3 py-2 font-medium text-gray-700 dark:text-gray-300">Change Status</td><td className="px-3 py-2">Opens a dropdown to manually set the event status (Upcoming, Live, Ended, On Hold, Cancelled).</td></tr>
                 <tr><td className="px-3 py-2 font-medium text-gray-700 dark:text-gray-300">Delete</td><td className="px-3 py-2">Permanently deletes the event and ALL related data (invitees, approvals, attendance). A confirmation dialog warns you before proceeding.</td></tr>
               </tbody>
             </table>
@@ -1069,7 +1068,7 @@ export default function Help() {
 
           <H3>Event Info & Check-in PIN Bar</H3>
           <P>
-            After selecting an event, an info bar shows the event name, dates, and venue.
+            After selecting an event, an info bar shows the event name, dates, and location.
             If a check-in PIN exists, a <strong>PIN status bar</strong> appears showing:
           </P>
           <Ul>

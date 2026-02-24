@@ -3,10 +3,11 @@
  * Provides authentication state and methods throughout the app
  */
 import { createContext, useContext, useState, useEffect, useRef, useCallback, ReactNode } from 'react';
-import { authAPI } from '../services/api';
+import { authAPI, settingsAPI } from '../services/api';
 import type { User } from '../types';
 import toast from 'react-hot-toast';
 import { isInstalledApp } from '../utils/capacitor';
+import { setTimeFormat } from '../utils/formatters';
 
 // Public routes where session timeout should never trigger
 const isPublicRoute = () => {
@@ -157,6 +158,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(data);
       // Restore remember me preference (PWA always remembers)
       rememberMeRef.current = isInstalledApp || localStorage.getItem('rememberMe') === 'true';
+      // Load system-wide time format preference
+      try {
+        const gs = await settingsAPI.getGeneralSettings();
+        const fmt = gs.data.settings?.time_format;
+        if (fmt === '12' || fmt === '24') setTimeFormat(fmt);
+      } catch { /* non-critical */ }
     } catch (error) {
       setUser(null);
       // If not authenticated, clear stale remember flag
@@ -173,6 +180,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       rememberMeRef.current = isInstalledApp || remember;
       lastActivityRef.current = Date.now();
       setShowSessionExpiredModal(false);
+      // Load system-wide time format preference
+      try {
+        const gs = await settingsAPI.getGeneralSettings();
+        const fmt = gs.data.settings?.time_format;
+        if (fmt === '12' || fmt === '24') setTimeFormat(fmt);
+      } catch { /* non-critical */ }
       // Persist remember me preference (PWA always remembers)
       if (isInstalledApp || remember) {
         localStorage.setItem('rememberMe', 'true');

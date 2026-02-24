@@ -264,7 +264,7 @@ export default function Portal() {
                       <MapPin className="w-5 h-5 text-primary" />
                     </div>
                     <div>
-                      <p className="font-medium text-gray-900 dark:text-white">Venue</p>
+                      <p className="font-medium text-gray-900 dark:text-white">Location</p>
                       <p className="text-sm text-gray-500 dark:text-gray-400">{attendeeData.event_venue}</p>
                     </div>
                   </div>

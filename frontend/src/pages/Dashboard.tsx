@@ -44,7 +44,7 @@ import {
   CloudLightning,
   CloudFog,
 } from 'lucide-react';
-import { formatDateEgypt, formatDateTimeEgypt } from '../utils/formatters';
+import { formatDateTimeEgypt, formatEventDate, getHour12 } from '../utils/formatters';
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -193,7 +193,7 @@ function DashboardWelcomeHeader({ user, gradientClasses, blurColor, accentTextCo
   const dayOfYear = Math.floor((now.getTime() - new Date(now.getFullYear(), 0, 0).getTime()) / 86400000);
   const subtitle = msgs[dayOfYear % msgs.length];
 
-  const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+  const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: getHour12() });
   const dateStr = now.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' });
 
   const wm = weather ? weatherMeta(weather.code, isNight) : null;
@@ -865,7 +865,7 @@ function EventCard({ event, onClick, compact }: { event: Event; onClick: () => v
           </h3>
           <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mt-1">
             <Calendar className="w-3.5 h-3.5 flex-shrink-0" />
-            <span className="truncate">{formatDateEgypt(event.start_date)}</span>
+            <span className="truncate">{formatEventDate(event.start_date)}</span>
           </div>
           {!compact && event.venue && (
             <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mt-0.5">
@@ -1004,7 +1004,7 @@ function EventsModal({ events, onClose, navigate }: { events: Event[]; onClose: 
                       <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400 mt-2">
                         <div className="flex items-center gap-1">
                           <Calendar className="w-4 h-4" />
-                          {formatDateEgypt(event.start_date)}
+                          {formatEventDate(event.start_date)}
                         </div>
                         {event.venue && (
                           <div className="flex items-center gap-1">

@@ -16,7 +16,7 @@ import {
   HelpCircle,
 } from 'lucide-react';
 import { liveDashboardAPI, LiveEvent, LiveDashboardStats, RecentCheckin } from '../services/api';
-import { formatDateTimeEgypt, formatTimeEgypt } from '../utils/formatters';
+import { formatTimeEgypt, formatEventDateTime } from '../utils/formatters';
 
 export default function LiveDashboard() {
   const { eventCode } = useParams<{ eventCode: string }>();
@@ -138,13 +138,13 @@ export default function LiveDashboard() {
                   <span className={`px-3 py-1 rounded-full text-xs sm:text-sm font-medium shrink-0 ${
                     eventInfo.status === 'ongoing' ? 'bg-green-500/20 text-green-400' : 'bg-blue-500/20 text-blue-400'
                   }`}>
-                    {eventInfo.status === 'ongoing' ? 'In Progress' : 'Upcoming'}
+                    {eventInfo.status === 'ongoing' ? 'Live' : 'Upcoming'}
                   </span>
                 </div>
                 <div className="flex flex-wrap items-center gap-3 sm:gap-6 text-sm sm:text-base text-gray-400">
                   <span className="flex items-center gap-2">
                     <Calendar className="w-4 h-4" />
-                    {formatDateTimeEgypt(eventInfo.start_date)}
+                    {formatEventDateTime(eventInfo.start_date)}
                   </span>
                   {eventInfo.venue && (
                     <span className="flex items-center gap-2">

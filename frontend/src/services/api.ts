@@ -691,6 +691,12 @@ export const settingsAPI = {
         ...(includePasswords ? { include_passwords: 'true' } : {}),
       },
     }),
+
+  getGeneralSettings: () =>
+    api.get<{ success: boolean; settings: { time_format: string } }>('/settings/general'),
+
+  updateGeneralSettings: (data: { time_format?: '12' | '24' }) =>
+    api.put<{ success: boolean; settings: { time_format: string } }>('/settings/general', data),
 };
 
 // --- Notifications API ---

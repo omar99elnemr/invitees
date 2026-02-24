@@ -3,11 +3,23 @@
  */
 import { format, parseISO } from 'date-fns';
 
-// The backend stores dates as Egypt local time (naive) but to_utc_isoformat()
-// appends 'Z', falsely labeling them as UTC. Using 'Africa/Cairo' would add +2h
-// on top of already-Egypt values. Using 'UTC' displays the raw stored value as-is,
-// which IS the correct Egypt time. This also works regardless of browser timezone.
-const EGYPT_TIMEZONE = 'UTC';
+// Server-generated timestamps (created_at, status_date, last_login, etc.) use
+// datetime.utcnow() and are genuine UTC. 'Africa/Cairo' converts them to Egypt
+// local time with automatic DST handling (UTC+2 winter, UTC+3 summer).
+const EGYPT_TIMEZONE = 'Africa/Cairo';
+
+// Module-level time format state (settable at runtime)
+let _hour12: boolean = true;
+
+/** Set the system-wide time format. Call once on app init and whenever the admin changes it. */
+export function setTimeFormat(fmt: '12' | '24') {
+  _hour12 = fmt === '12';
+}
+
+/** Get the current hour12 flag for Intl / toLocaleString. */
+export function getHour12(): boolean {
+  return _hour12;
+}
 
 /**
  * Format date/time for display (local timezone)
@@ -49,7 +61,7 @@ export const formatDateTimeEgypt = (dateString: string | null | undefined): stri
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
-      hour12: true,
+      hour12: _hour12,
     });
   } catch {
     return 'Invalid Date';
@@ -85,10 +97,53 @@ export const formatTimeEgypt = (dateString: string | null | undefined): string =
       timeZone: EGYPT_TIMEZONE,
       hour: '2-digit',
       minute: '2-digit',
-      hour12: true,
+      hour12: _hour12,
     });
   } catch {
     return 'Invalid Time';
+  }
+};
+
+/**
+ * Format event date/time for display.
+ * Event dates (start_date, end_date) are stored as Egypt local time (naive) with
+ * a fake 'Z' suffix appended by to_utc_isoformat(). This function parses the raw
+ * ISO string directly — no timezone conversion — so the displayed value matches
+ * the Egypt local time the user originally entered.
+ */
+export const formatEventDateTime = (dateString: string | null | undefined): string => {
+  if (!dateString) return '—';
+  try {
+    const match = dateString.match(/(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+    if (!match) return dateString;
+    const [, year, monthStr, day, hour, minute] = match;
+    const h = parseInt(hour);
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    if (_hour12) {
+      const ampm = h >= 12 ? 'PM' : 'AM';
+      const h12 = h % 12 || 12;
+      return `${months[parseInt(monthStr) - 1]} ${parseInt(day)}, ${year}, ${String(h12).padStart(2, '0')}:${minute} ${ampm}`;
+    }
+    return `${months[parseInt(monthStr) - 1]} ${parseInt(day)}, ${year}, ${String(h).padStart(2, '0')}:${minute}`;
+  } catch {
+    return 'Invalid Date';
+  }
+};
+
+/**
+ * Format event date only (no time) for display.
+ * Same raw-parse approach as formatEventDateTime — no timezone conversion.
+ */
+export const formatEventDate = (dateString: string | null | undefined): string => {
+  if (!dateString) return '—';
+  try {
+    const match = dateString.match(/(\d{4})-(\d{2})-(\d{2})/);
+    if (!match) return dateString;
+    const [, year, monthStr, day] = match;
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return `${months[parseInt(monthStr) - 1]} ${parseInt(day)}, ${year}`;
+  } catch {
+    return 'Invalid Date';
   }
 };
 

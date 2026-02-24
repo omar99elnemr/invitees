@@ -52,6 +52,18 @@ class EventService:
         event.update_status()
         
         db.session.add(event)
+        db.session.flush()  # get event.id before creating quota records
+        
+        # Default all assigned group quotas to 0 (not unlimited)
+        from app.models.event_group_quota import EventGroupQuota
+        if is_all_groups:
+            all_groups = InviterGroup.query.all()
+            for g in all_groups:
+                EventGroupQuota.set_quota(event.id, g.id, 0)
+        elif inviter_group_ids:
+            for gid in inviter_group_ids:
+                EventGroupQuota.set_quota(event.id, gid, 0)
+        
         db.session.commit()
         
         # Log creation

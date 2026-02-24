@@ -4,11 +4,12 @@
  */
 import { useState, useEffect, useRef } from 'react';
 import { FormSkeleton } from '../components/common/LoadingSkeleton';
-import { Upload, Trash2, Image, Save, RefreshCw, AlertCircle, CheckCircle, Pencil, Download, Database, FileSpreadsheet, FileText, FileJson, Shield, Users as UsersIcon, Calendar, UserCheck, Tag, Building, ZoomIn, ChevronDown, Settings } from 'lucide-react';
+import { Upload, Trash2, Image, Save, RefreshCw, AlertCircle, CheckCircle, Pencil, Download, Database, FileSpreadsheet, FileText, FileJson, Shield, Users as UsersIcon, Calendar, UserCheck, Tag, Building, ZoomIn, ChevronDown, Settings, Clock } from 'lucide-react';
 import ImageEditor from '../components/common/ImageEditor';
 import { settingsAPI } from '../services/api';
 import type { ExportSettings as ExportSettingsType } from '../services/api';
 import toast from 'react-hot-toast';
+import { setTimeFormat } from '../utils/formatters';
 import { format } from 'date-fns';
 import Papa from 'papaparse';
 
@@ -42,10 +43,16 @@ export default function ExportSettings() {
   // Accordion state
   const [logoSectionOpen, setLogoSectionOpen] = useState(true);
   const [backupSectionOpen, setBackupSectionOpen] = useState(false);
+  const [generalSectionOpen, setGeneralSectionOpen] = useState(true);
+
+  // General config state
+  const [timeFormat, setTimeFormatState] = useState<'12' | '24'>('12');
+  const [savingGeneral, setSavingGeneral] = useState(false);
 
   // Fetch current settings
   useEffect(() => {
     fetchSettings();
+    fetchGeneralSettings();
   }, []);
 
   const fetchSettings = async () => {
@@ -63,6 +70,37 @@ export default function ExportSettings() {
       toast.error('Failed to load export settings');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchGeneralSettings = async () => {
+    try {
+      const response = await settingsAPI.getGeneralSettings();
+      const fmt = response.data.settings?.time_format;
+      if (fmt === '12' || fmt === '24') {
+        setTimeFormatState(fmt);
+      }
+    } catch (error) {
+      console.error('Failed to fetch general settings:', error);
+    }
+  };
+
+  const handleToggleTimeFormat = async () => {
+    const newFormat: '12' | '24' = timeFormat === '12' ? '24' : '12';
+    setSavingGeneral(true);
+    try {
+      const response = await settingsAPI.updateGeneralSettings({ time_format: newFormat });
+      const fmt = response.data.settings?.time_format;
+      if (fmt === '12' || fmt === '24') {
+        setTimeFormatState(fmt);
+        setTimeFormat(fmt);
+      }
+      toast.success(`Time format changed to ${newFormat === '12' ? '12-hour' : '24-hour'}`);
+    } catch (error) {
+      console.error('Failed to update time format:', error);
+      toast.error('Failed to update time format');
+    } finally {
+      setSavingGeneral(false);
     }
   };
 
@@ -484,7 +522,62 @@ export default function ExportSettings() {
         </div>
       )}
 
-      {/* ==================== SECTION 2: Data Backup (Collapsible) ==================== */}
+      {/* ==================== SECTION 2: General Configurations (Collapsible) ==================== */}
+      <div className="rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-hidden">
+        <button
+          onClick={() => setGeneralSectionOpen(!generalSectionOpen)}
+          className="w-full px-6 py-4 flex items-center justify-between bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 hover:from-emerald-100 hover:to-teal-100 dark:hover:from-emerald-900/30 dark:hover:to-teal-900/30 transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-lg flex items-center justify-center shadow">
+              <Settings className="w-4.5 h-4.5 text-white" />
+            </div>
+            <div className="text-left">
+              <h2 className="text-base font-semibold text-gray-900 dark:text-white">General Configurations</h2>
+              <p className="text-xs text-gray-500 dark:text-gray-400">System-wide display preferences</p>
+            </div>
+          </div>
+          <ChevronDown className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${generalSectionOpen ? 'rotate-180' : ''}`} />
+        </button>
+
+        {generalSectionOpen && (
+          <div className="border-t border-gray-200 dark:border-gray-700 px-6 py-5 space-y-4">
+            {/* Time Format Toggle */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
+                  <Clock className="w-4.5 h-4.5 text-emerald-600 dark:text-emerald-400" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">Time Format</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    {timeFormat === '12' ? '12-hour (e.g. 02:30 PM)' : '24-hour (e.g. 14:30)'}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={handleToggleTimeFormat}
+                disabled={savingGeneral}
+                className="relative inline-flex h-7 w-[4.5rem] items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 disabled:opacity-50"
+                style={{ backgroundColor: timeFormat === '24' ? '#059669' : '#d1d5db' }}
+              >
+                <span
+                  className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition-transform ${
+                    timeFormat === '24' ? 'translate-x-[2.55rem]' : 'translate-x-1'
+                  }`}
+                />
+                <span className={`absolute text-[10px] font-bold ${
+                  timeFormat === '24' ? 'left-2 text-white' : 'right-2 text-gray-500'
+                }`}>
+                  {timeFormat === '24' ? '24h' : '12h'}
+                </span>
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ==================== SECTION 3: Data Backup (Collapsible) ==================== */}
       <DataBackupSection isOpen={backupSectionOpen} onToggle={() => setBackupSectionOpen(!backupSectionOpen)} />
     </div>
   );
