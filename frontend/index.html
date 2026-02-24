@@ -10,7 +10,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Invitees" />
-    <link rel="manifest" href="/manifest.json" />
+    <!-- manifest is set dynamically so homescreen shortcuts open the saved page -->
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
     <title>Event Invitees Management System</title>
   </head>
@@ -42,6 +42,24 @@
     </script>
     <script type="module" src="/src/main.tsx"></script>
     <script>
+      // Dynamic manifest: set start_url to current page so homescreen
+      // shortcuts open the saved URL, not always the homepage.
+      (function() {
+        fetch('/manifest.json').then(function(r){return r.json()}).then(function(m){
+          m.start_url = location.pathname + location.search;
+          var b = new Blob([JSON.stringify(m)], {type:'application/json'});
+          var link = document.createElement('link');
+          link.rel = 'manifest';
+          link.href = URL.createObjectURL(b);
+          document.head.appendChild(link);
+        }).catch(function(){
+          // Fallback: use static manifest if fetch fails
+          var link = document.createElement('link');
+          link.rel = 'manifest';
+          link.href = '/manifest.json';
+          document.head.appendChild(link);
+        });
+      })();
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
           navigator.serviceWorker.register('/sw.js').catch(() => {});

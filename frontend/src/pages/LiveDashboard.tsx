@@ -201,7 +201,9 @@ export default function LiveDashboard() {
               </div>
               <div className="text-3xl sm:text-5xl font-bold text-white mb-2">{stats.stats.not_yet_arrived}</div>
               <div className="text-sm text-gray-400">
-                Confirmed but not checked in
+                {stats.stats.metric === 'approved' ? 'Approved but not checked in' :
+                 stats.stats.metric === 'invited' ? 'Invited but not checked in' :
+                 'Confirmed but not checked in'}
               </div>
             </div>
 
@@ -278,7 +280,7 @@ export default function LiveDashboard() {
                 <div>
                   <div className="flex justify-between text-sm mb-2">
                     <span className="text-gray-400">Check-in Progress</span>
-                    <span>{stats.stats.checked_in} / {stats.stats.confirmed_coming}</span>
+                    <span>{stats.stats.checked_in} / {stats.stats.expected_attendees}</span>
                   </div>
                   <div className="h-3 bg-gray-700 rounded-full overflow-hidden">
                     <div 

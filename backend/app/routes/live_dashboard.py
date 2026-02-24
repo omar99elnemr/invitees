@@ -61,7 +61,6 @@ def get_event_live_stats(event_code):
     
     # Check-in stats
     checked_in_count = base_query.filter_by(checked_in=True).count()
-    not_yet_arrived = base_query.filter_by(checked_in=False, attendance_confirmed=True).count()
     
     # Guest counts
     total_plus_one_allowed = db.session.query(func.sum(EventInvitee.plus_one)).filter(
@@ -86,24 +85,34 @@ def get_event_live_stats(event_code):
     etm_setting = ExportSetting.get_setting('expected_total_metric')
     etm = etm_setting.setting_value if etm_setting else 'confirmed'
 
-    # Calculate totals based on configured metric
+    # Calculate ALL attendance metrics based on configured metric.
+    # The metric determines who counts as "expected to attend":
+    #   approved  → all approved invitees (no confirmation needed)
+    #   invited   → all invited invitees (regardless of approval)
+    #   confirmed → only those who confirmed coming (default)
     if etm == 'approved':
         expected_attendees = total_approved
         expected_guests = total_plus_one_allowed
         expected_with_guests = total_approved + total_plus_one_allowed
+        not_yet_arrived = total_approved - checked_in_count
+        attendance_rate = round(checked_in_count / total_approved * 100, 1) if total_approved > 0 else 0
     elif etm == 'invited':
         total_invited = EventInvitee.query.filter_by(event_id=event_id).count()
-        # For invited, sum plus_one across ALL invitees (not just approved)
         invited_plus_one = db.session.query(func.sum(EventInvitee.plus_one)).filter(
             EventInvitee.event_id == event_id
         ).scalar() or 0
+        # Check-ins can only happen for approved invitees, so checked_in_count stays the same
         expected_attendees = total_invited
         expected_guests = invited_plus_one
         expected_with_guests = total_invited + invited_plus_one
+        not_yet_arrived = total_invited - checked_in_count
+        attendance_rate = round(checked_in_count / total_invited * 100, 1) if total_invited > 0 else 0
     else:  # 'confirmed' (default)
         expected_attendees = confirmed_coming
         expected_guests = total_confirmed_guests
         expected_with_guests = expected_attendees + total_confirmed_guests
+        not_yet_arrived = base_query.filter_by(checked_in=False, attendance_confirmed=True).count()
+        attendance_rate = round(checked_in_count / confirmed_coming * 100, 1) if confirmed_coming > 0 else 0
     
     actual_arrived = checked_in_count  # Invitees who checked in
     total_arrived = checked_in_count + total_actual_guests  # Including actual guests
@@ -141,7 +150,10 @@ def get_event_live_stats(event_code):
             'total_arrived': total_arrived,
             
             # Attendance rate
-            'attendance_rate': round(checked_in_count / confirmed_coming * 100, 1) if confirmed_coming > 0 else 0,
+            'attendance_rate': attendance_rate,
+            
+            # Which metric is active (so frontend can show correct labels)
+            'metric': etm,
         },
         'timestamp': to_utc_isoformat(datetime.utcnow())
     })

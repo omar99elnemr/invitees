@@ -602,6 +602,7 @@ export interface LiveDashboardStats {
     actual_guests: number;
     total_arrived: number;
     attendance_rate: number;
+    metric: 'approved' | 'invited' | 'confirmed';
   };
   timestamp: string;
 }
