@@ -69,10 +69,12 @@ def get_general_settings():
     try:
         from app.models.export_setting import ExportSetting
         time_fmt = ExportSetting.get_setting('time_format')
+        etm = ExportSetting.get_setting('expected_total_metric')
         return jsonify({
             'success': True,
             'settings': {
                 'time_format': time_fmt.setting_value if time_fmt else '12',
+                'expected_total_metric': etm.setting_value if etm else 'confirmed',
             },
         }), 200
     except Exception as e:
@@ -97,11 +99,19 @@ def update_general_settings():
                 return jsonify({'error': 'time_format must be "12" or "24"'}), 400
             ExportSetting.set_setting('time_format', val, current_user.id)
 
+        if 'expected_total_metric' in data:
+            val = data['expected_total_metric']
+            if val not in ('approved', 'invited', 'confirmed'):
+                return jsonify({'error': 'expected_total_metric must be "approved", "invited", or "confirmed"'}), 400
+            ExportSetting.set_setting('expected_total_metric', val, current_user.id)
+
         time_fmt = ExportSetting.get_setting('time_format')
+        etm = ExportSetting.get_setting('expected_total_metric')
         return jsonify({
             'success': True,
             'settings': {
                 'time_format': time_fmt.setting_value if time_fmt else '12',
+                'expected_total_metric': etm.setting_value if etm else 'confirmed',
             },
         }), 200
     except ValueError as e:

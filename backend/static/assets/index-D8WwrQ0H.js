@@ -1,0 +1,1 @@
+import{a5 as e}from"./index-CDphpRtv.js";var r;(function(a){a.Dark="DARK",a.Light="LIGHT",a.Default="DEFAULT"})(r||(r={}));var t;(function(a){a.None="NONE",a.Slide="SLIDE",a.Fade="FADE"})(t||(t={}));const u=e("StatusBar");export{t as Animation,u as StatusBar,r as Style};

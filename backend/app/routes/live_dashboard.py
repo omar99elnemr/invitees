@@ -81,9 +81,22 @@ def get_event_live_stats(event_code):
         EventInvitee.checked_in == True
     ).scalar() or 0
     
-    # Calculate totals
-    expected_attendees = confirmed_coming  # People who confirmed they're coming
-    expected_with_guests = expected_attendees + total_confirmed_guests  # Including their guests
+    # Determine expected total metric from settings
+    from app.models.export_setting import ExportSetting
+    etm_setting = ExportSetting.get_setting('expected_total_metric')
+    etm = etm_setting.setting_value if etm_setting else 'confirmed'
+
+    # Calculate totals based on configured metric
+    if etm == 'approved':
+        expected_attendees = total_approved
+        expected_with_guests = total_approved + total_plus_one_allowed
+    elif etm == 'invited':
+        total_invited = EventInvitee.query.filter_by(event_id=event_id).count()
+        expected_attendees = total_invited
+        expected_with_guests = total_invited  # invited count includes everyone
+    else:  # 'confirmed' (default)
+        expected_attendees = confirmed_coming  # People who confirmed they're coming
+        expected_with_guests = expected_attendees + total_confirmed_guests  # Including their guests
     
     actual_arrived = checked_in_count  # Invitees who checked in
     total_arrived = checked_in_count + total_actual_guests  # Including actual guests

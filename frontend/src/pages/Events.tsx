@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { getHour12 } from '../utils/formatters';
+import EventCalendar from '../components/EventCalendar';
 import { CardGridSkeleton, InlineListSkeleton } from '../components/common/LoadingSkeleton';
 import { 
   Calendar, 
@@ -19,6 +20,11 @@ import {
   CheckCircle,
   XCircle,
   Gauge,
+  List,
+  CalendarDays,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
 } from 'lucide-react';
 import { eventsAPI, inviterGroupsAPI, CheckinPinInfo, GroupQuotaInfo } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -66,6 +72,13 @@ export default function Events() {
   const [quotaEdits, setQuotaEdits] = useState<Record<number, string>>({});
   const [loadingQuotas, setLoadingQuotas] = useState(false);
   const [savingQuotas, setSavingQuotas] = useState(false);
+
+  // View mode & sorting state
+  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
+  const [sortField, setSortField] = useState<'name' | 'start_date' | 'status' | 'invitee_count'>('start_date');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
 
   // Form state
   const [formData, setFormData] = useState({
@@ -206,8 +219,80 @@ export default function Events() {
     const matchesSearch = event.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          event.venue?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = statusFilter === 'all' || event.status === statusFilter;
-    return matchesSearch && matchesStatus;
+    // Date range filter
+    let matchesDate = true;
+    if (dateFrom) {
+      const from = new Date(dateFrom);
+      const evStart = new Date(event.start_date.replace('Z', ''));
+      if (evStart < from) matchesDate = false;
+    }
+    if (dateTo) {
+      const to = new Date(dateTo + 'T23:59:59');
+      const evStart = new Date(event.start_date.replace('Z', ''));
+      if (evStart > to) matchesDate = false;
+    }
+    return matchesSearch && matchesStatus && matchesDate;
   });
+
+  // Sort events for list view
+  const sortedEvents = useMemo(() => {
+    const statusOrder: Record<string, number> = { ongoing: 0, upcoming: 1, on_hold: 2, ended: 3, cancelled: 4 };
+    return [...filteredEvents].sort((a, b) => {
+      let cmp = 0;
+      switch (sortField) {
+        case 'name':
+          cmp = a.name.localeCompare(b.name);
+          break;
+        case 'start_date':
+          cmp = new Date(a.start_date).getTime() - new Date(b.start_date).getTime();
+          break;
+        case 'status':
+          cmp = (statusOrder[a.status] ?? 99) - (statusOrder[b.status] ?? 99);
+          break;
+        case 'invitee_count':
+          cmp = (a.invitee_count || 0) - (b.invitee_count || 0);
+          break;
+      }
+      return sortDir === 'desc' ? -cmp : cmp;
+    });
+  }, [filteredEvents, sortField, sortDir]);
+
+  // Toggle sort
+  const handleSort = (field: typeof sortField) => {
+    if (sortField === field) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDir('asc');
+    }
+  };
+
+  const SortIcon = ({ field }: { field: typeof sortField }) => {
+    if (sortField !== field) return <ArrowUpDown className="w-3.5 h-3.5 text-gray-400" />;
+    return sortDir === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-indigo-500" /> : <ArrowDown className="w-3.5 h-3.5 text-indigo-500" />;
+  };
+
+  // Calendar: click day → open create modal with date pre-filled
+  const handleCalendarDayClick = (date: Date) => {
+    if (!isAdmin) return;
+    const yyyy = date.getFullYear();
+    const mm = String(date.getMonth() + 1).padStart(2, '0');
+    const dd = String(date.getDate()).padStart(2, '0');
+    const dateStr = `${yyyy}-${mm}-${dd}T10:00`;
+    const endStr = `${yyyy}-${mm}-${dd}T18:00`;
+    setFormData({
+      name: '',
+      start_date: dateStr,
+      end_date: endStr,
+      venue: '',
+      description: '',
+      is_all_groups: false,
+      inviter_group_ids: [],
+    });
+    setFormErrors({});
+    setSelectedEvent(null);
+    setShowCreateModal(true);
+  };
 
   // Format date for display — backend stores Egypt local time but appends 'Z'.
   // Using 'UTC' displays the raw stored value, which IS correct Egypt time.
@@ -549,188 +634,261 @@ export default function Events() {
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-          <input
-            type="text"
-            placeholder="Search events..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white dark:bg-gray-800 dark:text-white shadow-sm"
-          />
-        </div>
-        
-        <div className="relative">
-          <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="pl-10 pr-8 py-2.5 border border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent appearance-none bg-white dark:bg-gray-800 dark:text-white shadow-sm"
-          >
-            <option value="all">All Status</option>
-            <option value="upcoming">Upcoming</option>
-            <option value="ongoing">Live</option>
-            <option value="ended">Ended</option>
-            <option value="on_hold">On Hold</option>
-            <option value="cancelled">Cancelled</option>
-          </select>
-        </div>
-      </div>
-
-      {/* Events Grid */}
-      {filteredEvents.length === 0 ? (
-        <div className="text-center py-16 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
-          <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Calendar className="h-8 w-8 text-gray-400" />
+      {/* View Toggle + Filters */}
+      <div className="space-y-3">
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+            <input
+              type="text"
+              placeholder="Search events..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white dark:bg-gray-800 dark:text-white shadow-sm"
+            />
           </div>
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">No events found</h3>
-          <p className="mt-2 text-sm text-gray-500 dark:text-gray-400 max-w-sm mx-auto">
-            {searchQuery || statusFilter !== 'all'
-              ? 'Try adjusting your filters'
-              : 'Get started by creating a new event'}
-          </p>
-          {isAdmin && !searchQuery && statusFilter === 'all' && (
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="mt-4 inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all shadow-md font-medium"
+          
+          <div className="relative">
+            <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="pl-10 pr-8 py-2.5 border border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent appearance-none bg-white dark:bg-gray-800 dark:text-white shadow-sm"
             >
-              <Plus className="w-5 h-5" />
-              Create Event
-            </button>
+              <option value="all">All Status</option>
+              <option value="upcoming">Upcoming</option>
+              <option value="ongoing">Live</option>
+              <option value="ended">Ended</option>
+              <option value="on_hold">On Hold</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+          </div>
+
+          {/* View Toggle */}
+          {isAdmin && (
+            <div className="flex items-center bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl shadow-sm overflow-hidden">
+              <button
+                onClick={() => setViewMode('list')}
+                className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium transition-colors ${
+                  viewMode === 'list'
+                    ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400'
+                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                }`}
+              >
+                <List className="w-4 h-4" />
+                List
+              </button>
+              <div className="w-px h-6 bg-gray-200 dark:bg-gray-600" />
+              <button
+                onClick={() => setViewMode('calendar')}
+                className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium transition-colors ${
+                  viewMode === 'calendar'
+                    ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400'
+                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                }`}
+              >
+                <CalendarDays className="w-4 h-4" />
+                Calendar
+              </button>
+            </div>
           )}
         </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
-          {filteredEvents.map((event) => (
-            <div
-              key={event.id}
-              className="group bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-lg hover:border-indigo-200 dark:hover:border-indigo-700 transition-all duration-300 flex flex-col"
-            >
-              <div className="p-5 sm:p-6 flex-1">
-                {/* Header */}
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white truncate group-hover:text-indigo-600 transition-colors">
-                      {event.name}
-                    </h3>
-                    <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium mt-2 ${statusColors[event.status]}`}>
-                      {statusLabels[event.status]}
-                    </span>
-                  </div>
-                </div>
 
-                {/* Details */}
-                <div className="mt-4 space-y-2.5">
-                  <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
-                    <Calendar className="w-4 h-4 mr-2.5 text-indigo-400 shrink-0" />
-                    <span>{formatDate(event.start_date)}</span>
-                  </div>
-                  <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
-                    <Clock className="w-4 h-4 mr-2.5 text-indigo-400 shrink-0" />
-                    <span>to {formatDate(event.end_date)}</span>
-                  </div>
-                  {event.venue && (
-                    <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
-                      <MapPin className="w-4 h-4 mr-2.5 text-indigo-400 shrink-0" />
-                      <span className="truncate">{event.venue}</span>
-                    </div>
-                  )}
-                  <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
-                    <Users className="w-4 h-4 mr-2.5 text-indigo-400 shrink-0" />
-                    <span>{event.invitee_count || 0} invitees</span>
-                  </div>
-                </div>
+        {/* Date Range Filters (list view only) */}
+        {viewMode === 'list' && (
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Date range:</span>
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="px-3 py-1.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white dark:bg-gray-800 dark:text-white"
+              placeholder="From"
+            />
+            <span className="text-xs text-gray-400">to</span>
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="px-3 py-1.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white dark:bg-gray-800 dark:text-white"
+              placeholder="To"
+            />
+            {(dateFrom || dateTo) && (
+              <button
+                onClick={() => { setDateFrom(''); setDateTo(''); }}
+                className="px-2 py-1.5 text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+        )}
+      </div>
 
-                {/* Description */}
-                {event.description && (
-                  <p className="mt-4 text-sm text-gray-500 dark:text-gray-400 line-clamp-2">
-                    {event.description}
-                  </p>
-                )}
+      {/* Calendar View */}
+      {viewMode === 'calendar' && isAdmin && (
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-5 sm:p-6">
+          <EventCalendar
+            events={filteredEvents}
+            onDayClick={handleCalendarDayClick}
+            onEventClick={(ev) => openEditModal(ev)}
+          />
+        </div>
+      )}
 
-                {/* Inviter Groups (Admin only) */}
-                {isAdmin && (
-                  <div className="mt-3 flex flex-wrap gap-1.5">
-                    {event.is_all_groups ? (
-                      <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium bg-green-50 text-green-700 border border-green-100 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800">
-                        <Users className="w-3 h-3 mr-1" />
-                        All Groups
-                      </span>
-                    ) : event.inviter_group_names && event.inviter_group_names.length > 0 ? (
-                      <button
-                        onClick={(e) => { e.stopPropagation(); setGroupsModalEvent(event); setShowGroupsModal(true); }}
-                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-purple-50 text-purple-700 dark:bg-purple-900/20 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-900/40 border border-purple-200 dark:border-purple-800/40 transition-colors cursor-pointer"
-                        title="Click to view assigned groups"
-                      >
-                        <Users className="w-3.5 h-3.5" />
-                        {event.inviter_group_names.length} {event.inviter_group_names.length === 1 ? 'Group' : 'Groups'}
-                      </button>
-                    ) : null}
-                  </div>
-                )}
+      {/* List View */}
+      {(viewMode === 'list' || !isAdmin) && (
+        <>
+          {filteredEvents.length === 0 ? (
+            <div className="text-center py-16 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+              <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Calendar className="h-8 w-8 text-gray-400" />
               </div>
-
-              {/* Quick Actions Toolbar (Admin) */}
-              {isAdmin && (
-                <div className="px-5 sm:px-6 pb-4">
-                  <div className="pt-3 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
-                    <span className="text-xs text-gray-400 dark:text-gray-500 truncate mr-2">
-                      by {event.creator_name || 'Unknown'}
-                    </span>
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => openEditModal(event)}
-                        className="p-1.5 rounded-lg text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:text-indigo-400 dark:hover:bg-indigo-900/30 transition-colors"
-                        title="Edit Event"
-                      >
-                        <Edit className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => openQuotaModal(event)}
-                        className="p-1.5 rounded-lg text-gray-400 hover:text-purple-600 hover:bg-purple-50 dark:hover:text-purple-400 dark:hover:bg-purple-900/30 transition-colors"
-                        title="Group Quotas"
-                      >
-                        <Gauge className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => openPinModal(event)}
-                        className="p-1.5 rounded-lg text-gray-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:text-amber-400 dark:hover:bg-amber-900/30 transition-colors"
-                        title="Check-in Settings"
-                      >
-                        <Key className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => openStatusModal(event)}
-                        className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:text-blue-400 dark:hover:bg-blue-900/30 transition-colors"
-                        title="Change Status"
-                      >
-                        <Clock className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => openDeleteModal(event)}
-                        className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:text-red-400 dark:hover:bg-red-900/30 transition-colors"
-                        title="Delete Event"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Footer (Non-admin) */}
-              {!isAdmin && (
-                <div className="px-5 sm:px-6 pb-4">
-                  <div className="pt-3 border-t border-gray-200 dark:border-gray-700 text-xs text-gray-400 dark:text-gray-500">
-                    Created by <span className="text-gray-600 dark:text-gray-400">{event.creator_name || 'Unknown'}</span>
-                  </div>
-                </div>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">No events found</h3>
+              <p className="mt-2 text-sm text-gray-500 dark:text-gray-400 max-w-sm mx-auto">
+                {searchQuery || statusFilter !== 'all' || dateFrom || dateTo
+                  ? 'Try adjusting your filters'
+                  : 'Get started by creating a new event'}
+              </p>
+              {isAdmin && !searchQuery && statusFilter === 'all' && !dateFrom && !dateTo && (
+                <button
+                  onClick={() => setShowCreateModal(true)}
+                  className="mt-4 inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all shadow-md font-medium"
+                >
+                  <Plus className="w-5 h-5" />
+                  Create Event
+                </button>
               )}
             </div>
-          ))}
-        </div>
+          ) : (
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+              {/* Compact Table Header */}
+              <div className="hidden sm:grid sm:grid-cols-12 gap-2 px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                <button onClick={() => handleSort('name')} className="col-span-3 flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-200 transition-colors">
+                  Event <SortIcon field="name" />
+                </button>
+                <button onClick={() => handleSort('status')} className="col-span-1 flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-200 transition-colors">
+                  Status <SortIcon field="status" />
+                </button>
+                <button onClick={() => handleSort('start_date')} className="col-span-3 flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-200 transition-colors">
+                  Date <SortIcon field="start_date" />
+                </button>
+                <div className="col-span-2">Location</div>
+                <button onClick={() => handleSort('invitee_count')} className="col-span-1 flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-200 transition-colors">
+                  Invitees <SortIcon field="invitee_count" />
+                </button>
+                {isAdmin && <div className="col-span-2 text-right">Actions</div>}
+              </div>
+
+              {/* Event Rows */}
+              <div className="divide-y divide-gray-100 dark:divide-gray-700/50">
+                {sortedEvents.map((event) => (
+                  <div
+                    key={event.id}
+                    className="group sm:grid sm:grid-cols-12 gap-2 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors items-center"
+                  >
+                    {/* Name + Groups */}
+                    <div className="col-span-3 min-w-0">
+                      <p className="text-sm font-medium text-gray-900 dark:text-white truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                        {event.name}
+                      </p>
+                      {isAdmin && (
+                        <div className="flex items-center gap-1 mt-0.5">
+                          {event.is_all_groups ? (
+                            <span className="text-[10px] text-green-600 dark:text-green-400 font-medium">All Groups</span>
+                          ) : event.inviter_group_names && event.inviter_group_names.length > 0 ? (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setGroupsModalEvent(event); setShowGroupsModal(true); }}
+                              className="text-[10px] text-purple-600 dark:text-purple-400 font-medium hover:underline"
+                            >
+                              {event.inviter_group_names.length} Group{event.inviter_group_names.length !== 1 ? 's' : ''}
+                            </button>
+                          ) : null}
+                        </div>
+                      )}
+                      <span className="text-xs text-gray-400 dark:text-gray-500 sm:hidden">
+                        by {event.creator_name || 'Unknown'}
+                      </span>
+                    </div>
+
+                    {/* Status */}
+                    <div className="col-span-1 mt-1 sm:mt-0">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold ${statusColors[event.status]}`}>
+                        {statusLabels[event.status]}
+                      </span>
+                    </div>
+
+                    {/* Date */}
+                    <div className="col-span-3 text-xs text-gray-600 dark:text-gray-400 mt-1 sm:mt-0">
+                      <div className="flex items-center gap-1">
+                        <Calendar className="w-3 h-3 text-gray-400 shrink-0" />
+                        <span className="truncate">{formatDate(event.start_date)}</span>
+                      </div>
+                      <div className="flex items-center gap-1 mt-0.5">
+                        <Clock className="w-3 h-3 text-gray-400 shrink-0" />
+                        <span className="truncate">to {formatDate(event.end_date)}</span>
+                      </div>
+                    </div>
+
+                    {/* Location */}
+                    <div className="col-span-2 text-xs text-gray-500 dark:text-gray-400 truncate mt-1 sm:mt-0">
+                      {event.venue ? (
+                        <span className="flex items-center gap-1">
+                          <MapPin className="w-3 h-3 shrink-0" />
+                          <span className="truncate">{event.venue}</span>
+                        </span>
+                      ) : (
+                        <span className="text-gray-300 dark:text-gray-600">—</span>
+                      )}
+                    </div>
+
+                    {/* Invitee Count */}
+                    <div className="col-span-1 mt-1 sm:mt-0">
+                      <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                        {event.invitee_count || 0}
+                      </span>
+                    </div>
+
+                    {/* Actions */}
+                    {isAdmin && (
+                      <div className="col-span-2 flex items-center justify-end gap-0.5 mt-2 sm:mt-0 opacity-70 group-hover:opacity-100 transition-opacity">
+                        <button onClick={() => openEditModal(event)} className="p-1.5 rounded-lg text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:text-indigo-400 dark:hover:bg-indigo-900/30 transition-colors" title="Edit">
+                          <Edit className="w-3.5 h-3.5" />
+                        </button>
+                        <button onClick={() => openQuotaModal(event)} className="p-1.5 rounded-lg text-gray-400 hover:text-purple-600 hover:bg-purple-50 dark:hover:text-purple-400 dark:hover:bg-purple-900/30 transition-colors" title="Quotas">
+                          <Gauge className="w-3.5 h-3.5" />
+                        </button>
+                        <button onClick={() => openPinModal(event)} className="p-1.5 rounded-lg text-gray-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:text-amber-400 dark:hover:bg-amber-900/30 transition-colors" title="Check-in">
+                          <Key className="w-3.5 h-3.5" />
+                        </button>
+                        <button onClick={() => openStatusModal(event)} className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:text-blue-400 dark:hover:bg-blue-900/30 transition-colors" title="Status">
+                          <Clock className="w-3.5 h-3.5" />
+                        </button>
+                        <button onClick={() => openDeleteModal(event)} className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:text-red-400 dark:hover:bg-red-900/30 transition-colors" title="Delete">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Non-admin footer on mobile */}
+                    {!isAdmin && (
+                      <div className="col-span-2 text-right mt-1 sm:mt-0">
+                        <span className="text-[10px] text-gray-400 dark:text-gray-500">
+                          by {event.creator_name || 'Unknown'}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* Result count footer */}
+              <div className="px-4 py-2 bg-gray-50 dark:bg-gray-700/50 border-t border-gray-200 dark:border-gray-700 text-xs text-gray-500 dark:text-gray-400">
+                Showing {sortedEvents.length} of {events.length} events
+              </div>
+            </div>
+          )}
+        </>
       )}
 
       {/* Create/Edit Modal */}

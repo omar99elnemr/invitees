@@ -4,7 +4,7 @@
  */
 import { useState, useEffect, useRef } from 'react';
 import { FormSkeleton } from '../components/common/LoadingSkeleton';
-import { Upload, Trash2, Image, Save, RefreshCw, AlertCircle, CheckCircle, Pencil, Download, Database, FileSpreadsheet, FileText, FileJson, Shield, Users as UsersIcon, Calendar, UserCheck, Tag, Building, ZoomIn, ChevronDown, Settings, Clock } from 'lucide-react';
+import { Upload, Trash2, Image, Save, RefreshCw, AlertCircle, CheckCircle, Pencil, Download, Database, FileSpreadsheet, FileText, FileJson, Shield, Users as UsersIcon, Calendar, UserCheck, Tag, Building, ZoomIn, ChevronDown, Settings, Clock, BarChart3 } from 'lucide-react';
 import ImageEditor from '../components/common/ImageEditor';
 import { settingsAPI } from '../services/api';
 import type { ExportSettings as ExportSettingsType } from '../services/api';
@@ -47,6 +47,7 @@ export default function ExportSettings() {
 
   // General config state
   const [timeFormat, setTimeFormatState] = useState<'12' | '24'>('12');
+  const [expectedTotalMetric, setExpectedTotalMetric] = useState<'approved' | 'invited' | 'confirmed'>('confirmed');
   const [savingGeneral, setSavingGeneral] = useState(false);
 
   // Fetch current settings
@@ -80,6 +81,10 @@ export default function ExportSettings() {
       if (fmt === '12' || fmt === '24') {
         setTimeFormatState(fmt);
       }
+      const etm = response.data.settings?.expected_total_metric;
+      if (etm === 'approved' || etm === 'invited' || etm === 'confirmed') {
+        setExpectedTotalMetric(etm);
+      }
     } catch (error) {
       console.error('Failed to fetch general settings:', error);
     }
@@ -99,6 +104,24 @@ export default function ExportSettings() {
     } catch (error) {
       console.error('Failed to update time format:', error);
       toast.error('Failed to update time format');
+    } finally {
+      setSavingGeneral(false);
+    }
+  };
+
+  const handleExpectedTotalChange = async (value: 'approved' | 'invited' | 'confirmed') => {
+    setSavingGeneral(true);
+    try {
+      const response = await settingsAPI.updateGeneralSettings({ expected_total_metric: value });
+      const etm = response.data.settings?.expected_total_metric;
+      if (etm === 'approved' || etm === 'invited' || etm === 'confirmed') {
+        setExpectedTotalMetric(etm);
+      }
+      const labels: Record<string, string> = { approved: 'Number Approved', invited: 'Number Invited', confirmed: 'Number Confirmed' };
+      toast.success(`Expected Total metric set to "${labels[value]}"`);
+    } catch (error) {
+      console.error('Failed to update expected total metric:', error);
+      toast.error('Failed to update expected total metric');
     } finally {
       setSavingGeneral(false);
     }
@@ -572,6 +595,31 @@ export default function ExportSettings() {
                   {timeFormat === '24' ? '24h' : '12h'}
                 </span>
               </button>
+            </div>
+
+            {/* Expected Total Metric for Live Dashboard */}
+            <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-gray-700">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
+                  <BarChart3 className="w-4.5 h-4.5 text-emerald-600 dark:text-emerald-400" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">Expected Total (Live Dashboard)</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Determines how the "Expected Total" metric is calculated
+                  </p>
+                </div>
+              </div>
+              <select
+                value={expectedTotalMetric}
+                onChange={(e) => handleExpectedTotalChange(e.target.value as 'approved' | 'invited' | 'confirmed')}
+                disabled={savingGeneral}
+                className="px-3 py-1.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent disabled:opacity-50 cursor-pointer"
+              >
+                <option value="confirmed">Number Confirmed</option>
+                <option value="approved">Number Approved</option>
+                <option value="invited">Number Invited</option>
+              </select>
             </div>
           </div>
         )}

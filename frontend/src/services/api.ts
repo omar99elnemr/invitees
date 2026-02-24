@@ -693,10 +693,10 @@ export const settingsAPI = {
     }),
 
   getGeneralSettings: () =>
-    api.get<{ success: boolean; settings: { time_format: string } }>('/settings/general'),
+    api.get<{ success: boolean; settings: { time_format: string; expected_total_metric: string } }>('/settings/general'),
 
-  updateGeneralSettings: (data: { time_format?: '12' | '24' }) =>
-    api.put<{ success: boolean; settings: { time_format: string } }>('/settings/general', data),
+  updateGeneralSettings: (data: { time_format?: '12' | '24'; expected_total_metric?: 'approved' | 'invited' | 'confirmed' }) =>
+    api.put<{ success: boolean; settings: { time_format: string; expected_total_metric: string } }>('/settings/general', data),
 };
 
 // --- Notifications API ---

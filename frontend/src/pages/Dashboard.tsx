@@ -11,6 +11,7 @@ import { useAuth } from '../context/AuthContext';
 import { DashboardSkeleton } from '../components/common/LoadingSkeleton';
 import { dashboardAPI, eventsAPI } from '../services/api';
 import type { DashboardStats, Event } from '../types';
+import EventCalendar from '../components/EventCalendar';
 import {
   Users,
   Calendar,
@@ -54,6 +55,7 @@ export default function Dashboard() {
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showEventsModal, setShowEventsModal] = useState(false);
+  const [selectedCalEvent, setSelectedCalEvent] = useState<Event | null>(null);
 
   useEffect(() => {
     loadData();
@@ -68,10 +70,7 @@ export default function Dashboard() {
       ]);
       setStats(statsRes.data);
       setRecentActivity(activityRes.data || []);
-      const activeEvents = eventsRes.data.filter(
-        (e: Event) => e.status === 'upcoming' || e.status === 'ongoing'
-      );
-      setAllEvents(activeEvents);
+      setAllEvents(eventsRes.data || []);
     } catch (error) {
       console.error('Failed to load dashboard data:', error);
     } finally {
@@ -85,11 +84,11 @@ export default function Dashboard() {
 
   // Render role-specific dashboard
   if (user?.role === 'admin') {
-    return <AdminDashboard stats={stats} events={allEvents} recentActivity={recentActivity} navigate={navigate} user={user} />;
+    return <AdminDashboard stats={stats} events={allEvents} recentActivity={recentActivity} navigate={navigate} user={user} selectedCalEvent={selectedCalEvent} setSelectedCalEvent={setSelectedCalEvent} />;
   } else if (user?.role === 'director') {
-    return <ApproverDashboard stats={stats} events={allEvents} recentActivity={recentActivity} navigate={navigate} user={user} />;
+    return <ApproverDashboard stats={stats} events={allEvents} recentActivity={recentActivity} navigate={navigate} user={user} selectedCalEvent={selectedCalEvent} setSelectedCalEvent={setSelectedCalEvent} />;
   } else {
-    return <InviterDashboard stats={stats} events={allEvents} recentActivity={recentActivity} navigate={navigate} user={user} showEventsModal={showEventsModal} setShowEventsModal={setShowEventsModal} />;
+    return <InviterDashboard stats={stats} events={allEvents} recentActivity={recentActivity} navigate={navigate} user={user} showEventsModal={showEventsModal} setShowEventsModal={setShowEventsModal} selectedCalEvent={selectedCalEvent} setSelectedCalEvent={setSelectedCalEvent} />;
   }
 }
 
@@ -261,10 +260,11 @@ interface DashboardProps {
   recentActivity: any[];
   navigate: (path: string) => void;
   user: any;
+  selectedCalEvent: Event | null;
+  setSelectedCalEvent: (e: Event | null) => void;
 }
 
-function AdminDashboard({ stats, events, recentActivity, navigate, user }: DashboardProps) {
-  const upcomingEvents = events.slice(0, 4);
+function AdminDashboard({ stats, events, recentActivity, navigate, user, selectedCalEvent, setSelectedCalEvent }: DashboardProps) {
   
   return (
     <div className="space-y-6">
@@ -356,13 +356,13 @@ function AdminDashboard({ stats, events, recentActivity, navigate, user }: Dashb
           </div>
         </div>
 
-        {/* Active Events */}
+        {/* Events Calendar */}
         <div className="lg:col-span-2">
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 h-full">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                 <CalendarDays className="w-5 h-5 text-indigo-500" />
-                Active Events
+                Events Calendar
               </h2>
               <button
                 onClick={() => navigate('/events')}
@@ -372,24 +372,11 @@ function AdminDashboard({ stats, events, recentActivity, navigate, user }: Dashb
                 <ArrowRight className="w-4 h-4" />
               </button>
             </div>
-            {upcomingEvents.length === 0 ? (
-              <div className="text-center py-12">
-                <Calendar className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
-                <p className="text-gray-500 dark:text-gray-400">No active events</p>
-                <button
-                  onClick={() => navigate('/events')}
-                  className="mt-3 text-sm text-indigo-600 hover:text-indigo-700 font-medium"
-                >
-                  Create an event
-                </button>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {upcomingEvents.map((event) => (
-                  <EventCard key={event.id} event={event} onClick={() => navigate('/events')} />
-                ))}
-              </div>
-            )}
+            <EventCalendar
+              events={events}
+              compact
+              onEventClick={(ev) => setSelectedCalEvent(ev)}
+            />
           </div>
         </div>
       </div>
@@ -418,6 +405,11 @@ function AdminDashboard({ stats, events, recentActivity, navigate, user }: Dashb
           </div>
         )}
       </div>
+
+      {/* Event Detail Modal */}
+      {selectedCalEvent && (
+        <EventDetailModal event={selectedCalEvent} onClose={() => setSelectedCalEvent(null)} navigate={navigate} />
+      )}
     </div>
   );
 }
@@ -425,7 +417,7 @@ function AdminDashboard({ stats, events, recentActivity, navigate, user }: Dashb
 // ============================================================================
 // APPROVER (DIRECTOR) DASHBOARD
 // ============================================================================
-function ApproverDashboard({ stats, events, recentActivity, navigate, user }: DashboardProps) {
+function ApproverDashboard({ stats, events, recentActivity, navigate, user, selectedCalEvent, setSelectedCalEvent }: DashboardProps) {
   const pendingCount = stats?.pending_approvals || 0;
   const approvedToday = stats?.total_approved_today || 0;
   const myInvitations = stats?.my_invitations_this_month || 0;
@@ -567,24 +559,25 @@ function ApproverDashboard({ stats, events, recentActivity, navigate, user }: Da
         </div>
       </div>
 
-      {/* Assigned Events */}
+      {/* Events Calendar */}
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
             <CalendarDays className="w-5 h-5 text-teal-500" />
-            My Assigned Events
+            My Events Calendar
           </h2>
         </div>
-        {events.length === 0 ? (
-          <p className="text-gray-500 dark:text-gray-400 text-center py-8">No events assigned to you</p>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {events.slice(0, 6).map((event) => (
-              <EventCard key={event.id} event={event} onClick={() => navigate(`/invitees?tab=events&event=${event.id}`)} compact />
-            ))}
-          </div>
-        )}
+        <EventCalendar
+          events={events}
+          compact
+          onEventClick={(ev) => setSelectedCalEvent(ev)}
+        />
       </div>
+
+      {/* Event Detail Modal */}
+      {selectedCalEvent && (
+        <EventDetailModal event={selectedCalEvent} onClose={() => setSelectedCalEvent(null)} navigate={navigate} />
+      )}
     </div>
   );
 }
@@ -597,7 +590,7 @@ interface InviterDashboardProps extends DashboardProps {
   setShowEventsModal: (show: boolean) => void;
 }
 
-function InviterDashboard({ stats, events, recentActivity, navigate, user, showEventsModal, setShowEventsModal }: InviterDashboardProps) {
+function InviterDashboard({ stats, events, recentActivity, navigate, user, showEventsModal, setShowEventsModal, selectedCalEvent, setSelectedCalEvent }: InviterDashboardProps) {
   const pendingSubmissions = stats?.pending_submissions || 0;
   const approvedThisMonth = stats?.approved_this_month || 0;
   const rejectedThisMonth = stats?.rejected_this_month || 0;
@@ -686,15 +679,15 @@ function InviterDashboard({ stats, events, recentActivity, navigate, user, showE
           </div>
         </div>
 
-        {/* My Events */}
+        {/* My Events Calendar */}
         <div className="lg:col-span-2">
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 h-full">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                 <CalendarDays className="w-5 h-5 text-indigo-500" />
-                My Assigned Events
+                My Events Calendar
               </h2>
-              {events.length > 3 && (
+              {events.length > 0 && (
                 <button
                   onClick={() => setShowEventsModal(true)}
                   className="text-sm text-indigo-600 hover:text-indigo-700 font-medium flex items-center gap-1"
@@ -704,19 +697,11 @@ function InviterDashboard({ stats, events, recentActivity, navigate, user, showE
                 </button>
               )}
             </div>
-            {events.length === 0 ? (
-              <div className="text-center py-12">
-                <Calendar className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
-                <p className="text-gray-500 dark:text-gray-400">No events assigned to you yet</p>
-                <p className="text-sm text-gray-400 mt-1">Contact your administrator to get assigned to events</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {events.slice(0, 4).map((event) => (
-                  <EventCard key={event.id} event={event} onClick={() => navigate(`/invitees?tab=events&event=${event.id}`)} />
-                ))}
-              </div>
-            )}
+            <EventCalendar
+              events={events}
+              compact
+              onEventClick={(ev) => setSelectedCalEvent(ev)}
+            />
           </div>
         </div>
       </div>
@@ -752,6 +737,11 @@ function InviterDashboard({ stats, events, recentActivity, navigate, user, showE
       {/* Events Modal */}
       {showEventsModal && (
         <EventsModal events={events} onClose={() => setShowEventsModal(false)} navigate={navigate} />
+      )}
+
+      {/* Event Detail Modal */}
+      {selectedCalEvent && (
+        <EventDetailModal event={selectedCalEvent} onClose={() => setSelectedCalEvent(null)} navigate={navigate} />
       )}
     </div>
   );
@@ -852,44 +842,6 @@ function ActionCard({ title, description, icon: Icon, color, onClick, badge, pri
   );
 }
 
-function EventCard({ event, onClick, compact }: { event: Event; onClick: () => void; compact?: boolean }) {
-  return (
-    <div
-      onClick={onClick}
-      className="group p-4 border border-gray-200/80 dark:border-gray-700/60 rounded-xl hover:border-indigo-300 dark:hover:border-indigo-600 hover:bg-indigo-50/40 dark:hover:bg-indigo-900/20 cursor-pointer transition-all duration-200 hover:shadow-sm"
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex-1 min-w-0">
-          <h3 className="font-medium text-gray-900 dark:text-white group-hover:text-indigo-700 dark:group-hover:text-indigo-400 transition-colors truncate">
-            {event.name}
-          </h3>
-          <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mt-1">
-            <Calendar className="w-3.5 h-3.5 flex-shrink-0" />
-            <span className="truncate">{formatEventDate(event.start_date)}</span>
-          </div>
-          {!compact && event.venue && (
-            <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-              <MapPin className="w-3.5 h-3.5 flex-shrink-0" />
-              <span className="truncate">{event.venue}</span>
-            </div>
-          )}
-        </div>
-        <span
-          className={`px-2.5 py-1 rounded-full text-xs font-medium flex-shrink-0 ${
-            event.status === 'upcoming'
-              ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300'
-              : event.status === 'ongoing'
-              ? 'bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300'
-              : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
-          }`}
-        >
-          {event.status === 'ongoing' ? 'Live' : event.status}
-        </span>
-      </div>
-    </div>
-  );
-}
-
 function ActivityItem({ activity }: { activity: any }) {
   const getActionIcon = (action: string) => {
     if (action.includes('login')) return { icon: Users, color: 'text-blue-500 bg-blue-50 dark:bg-blue-900/30' };
@@ -964,6 +916,79 @@ function SubmissionActivityItem({ item }: { item: any }) {
       <span className="text-xs text-gray-400 dark:text-gray-500 flex-shrink-0">
         {item.status_date ? formatDateTimeEgypt(item.status_date) : ''}
       </span>
+    </div>
+  );
+}
+
+function EventDetailModal({ event, onClose, navigate }: { event: Event; onClose: () => void; navigate: (path: string) => void }) {
+  const statusLabel: Record<string, string> = { upcoming: 'Upcoming', ongoing: 'Live', ended: 'Ended', cancelled: 'Cancelled', on_hold: 'On Hold' };
+  const statusStyle: Record<string, string> = {
+    upcoming: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
+    ongoing: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
+    ended: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300',
+    cancelled: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
+    on_hold: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full overflow-hidden" onClick={(e) => e.stopPropagation()}>
+        <div className="p-5 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white truncate flex-1 mr-3">{event.name}</h2>
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors shrink-0">
+            <X className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+          </button>
+        </div>
+        <div className="p-5 space-y-4">
+          <div className="flex items-center gap-2">
+            <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${statusStyle[event.status] || ''}`}>
+              {statusLabel[event.status] || event.status}
+            </span>
+            {event.invitee_count !== undefined && (
+              <span className="text-xs text-gray-500 dark:text-gray-400">{event.invitee_count} invitees</span>
+            )}
+          </div>
+
+          <div className="space-y-2.5">
+            <div className="flex items-center gap-2.5 text-sm text-gray-600 dark:text-gray-400">
+              <Calendar className="w-4 h-4 text-indigo-400 shrink-0" />
+              <span>{formatEventDate(event.start_date)}</span>
+            </div>
+            <div className="flex items-center gap-2.5 text-sm text-gray-600 dark:text-gray-400">
+              <Clock className="w-4 h-4 text-indigo-400 shrink-0" />
+              <span>to {formatEventDate(event.end_date)}</span>
+            </div>
+            {event.venue && (
+              <div className="flex items-center gap-2.5 text-sm text-gray-600 dark:text-gray-400">
+                <MapPin className="w-4 h-4 text-indigo-400 shrink-0" />
+                <span>{event.venue}</span>
+              </div>
+            )}
+          </div>
+
+          {event.description && (
+            <p className="text-sm text-gray-500 dark:text-gray-400 border-t border-gray-100 dark:border-gray-700 pt-3">
+              {event.description}
+            </p>
+          )}
+        </div>
+
+        <div className="px-5 pb-5 space-y-2">
+          <button
+            onClick={() => { onClose(); navigate(`/invitees?tab=events&event=${event.id}`); }}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all shadow-md font-medium text-sm"
+          >
+            <Users className="w-4 h-4" />
+            Go to Invitees Center
+          </button>
+          <button
+            onClick={onClose}
+            className="w-full px-4 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-xl font-medium transition-colors text-sm"
+          >
+            Close
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
