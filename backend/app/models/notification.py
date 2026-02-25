@@ -61,3 +61,18 @@ class PushSubscription(db.Model):
             'endpoint': self.endpoint,
             'created_at': to_utc_isoformat(self.created_at),
         }
+
+
+class FCMToken(db.Model):
+    """Firebase Cloud Messaging token for a user's native device"""
+
+    __tablename__ = 'fcm_tokens'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
+    token = db.Column(db.Text, nullable=False, unique=True)
+    platform = db.Column(db.String(20), nullable=False, default='android')  # android / ios
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    # Relationships
+    user = db.relationship('User', backref=db.backref('fcm_tokens', lazy='dynamic', cascade='all, delete-orphan'))

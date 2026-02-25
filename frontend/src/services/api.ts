@@ -738,6 +738,12 @@ export const notificationsAPI = {
 
   getVapidKey: () =>
     api.get<{ vapid_public_key: string }>('/notifications/push/vapid-key'),
+
+  registerFCMToken: (token: string, platform: string = 'android') =>
+    api.post('/notifications/fcm/register', { token, platform }),
+
+  unregisterFCMToken: (token: string) =>
+    api.post('/notifications/fcm/unregister', { token }),
 };
 
 export interface ExportSettingValue {

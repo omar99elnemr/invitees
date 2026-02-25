@@ -1,13 +1,42 @@
 """
 Notification Service
 Handles creating in-app notifications and sending web push notifications.
+Also sends Firebase Cloud Messaging (FCM) push notifications to native apps.
 """
 import json
 import logging
 from app import db
-from app.models.notification import Notification, PushSubscription
+from app.models.notification import Notification, PushSubscription, FCMToken
 
 logger = logging.getLogger(__name__)
+
+# --- FCM Initialization (lazy, one-time) ---
+_fcm_initialized = False
+
+
+def _ensure_fcm():
+    """Initialize Firebase Admin SDK once (idempotent)."""
+    global _fcm_initialized
+    if _fcm_initialized:
+        return True
+    try:
+        import firebase_admin
+        from firebase_admin import credentials
+        from flask import current_app
+
+        sa_path = current_app.config.get('FCM_SERVICE_ACCOUNT_PATH', '')
+        if not sa_path:
+            return False
+
+        # firebase_admin.initialize_app is idempotent if already initialized
+        if not firebase_admin._apps:
+            cred = credentials.Certificate(sa_path)
+            firebase_admin.initialize_app(cred)
+        _fcm_initialized = True
+        return True
+    except Exception as e:
+        logger.warning(f'FCM init failed: {e}')
+        return False
 
 
 def create_notification(user_id, title, message, type='system', link=None):
@@ -88,6 +117,12 @@ def delete_notification(notification_id, user_id):
 # --- Push Notification Helpers ---
 
 def _send_push_to_user(user_id, title, body, link=None):
+    """Send push notification via both Web Push AND FCM (best effort)."""
+    _send_web_push(user_id, title, body, link)
+    _send_fcm_push(user_id, title, body, link)
+
+
+def _send_web_push(user_id, title, body, link=None):
     """Send web push notification to all of a user's subscriptions (best effort)."""
     try:
         from pywebpush import webpush, WebPushException
@@ -135,6 +170,56 @@ def _send_push_to_user(user_id, title, body, link=None):
         logger.warning(f'Push sending error: {e}')
 
 
+def _send_fcm_push(user_id, title, body, link=None):
+    """Send FCM push notification to all of a user's registered native devices."""
+    try:
+        if not _ensure_fcm():
+            return
+
+        from firebase_admin import messaging
+
+        tokens = FCMToken.query.filter_by(user_id=user_id).all()
+        if not tokens:
+            return
+
+        stale_ids = []
+        for tok in tokens:
+            try:
+                message = messaging.Message(
+                    notification=messaging.Notification(
+                        title=title,
+                        body=body,
+                    ),
+                    data={
+                        'url': link or '/',
+                        'click_action': 'OPEN_APP',
+                    },
+                    android=messaging.AndroidConfig(
+                        priority='high',
+                        notification=messaging.AndroidNotification(
+                            icon='ic_stat_notify',
+                            color='#6366f1',
+                            channel_id='invitees_notifications',
+                        ),
+                    ),
+                    token=tok.token,
+                )
+                messaging.send(message)
+            except messaging.UnregisteredError:
+                # Token expired / app uninstalled — mark for removal
+                stale_ids.append(tok.id)
+            except Exception as e:
+                logger.warning(f'FCM send failed for token {tok.id}: {e}')
+
+        # Clean up stale tokens
+        if stale_ids:
+            FCMToken.query.filter(FCMToken.id.in_(stale_ids)).delete(synchronize_session=False)
+    except ImportError:
+        pass
+    except Exception as e:
+        logger.warning(f'FCM sending error: {e}')
+
+
 def save_push_subscription(user_id, subscription_info):
     """Save or update a push subscription for a user."""
     endpoint = subscription_info.get('endpoint')
@@ -168,6 +253,38 @@ def remove_push_subscription(endpoint):
     sub = PushSubscription.query.filter_by(endpoint=endpoint).first()
     if sub:
         db.session.delete(sub)
+        return True
+    return False
+
+
+# --- FCM Token Management ---
+
+def save_fcm_token(user_id, token, platform='android'):
+    """Save or update an FCM device token for a user."""
+    if not token:
+        return None
+
+    # Upsert by token (a device token is globally unique)
+    existing = FCMToken.query.filter_by(token=token).first()
+    if existing:
+        existing.user_id = user_id
+        existing.platform = platform
+        return existing
+
+    fcm = FCMToken(
+        user_id=user_id,
+        token=token,
+        platform=platform,
+    )
+    db.session.add(fcm)
+    return fcm
+
+
+def remove_fcm_token(token):
+    """Remove an FCM token."""
+    tok = FCMToken.query.filter_by(token=token).first()
+    if tok:
+        db.session.delete(tok)
         return True
     return False
 

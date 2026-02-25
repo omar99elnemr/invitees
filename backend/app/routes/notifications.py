@@ -13,6 +13,8 @@ from app.services.notification_service import (
     delete_notification,
     save_push_subscription,
     remove_push_subscription,
+    save_fcm_token,
+    remove_fcm_token,
 )
 
 notifications_bp = Blueprint('notifications', __name__, url_prefix='/api/notifications')
@@ -109,3 +111,36 @@ def get_vapid_key():
     from flask import current_app
     key = current_app.config.get('VAPID_PUBLIC_KEY', '')
     return jsonify({'vapid_public_key': key}), 200
+
+
+# --- FCM Token endpoints ---
+
+@notifications_bp.route('/fcm/register', methods=['POST'])
+@login_required
+def register_fcm_token():
+    """Register an FCM device token for the current user."""
+    data = request.get_json()
+    if not data or not data.get('token'):
+        return jsonify({'error': 'FCM token required'}), 400
+
+    token = data['token']
+    platform = data.get('platform', 'android')
+    tok = save_fcm_token(current_user.id, token, platform)
+    if tok:
+        db.session.commit()
+        return jsonify({'success': True}), 200
+    return jsonify({'error': 'Invalid token'}), 400
+
+
+@notifications_bp.route('/fcm/unregister', methods=['POST'])
+@login_required
+def unregister_fcm_token():
+    """Remove an FCM device token."""
+    data = request.get_json()
+    token = data.get('token') if data else None
+    if not token:
+        return jsonify({'error': 'Token required'}), 400
+
+    remove_fcm_token(token)
+    db.session.commit()
+    return jsonify({'success': True}), 200

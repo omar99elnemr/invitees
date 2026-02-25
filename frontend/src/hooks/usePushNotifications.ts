@@ -2,9 +2,9 @@
  * Hook to register/unregister push notifications.
  *
  * Web (browser / PWA): subscribes via Web Push API + service worker.
- * Native (Capacitor):  polls for new in-app notifications and shows them
- *                      as local notifications so the user sees them even
- *                      when the app is minimised.
+ * Native (Capacitor):  registers for Firebase Cloud Messaging (FCM) push
+ *                      notifications so the user gets notified even when
+ *                      the app is completely closed.
  */
 import { useEffect, useRef } from 'react';
 import { notificationsAPI } from '../services/api';
@@ -48,57 +48,66 @@ async function registerWebPush() {
 }
 
 /**
- * Native local-notification poller.
- * Checks for new unread notifications every 30 s and surfaces them
- * as Android/iOS local notifications.
+ * Register for Firebase Cloud Messaging (FCM) on native Capacitor.
+ * This enables true push notifications even when the app is killed.
  */
-function startNativeNotificationPoller(
-  stopSignal: { stopped: boolean },
-) {
-  let lastSeenId = 0;
+async function registerFCMPush() {
+  try {
+    const { PushNotifications } = await import('@capacitor/push-notifications');
 
-  const poll = async () => {
-    if (stopSignal.stopped) return;
-    try {
-      const { data } = await notificationsAPI.getAll(false, 10);
-      const items = data.notifications ?? [];
-      const unread = items.filter(
-        (n: any) => !n.is_read && n.id > lastSeenId,
-      );
+    // Request permission
+    const permResult = await PushNotifications.requestPermissions();
+    if (permResult.receive !== 'granted') return;
 
-      if (unread.length > 0) {
-        // Update high-water mark so we don't re-show
-        lastSeenId = Math.max(...unread.map((n: any) => n.id));
+    // Register with FCM
+    await PushNotifications.register();
 
-        const { LocalNotifications } = await import(
-          '@capacitor/local-notifications'
-        );
+    // Listen for the FCM token
+    PushNotifications.addListener('registration', async (tokenData) => {
+      try {
+        const platform = (window as any).Capacitor?.getPlatform?.() || 'android';
+        await notificationsAPI.registerFCMToken(tokenData.value, platform);
+      } catch {
+        // Token registration failed — will retry on next app launch
+      }
+    });
+
+    // Handle registration errors
+    PushNotifications.addListener('registrationError', (err) => {
+      console.warn('FCM registration failed:', err);
+    });
+
+    // Handle notification received while app is in foreground
+    PushNotifications.addListener('pushNotificationReceived', async (notification) => {
+      // Show as local notification so user sees it even in foreground
+      try {
+        const { LocalNotifications } = await import('@capacitor/local-notifications');
         const perm = await LocalNotifications.checkPermissions();
         if (perm.display !== 'granted') return;
 
         await LocalNotifications.schedule({
-          notifications: unread.map((n: any, idx: number) => ({
-            title: n.title,
-            body: n.message,
-            id: n.id + 100000 + idx, // unique id to avoid collisions
+          notifications: [{
+            title: notification.title || 'Invitees',
+            body: notification.body || '',
+            id: Date.now() % 100000,
             smallIcon: 'ic_stat_notify',
-          })),
+          }],
         });
+      } catch {
+        // Local notification failed
       }
-    } catch {
-      // Polling failure — silently ignore
-    }
-  };
+    });
 
-  // Initial poll after short delay, then every 30 s
-  const timeout = setTimeout(poll, 5000);
-  const interval = setInterval(poll, 30000);
-
-  return () => {
-    stopSignal.stopped = true;
-    clearTimeout(timeout);
-    clearInterval(interval);
-  };
+    // Handle notification tap (open the app to the correct page)
+    PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
+      const url = action.notification.data?.url;
+      if (url && url !== '/') {
+        window.location.href = url;
+      }
+    });
+  } catch {
+    // PushNotifications plugin not available — silently ignore
+  }
 }
 
 export function usePushNotifications() {
@@ -109,11 +118,11 @@ export function usePushNotifications() {
     if (!isAuthenticated || registered.current) return;
 
     if (isNative) {
-      // Native: use local-notification poller
-      const stopSignal = { stopped: false };
-      const cleanup = startNativeNotificationPoller(stopSignal);
-      registered.current = true;
-      return cleanup;
+      // Native: register for FCM push notifications
+      registerFCMPush().then(() => {
+        registered.current = true;
+      });
+      return;
     }
 
     // Web: use Web Push
