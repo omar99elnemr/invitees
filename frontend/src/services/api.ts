@@ -570,8 +570,8 @@ export const liveDashboardAPI = {
   getEventStats: (eventCode: string) =>
     api.get<LiveDashboardStats>(`/live/${eventCode}/stats`),
 
-  getRecentActivity: (eventCode: string) =>
-    api.get<{ success: boolean; recent_checkins: RecentCheckin[] }>(`/live/${eventCode}/recent`),
+  getRecentActivity: (eventCode: string, limit?: number) =>
+    api.get<{ success: boolean; total: number; recent_checkins: RecentCheckin[] }>(`/live/${eventCode}/recent${limit ? `?limit=${limit}` : ''}`),
 };
 
 // Live Dashboard Types

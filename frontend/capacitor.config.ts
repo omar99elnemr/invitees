@@ -68,6 +68,10 @@ const config: CapacitorConfig = {
       resize: 'body',
       resizeOnFullScreen: true,
     },
+    LocalNotifications: {
+      smallIcon: 'ic_stat_notify',
+      iconColor: '#6366f1',
+    },
   },
 };
 

@@ -161,19 +161,25 @@ def get_event_live_stats(event_code):
 
 @live_dashboard_bp.route('/<event_code>/recent', methods=['GET'])
 def get_recent_activity(event_code):
-    """Get recent check-in activity for live display"""
+    """Get recent check-in activity for live display.
+    Accepts optional ?limit=N (default 5, max 500) to fetch more arrivals."""
     event = Event.get_by_code(event_code)
     if not event:
         return jsonify({'error': 'Event not found'}), 404
     
-    # Get last 5 check-ins (public-safe info only)
-    recent = EventInvitee.query.filter_by(
+    limit = min(int(request.args.get('limit', 5)), 500)
+
+    query = EventInvitee.query.filter_by(
         event_id=event.id,
         checked_in=True
-    ).order_by(EventInvitee.checked_in_at.desc()).limit(5).all()
+    ).order_by(EventInvitee.checked_in_at.desc())
+
+    total_checked_in = query.count()
+    recent = query.limit(limit).all()
     
     return jsonify({
         'success': True,
+        'total': total_checked_in,
         'recent_checkins': [{
             'name': r.invitee.name if r.invitee else 'Guest',
             'company': r.invitee.company if r.invitee else None,
