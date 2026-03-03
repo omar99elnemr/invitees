@@ -1394,7 +1394,7 @@ export default function Invitees() {
                           <SortableColumnHeader field="inviter_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden sm:table-cell">Inviter</SortableColumnHeader>
                           <SortableColumnHeader field="category" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden lg:table-cell">Category</SortableColumnHeader>
                           <SortableColumnHeader field="plus_one" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden lg:table-cell">Guests</SortableColumnHeader>
-                          <SortableColumnHeader field="position" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden xl:table-cell">Position</SortableColumnHeader>
+                          <SortableColumnHeader field="position" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden xl:table-cell">Position / Company</SortableColumnHeader>
                           {isAdmin ? (
                             <SortableColumnHeader field="inviter_group_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden lg:table-cell">Group</SortableColumnHeader>
                           ) : (
@@ -1455,7 +1455,17 @@ export default function Invitees() {
                                 )}
                               </td>
                               <td className="hidden lg:table-cell px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-gray-600 dark:text-gray-400">{contact.plus_one || 0}</td>
-                              <td className="hidden xl:table-cell px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-gray-600 dark:text-gray-400">{contact.position || '-'}</td>
+                              <td className="hidden xl:table-cell px-2 sm:px-4 py-2 sm:py-3 whitespace-normal">
+                                {contact.position && (
+                                  <div className="text-xs sm:text-sm text-gray-900 dark:text-white whitespace-normal break-words">{contact.position}</div>
+                                )}
+                                {contact.company && (
+                                  <div className="text-xs text-gray-500 dark:text-gray-400 whitespace-normal break-words">{contact.company}</div>
+                                )}
+                                {!contact.position && !contact.company && (
+                                  <div className="text-xs sm:text-sm text-gray-400 dark:text-gray-500">-</div>
+                                )}
+                              </td>
                               {isAdmin ? (
                                 <td className="hidden lg:table-cell px-2 sm:px-4 py-2 sm:py-3">
                                   {contact.inviter_group_name ? (
@@ -1795,7 +1805,7 @@ export default function Invitees() {
                         <SortableColumnHeader field="inviter_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden sm:table-cell">Inviter</SortableColumnHeader>
                         <SortableColumnHeader field="category" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden lg:table-cell">Category</SortableColumnHeader>
                         <SortableColumnHeader field="plus_one" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden lg:table-cell">Guests</SortableColumnHeader>
-                        <SortableColumnHeader field="position" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden xl:table-cell">Position</SortableColumnHeader>
+                        <SortableColumnHeader field="position" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden xl:table-cell">Position / Company</SortableColumnHeader>
                         {isAdmin ? (
                           <SortableColumnHeader field="inviter_group_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden lg:table-cell">Group</SortableColumnHeader>
                         ) : (
@@ -1838,7 +1848,17 @@ export default function Invitees() {
                           <td className="hidden lg:table-cell px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-gray-600 dark:text-gray-400">
                             {contact.plus_one !== undefined ? contact.plus_one : 0}
                           </td>
-                          <td className="hidden xl:table-cell px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-gray-600 dark:text-gray-400">{contact.position || '-'}</td>
+                          <td className="hidden xl:table-cell px-2 sm:px-4 py-2 sm:py-3 whitespace-normal">
+                            {contact.position && (
+                              <div className="text-xs sm:text-sm text-gray-900 dark:text-white whitespace-normal break-words">{contact.position}</div>
+                            )}
+                            {contact.company && (
+                              <div className="text-xs text-gray-500 dark:text-gray-400 whitespace-normal break-words">{contact.company}</div>
+                            )}
+                            {!contact.position && !contact.company && (
+                              <div className="text-xs sm:text-sm text-gray-400 dark:text-gray-500">-</div>
+                            )}
+                          </td>
                           {isAdmin ? (
                             <td className="hidden lg:table-cell px-2 sm:px-4 py-2 sm:py-3">
                               {contact.inviter_group_name ? (
