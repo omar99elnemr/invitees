@@ -25,10 +25,11 @@ class ImportService:
     
     @staticmethod
     def validate_phone(phone):
-        """Validate phone format: must start with 201 and be 12 digits"""
-        clean_phone = str(phone).replace(' ', '').replace('-', '').replace('(', '').replace(')', '')
-        pattern = r'^201\d{9}$'
-        return re.match(pattern, clean_phone) is not None
+        """Validate phone format (international, no '+' prefix).
+        Delegates to shared phone utility for consistent validation."""
+        from app.utils.phone import validate_phone
+        is_valid, _ = validate_phone(str(phone))
+        return is_valid
     
     @staticmethod
     def import_contacts_from_file(filepath, user_id):
@@ -106,10 +107,14 @@ class ImportService:
                 # Extract fields
                 name = str(row['name']).strip() if pd.notna(row['name']) else None
                 email = str(row['email']).strip().lower() if pd.notna(row['email']) else None
-                # Clean phone: remove whitespace and common separators
+                # Clean phone: normalize to international format (no '+')
+                from app.utils.phone import clean_phone
                 raw_phone = str(row['phone']).strip() if pd.notna(row['phone']) else None
-                phone = raw_phone.replace(' ', '').replace('-', '').replace('(', '').replace(')', '') if raw_phone else None
+                phone = clean_phone(raw_phone)
                 inviter_name = str(row['inviter']).strip() if pd.notna(row['inviter']) else None
+                # Secondary phone (optional)
+                raw_secondary_phone = str(row['secondary_phone']).strip() if 'secondary_phone' in row and pd.notna(row.get('secondary_phone')) else None
+                secondary_phone = clean_phone(raw_secondary_phone) if raw_secondary_phone else None
                 category_name = str(row['category']).strip() if 'category' in row and pd.notna(row['category']) else None
                 category_id = None
                 from app.models.category import Category
@@ -135,18 +140,14 @@ class ImportService:
                     continue
 
                 # Validate phone format
-                if not ImportService.validate_phone(phone):
+                from app.utils.phone import validate_phone as _validate_phone
+                phone_valid, phone_error = _validate_phone(phone)
+                if not phone_valid:
                     skipped += 1
-                    reason = "Invalid phone format (must start with 201 and be 12 digits)"
+                    reason = f"Invalid phone format: {phone_error}"
                     errors.append(f"Row {index + 2}: {reason}")
                     rejected_rows.append({**{col: (str(row[col]) if pd.notna(row[col]) else '') for col in df.columns}, 'reason': reason})
                     continue
-
-                # Email validation commented out - no need to validate email
-                # if not ImportService.validate_email(email):
-                #     skipped += 1
-                #     errors.append(f"Row {index + 2}: Invalid email format")
-                #     continue
 
                 # Find inviter by name in user's group, create if not found
                 inviter_obj = Inviter.query.filter_by(
@@ -206,6 +207,11 @@ class ImportService:
                         existing_invitee.inviter_id = inviter_id
                         updated_fields.append('inviter')
                     
+                    # Update secondary phone if provided
+                    if secondary_phone and existing_invitee.secondary_phone != secondary_phone:
+                        existing_invitee.secondary_phone = secondary_phone
+                        updated_fields.append('secondary_phone')
+
                     if updated_fields:
                         successful += 1
                         errors.append(f"Row {index + 2}: Updated existing contact '{phone}' ({', '.join(updated_fields)})")
@@ -221,11 +227,12 @@ class ImportService:
                     name=name,
                     email=email,
                     phone=phone,
+                    secondary_phone=secondary_phone,
                     position=position,
                     company=company,
                     category_id=category_id,
-                    plus_one=allowed_guests,  # Use plus_one field
-                    inviter_group_id=user.inviter_group_id,  # Assign to user's group
+                    plus_one=allowed_guests,
+                    inviter_group_id=user.inviter_group_id,
                     inviter_id=inviter_id
                 )
                 db.session.add(invitee)
@@ -330,9 +337,13 @@ class ImportService:
                 group_name = str(row['inviter_group']).strip() if pd.notna(row['inviter_group']) else None
                 name = str(row['name']).strip() if pd.notna(row['name']) else None
                 email = str(row['email']).strip().lower() if pd.notna(row['email']) else None
+                from app.utils.phone import clean_phone
                 raw_phone = str(row['phone']).strip() if pd.notna(row['phone']) else None
-                phone = raw_phone.replace(' ', '').replace('-', '').replace('(', '').replace(')', '') if raw_phone else None
+                phone = clean_phone(raw_phone)
                 inviter_name = str(row['inviter']).strip() if pd.notna(row['inviter']) else None
+                # Secondary phone (optional)
+                raw_secondary_phone = str(row['secondary_phone']).strip() if 'secondary_phone' in row and pd.notna(row.get('secondary_phone')) else None
+                secondary_phone = clean_phone(raw_secondary_phone) if raw_secondary_phone else None
                 category_name = str(row['category']).strip() if 'category' in row and pd.notna(row['category']) else None
                 category_id = None
                 if category_name:
@@ -354,9 +365,11 @@ class ImportService:
                     continue
 
                 # Validate phone format
-                if not ImportService.validate_phone(phone):
+                from app.utils.phone import validate_phone as _validate_phone
+                phone_valid, phone_error = _validate_phone(phone)
+                if not phone_valid:
                     skipped += 1
-                    reason = "Invalid phone format (must start with 201 and be 12 digits)"
+                    reason = f"Invalid phone format: {phone_error}"
                     errors.append(f"Row {index + 2}: {reason}")
                     rejected_rows.append({**{col: (str(row[col]) if pd.notna(row[col]) else '') for col in df.columns}, 'reason': reason})
                     continue
@@ -420,6 +433,10 @@ class ImportService:
                     if inviter_id and existing_invitee.inviter_id != inviter_id:
                         existing_invitee.inviter_id = inviter_id
                         updated_fields.append('inviter')
+                    # Update secondary phone if provided
+                    if secondary_phone and existing_invitee.secondary_phone != secondary_phone:
+                        existing_invitee.secondary_phone = secondary_phone
+                        updated_fields.append('secondary_phone')
 
                     if updated_fields:
                         successful += 1
@@ -436,6 +453,7 @@ class ImportService:
                     name=name,
                     email=email,
                     phone=phone,
+                    secondary_phone=secondary_phone,
                     position=position,
                     company=company,
                     category_id=category_id,
@@ -511,6 +529,7 @@ class ImportService:
             [],
             ["OPTIONAL COLUMNS", "", "", "", "", "", "", "", "", ""],
             ["Column Name", "Required?", "Description", "Example", "", "", "", "", "", ""],
+            ["Secondary_Phone", "NO", "Second phone number (same format as Phone)", "201198765432", "", "", "", "", "", ""],
             ["Category", "NO", "Invitee category (White/Gold)", "White", "", "", "", "", "", ""],
             ["Allowed_Guests", "NO", "Guests allowed for this invitee", "2", "", "", "", "", "", ""],
             ["Position", "NO", "Job title or position", "Manager", "", "", "", "", "", ""],
@@ -519,7 +538,7 @@ class ImportService:
             ["IMPORTANT NOTES", "", "", "", "", "", "", "", "", ""],
             ["1. Do not change the column headers in the template", "", "", "", "", "", "", "", "", ""],
             ["2. All rows with missing Name, Email, Phone, or Inviter will be skipped", "", "", "", "", "", "", "", "", ""],
-            ["3. Phone must start with 201 and be 12 digits (e.g., 201012345678)", "", "", "", "", "", "", "", "", ""],
+            ["3. Phone: digits only, no '+'. Egypt numbers must start with 20 (e.g., 201012345678)", "", "", "", "", "", "", "", "", ""],
             ["4. If a contact with the same phone already exists, the row will be skipped or updated", "", "", "", "", "", "", "", "", ""],
             ["5. After importing contacts, go to the Events tab to submit them to events", "", "", "", "", "", "", "", "", ""],
             [],
@@ -551,7 +570,7 @@ class ImportService:
         template_ws = wb.create_sheet("Template", 1)
 
         # Headers (contacts only - no event-specific fields)
-        headers = ["Name", "Email", "Phone", "Inviter", "Category", "Allowed_Guests", "Position", "Company"]
+        headers = ["Name", "Email", "Phone", "Secondary_Phone", "Inviter", "Category", "Allowed_Guests", "Position", "Company"]
         for col, header in enumerate(headers, start=1):
             cell = template_ws.cell(row=1, column=col, value=header)
             cell.font = Font(bold=True, color="FFFFFF")
@@ -560,9 +579,9 @@ class ImportService:
 
         # Add sample data
         sample_data = [
-            ["Ahmed Hassan", "ahmed.hassan@example.com", "201012345678", "Ali Hassan", "White", 2, "CEO", "Tech Solutions"],
-            ["Sarah Mohamed", "sarah.mohamed@example.com", "201123456789", "Fatma Ali", "Gold", 1, "Marketing Director", "Creative Agency"],
-            ["Mohamed Ali", "mohamed.ali@example.com", "201234567890", "Omar Said", "White", 0, "Sales Manager", "Sales Corp"],
+            ["Ahmed Hassan", "ahmed.hassan@example.com", "201012345678", "201198765432", "Ali Hassan", "White", 2, "CEO", "Tech Solutions"],
+            ["Sarah Mohamed", "sarah.mohamed@example.com", "201123456789", "", "Fatma Ali", "Gold", 1, "Marketing Director", "Creative Agency"],
+            ["Mohamed Ali", "mohamed.ali@example.com", "971501234567", "", "Omar Said", "White", 0, "Sales Manager", "Sales Corp"],
         ]
 
         for row_idx, row_data in enumerate(sample_data, start=2):
@@ -570,7 +589,7 @@ class ImportService:
                 template_ws.cell(row=row_idx, column=col_idx, value=value)
 
         # Adjust column widths
-        for col in ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']:
+        for col in ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I']:
             template_ws.column_dimensions[col].width = 20
 
         # Save template - use absolute path based on app root
@@ -604,11 +623,12 @@ class ImportService:
             ["Inviter_Group", "YES", "Name of the inviter group (must already exist)", "Marketing Team", "", "", "", "", "", ""],
             ["Name", "YES", "Full name of the invitee", "John Smith", "", "", "", "", "", ""],
             ["Email", "YES", "Valid email address", "john@example.com", "", "", "", "", "", ""],
-            ["Phone", "YES", "Phone number (must start with 201 and be 12 digits)", "201012345678", "", "", "", "", "", ""],
+            ["Phone", "YES", "International phone (digits only, no +). Egypt: 201XXXXXXXXX", "201012345678", "", "", "", "", "", ""],
             ["Inviter", "YES", "Name of inviter (auto-created if new in group)", "Ali Hassan", "", "", "", "", "", ""],
             [],
             ["OPTIONAL COLUMNS", "", "", "", "", "", "", "", "", ""],
             ["Column Name", "Required?", "Description", "Example", "", "", "", "", "", ""],
+            ["Secondary_Phone", "NO", "Second phone number (same format as Phone)", "201198765432", "", "", "", "", "", ""],
             ["Category", "NO", "Invitee category (White/Gold)", "White", "", "", "", "", "", ""],
             ["Allowed_Guests", "NO", "Guests allowed for this invitee", "2", "", "", "", "", "", ""],
             ["Position", "NO", "Job title or position", "Manager", "", "", "", "", "", ""],
@@ -617,7 +637,7 @@ class ImportService:
             ["IMPORTANT NOTES", "", "", "", "", "", "", "", "", ""],
             ["1. Inviter groups must exist before import — create them in the Groups page", "", "", "", "", "", "", "", "", ""],
             ["2. Inviters are automatically created within the specified group if they don't exist", "", "", "", "", "", "", "", "", ""],
-            ["3. Phone must start with 201 and be 12 digits (e.g., 201012345678)", "", "", "", "", "", "", "", "", ""],
+            ["3. Phone: digits only, no '+'. Egypt numbers must start with 20 (e.g., 201012345678)", "", "", "", "", "", "", "", "", ""],
             ["4. If a contact with the same phone already exists in the group, it will be updated", "", "", "", "", "", "", "", "", ""],
             ["5. You can mix contacts from different groups in one file", "", "", "", "", "", "", "", "", ""],
             [],
@@ -644,7 +664,7 @@ class ImportService:
 
         # Template sheet
         template_ws = wb.create_sheet("Template", 1)
-        headers = ["Inviter_Group", "Name", "Email", "Phone", "Inviter", "Category", "Allowed_Guests", "Position", "Company"]
+        headers = ["Inviter_Group", "Name", "Email", "Phone", "Secondary_Phone", "Inviter", "Category", "Allowed_Guests", "Position", "Company"]
         for col, header in enumerate(headers, start=1):
             cell = template_ws.cell(row=1, column=col, value=header)
             cell.font = Font(bold=True, color="FFFFFF")
@@ -652,17 +672,17 @@ class ImportService:
             cell.alignment = Alignment(horizontal="center")
 
         sample_data = [
-            ["Marketing Team", "Ahmed Hassan", "ahmed@example.com", "201012345678", "Ali Hassan", "White", 2, "CEO", "Tech Solutions"],
-            ["Marketing Team", "Sarah Mohamed", "sarah@example.com", "201123456789", "Ali Hassan", "Gold", 1, "Director", "Creative Agency"],
-            ["Sales Division", "Mohamed Ali", "mohamed@example.com", "201234567890", "Omar Said", "White", 0, "Manager", "Sales Corp"],
-            ["Sales Division", "Fatma Nour", "fatma@example.com", "201345678901", "Layla Ahmed", "Gold", 1, "VP Sales", "Nile Group"],
+            ["Marketing Team", "Ahmed Hassan", "ahmed@example.com", "201012345678", "201198765432", "Ali Hassan", "White", 2, "CEO", "Tech Solutions"],
+            ["Marketing Team", "Sarah Mohamed", "sarah@example.com", "201123456789", "", "Ali Hassan", "Gold", 1, "Director", "Creative Agency"],
+            ["Sales Division", "Mohamed Ali", "mohamed@example.com", "971501234567", "", "Omar Said", "White", 0, "Manager", "Sales Corp"],
+            ["Sales Division", "Fatma Nour", "fatma@example.com", "201345678901", "", "Layla Ahmed", "Gold", 1, "VP Sales", "Nile Group"],
         ]
 
         for row_idx, row_data in enumerate(sample_data, start=2):
             for col_idx, value in enumerate(row_data, start=1):
                 template_ws.cell(row=row_idx, column=col_idx, value=value)
 
-        for col in ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I']:
+        for col in ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J']:
             template_ws.column_dimensions[col].width = 22
 
         import tempfile

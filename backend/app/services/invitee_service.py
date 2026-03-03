@@ -42,12 +42,19 @@ class InviteeService:
     
     @staticmethod
     def validate_phone(phone):
-        """Validate phone format (E.164 international format)"""
-        # Remove spaces and dashes
-        clean_phone = phone.replace(' ', '').replace('-', '')
-        # Check if it matches international format
-        pattern = r'^\+?[1-9]\d{1,14}$'
-        return re.match(pattern, clean_phone) is not None
+        """Validate phone format (international, no '+' prefix)"""
+        from app.utils.phone import clean_phone, validate_phone
+        cleaned = clean_phone(phone)
+        if not cleaned:
+            return False
+        is_valid, _ = validate_phone(cleaned)
+        return is_valid
+    
+    @staticmethod
+    def normalize_phone(phone):
+        """Clean and normalize a phone number. Returns (cleaned, is_valid, error)."""
+        from app.utils.phone import normalize_and_validate
+        return normalize_and_validate(phone)
     
     @staticmethod
     def create_or_get_invitee(name, email, phone, position=None, company=None, category=None, inviter_group_id=None):
@@ -59,9 +66,11 @@ class InviteeService:
         if not InviteeService.validate_email(email):
             return None, False, 'Invalid email format'
         
-        # Validate phone
-        if not InviteeService.validate_phone(phone):
-            return None, False, 'Invalid phone format. Use international format (e.g., +20 123 456 7890)'
+        # Normalize and validate phone
+        from app.utils.phone import normalize_and_validate
+        phone, phone_valid, phone_error = normalize_and_validate(phone)
+        if not phone_valid:
+            return None, False, f'Invalid phone: {phone_error}'
         
         # Clean email
         email = email.lower().strip()
@@ -220,8 +229,10 @@ class InviteeService:
             invitee.email = email.lower().strip()
         
         if phone:
-            if not InviteeService.validate_phone(phone):
-                return None, 'Invalid phone format'
+            from app.utils.phone import normalize_and_validate
+            phone, phone_valid, phone_error = normalize_and_validate(phone)
+            if not phone_valid:
+                return None, f'Invalid phone: {phone_error}'
             invitee.phone = phone
         
         # Handle new fields

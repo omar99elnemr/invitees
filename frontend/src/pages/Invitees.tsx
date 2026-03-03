@@ -515,8 +515,13 @@ export default function Invitees() {
     }
     if (!formData.phone?.trim()) {
       errors.phone = 'Phone is required';
-    } else if (!/^201\d{9}$/.test(formData.phone.trim())) {
-      errors.phone = 'Phone must start with 20 and be 12 digits (e.g. 201012345678)';
+    } else {
+      const p = formData.phone.trim().replace(/[^\d]/g, '');
+      if (p.length < 7 || p.length > 15 || !/^[1-9]/.test(p)) {
+        errors.phone = 'Enter international phone number (7-15 digits, no +). E.g. 201012345678';
+      } else if (p.startsWith('20') && (p.length !== 12 || !/^201/.test(p))) {
+        errors.phone = 'Egyptian numbers must be 12 digits starting with 201';
+      }
     }
     if (!formData.inviter_id) {
       errors.inviter_id = 'Inviter is required';
@@ -951,7 +956,7 @@ export default function Invitees() {
           toast(`${duplicatePhones.length} contact(s) already exist (no changes)`, { icon: 'ℹ️' });
         }
         if (invalidPhones.length > 0) {
-          toast.error(`${invalidPhones.length} skipped: Invalid phone format (must start with 20, 12 digits)`);
+          toast.error(`${invalidPhones.length} skipped: Invalid phone format`);
         }
         // Email validation removed - no invalid email messages
         if (missingFields.length > 0) {
@@ -1984,9 +1989,8 @@ export default function Invitees() {
                       type="tel"
                       value={formData.phone}
                       onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                      placeholder="201012345678"
-                      //                      pattern="201[0-9]{9}"
-                      maxLength={12}
+                      placeholder="201012345678 or 971501234567"
+                      maxLength={15}
                       className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-700 dark:text-white ${formErrors.phone ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
                         }`}
                     />
@@ -2000,8 +2004,7 @@ export default function Invitees() {
                       value={formData.secondary_phone || ''}
                       onChange={(e) => setFormData({ ...formData, secondary_phone: e.target.value })}
                       placeholder="201012345678"
-                      pattern="201[0-9]{9}"
-                      maxLength={12}
+                      maxLength={15}
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-700 dark:text-white"
                     />
                   </div>
@@ -2176,8 +2179,8 @@ export default function Invitees() {
                       type="tel"
                       value={formData.phone}
                       onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                      placeholder="201012345678"
-                      maxLength={12}
+                      placeholder="201012345678 or 971501234567"
+                      maxLength={15}
                       className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-700 dark:text-white ${formErrors.phone ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'}`}
                     />
                     {formErrors.phone && <p className="text-red-500 text-sm mt-1">{formErrors.phone}</p>}
@@ -2190,7 +2193,7 @@ export default function Invitees() {
                       value={formData.secondary_phone || ''}
                       onChange={(e) => setFormData({ ...formData, secondary_phone: e.target.value })}
                       placeholder="201012345678"
-                      maxLength={12}
+                      maxLength={15}
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-700 dark:text-white"
                     />
                   </div>

@@ -192,15 +192,16 @@ def create_contact():
     if not InviteeService.validate_email(data['email']):
         return jsonify({'error': 'Invalid email format'}), 400
     
-    # Validate phone format
-    if not InviteeService.validate_phone(data['phone']):
-        return jsonify({'error': 'Invalid phone format. Use international format (e.g., 201012345678)'}), 400
+    # Normalize and validate phone
+    from app.utils.phone import normalize_and_validate
+    phone, phone_valid, phone_error = normalize_and_validate(data['phone'])
+    if not phone_valid:
+        return jsonify({'error': f'Invalid phone: {phone_error}'}), 400
     
     # Clean email
     email = data['email'].lower().strip()
     
     # Check if phone already exists in this group (phone must be unique)
-    phone = data['phone']
     existing_by_phone = Invitee.query.filter_by(phone=phone, inviter_group_id=inviter_group_id).first()
     if existing_by_phone:
         return jsonify({'error': f'Phone number {phone} already exists for contact "{existing_by_phone.name}"'}), 400
@@ -440,7 +441,9 @@ def add_invitee_to_event(event_id):
     from app.models.event_invitee import EventInvitee
     from app.models.invitee import Invitee
     
-    phone = data.get('phone')
+    # Normalize phone before duplicate check so it matches stored format
+    from app.utils.phone import clean_phone as _clean_phone
+    phone = _clean_phone(data.get('phone'))
     if phone and current_user.role != 'admin':
         # Find if any invitee with this phone number is already submitted to this event by ANOTHER group
         # Only block if status is 'waiting_for_approval' or 'approved'

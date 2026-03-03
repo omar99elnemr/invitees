@@ -11,14 +11,16 @@ export const isValidEmail = (email: string): boolean => {
 };
 
 /**
- * Validate phone format (international format)
+ * Validate phone format (international, no '+' prefix, digits only)
  */
 export const isValidPhone = (phone: string): boolean => {
-  // Remove spaces, dashes, parentheses
-  const cleaned = phone.replace(/[\s\-()]/g, '');
-  // Check if it matches international format
-  const phoneRegex = /^\+?[1-9]\d{1,14}$/;
-  return phoneRegex.test(cleaned);
+  // Strip everything except digits
+  const cleaned = phone.replace(/[^\d]/g, '');
+  // 7-15 digits, starts with 1-9
+  if (cleaned.length < 7 || cleaned.length > 15 || !/^[1-9]/.test(cleaned)) return false;
+  // Egypt-specific: must be 12 digits starting with 201
+  if (cleaned.startsWith('20') && (cleaned.length !== 12 || !cleaned.startsWith('201'))) return false;
+  return true;
 };
 
 /**
@@ -54,11 +56,11 @@ export const isValidDateRange = (startDate: string, endDate: string): boolean =>
 };
 
 /**
- * Format phone number for display
+ * Format phone number for display (digits only, no '+')
  */
 export const formatPhone = (phone: string): string => {
-  // Remove all non-digit characters except +
-  const cleaned = phone.replace(/[^\d+]/g, '');
+  // Remove all non-digit characters
+  const cleaned = phone.replace(/[^\d]/g, '');
   return cleaned;
 };
 
