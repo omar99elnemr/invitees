@@ -59,26 +59,13 @@ async function registerFCMPush() {
   try {
     const { PushNotifications } = await import('@capacitor/push-notifications');
 
-    // Request permission
-    const permResult = await PushNotifications.requestPermissions();
-    if (permResult.receive !== 'granted') return;
-
-    // Create the Android notification channel BEFORE registering.
-    // On Android 8+ (API 26+), notifications without a valid channel are
-    // silently dropped.  The backend FCM config sends to this channel_id.
-    try {
-      await (PushNotifications as any).createChannel({
-        id: 'invitees_notifications',
-        name: 'Invitees Notifications',
-        description: 'Event updates, approvals, and other notifications',
-        importance: 5,  // max (heads-up)
-        visibility: 1,  // public
-        sound: 'default',
-        vibration: true,
-        lights: true,
-      });
-    } catch {
-      // createChannel not available (iOS) or channel already exists — safe to ignore
+    // Check permission (channel + initial permission request already handled
+    // by initNativePlugins in capacitor.ts on app start)
+    const permResult = await PushNotifications.checkPermissions();
+    if (permResult.receive !== 'granted') {
+      // Try requesting once more in case user enabled in Settings after denial
+      const req = await PushNotifications.requestPermissions();
+      if (req.receive !== 'granted') return;
     }
 
     // ── Attach ALL listeners BEFORE calling register() ──

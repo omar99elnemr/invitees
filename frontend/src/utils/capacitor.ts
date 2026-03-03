@@ -84,14 +84,38 @@ export async function initNativePlugins(): Promise<void> {
     // Keyboard plugin not available
   }
 
-  // ── Local Notifications (Android 13+ permission) ──────────
+  // ── Push Notifications: channel + permission (Android 13+) ──────────
+  // Creating the channel first makes the notification toggle appear in
+  // Android Settings even before the user grants permission.
+  // Then we request the POST_NOTIFICATIONS runtime permission via the
+  // PushNotifications plugin (the correct API for FCM-based apps).
   try {
-    const { LocalNotifications } = await import('@capacitor/local-notifications');
-    const permStatus = await LocalNotifications.checkPermissions();
-    if (permStatus.display === 'prompt' || permStatus.display === 'prompt-with-rationale') {
-      await LocalNotifications.requestPermissions();
+    const { PushNotifications } = await import('@capacitor/push-notifications');
+
+    // Create notification channel immediately (doesn't need permission).
+    // Without a channel Android won't show the notification toggle in Settings.
+    try {
+      await (PushNotifications as any).createChannel({
+        id: 'invitees_notifications',
+        name: 'Invitees Notifications',
+        description: 'Event updates, approvals, and other notifications',
+        importance: 5,
+        visibility: 1,
+        sound: 'default',
+        vibration: true,
+        lights: true,
+      });
+    } catch {
+      // createChannel not available (iOS) or already exists
+    }
+
+    // Request POST_NOTIFICATIONS permission (Android 13+ runtime permission).
+    // This triggers the system permission dialog on first launch.
+    const permStatus = await PushNotifications.checkPermissions();
+    if (permStatus.receive === 'prompt' || permStatus.receive === 'prompt-with-rationale') {
+      await PushNotifications.requestPermissions();
     }
   } catch {
-    // Local notifications plugin not available
+    // PushNotifications plugin not available
   }
 }
