@@ -70,10 +70,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       clearInterval(heartbeatIntervalRef.current);
       heartbeatIntervalRef.current = null;
     }
-    // Destroy the backend session immediately so refreshing the page
-    // or opening a new tab can't bypass the expired-session modal.
-    // Use raw fetch (not axios) to avoid the 401 interceptor re-triggering this flow.
-    fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {});
+    // Persist a flag so that refreshing the page or opening a new tab
+    // always redirects to login, even if the logout fetch below doesn't
+    // complete before the page unloads.
+    localStorage.setItem('sessionExpired', 'true');
+    // Destroy the backend session + remember-me cookie immediately.
+    // keepalive ensures the request completes even during page unload.
+    // Raw fetch avoids the axios 401 interceptor re-triggering this flow.
+    fetch('/api/auth/logout', {
+      method: 'POST',
+      credentials: 'include',
+      keepalive: true,
+    }).catch(() => {});
     setShowSessionExpiredModal(true);
   }, []);
 
@@ -153,14 +161,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const checkAuth = async () => {
     try {
-      // Use raw fetch with cache:'no-store' to guarantee the browser
-      // never serves a cached /api/auth/me response (XMLHttpRequest
-      // used by axios does NOT support the cache directive).
+      // If a previous session-expired trigger left a flag, honour it:
+      // call logout to destroy any lingering session / remember-me cookie,
+      // then redirect straight to login without even asking the backend.
+      if (localStorage.getItem('sessionExpired') === 'true') {
+        localStorage.removeItem('sessionExpired');
+        localStorage.removeItem('rememberMe');
+        // Fire logout to clear server-side session + remember cookie
+        fetch('/api/auth/logout', {
+          method: 'POST',
+          credentials: 'include',
+          keepalive: true,
+        }).catch(() => {});
+        setUser(null);
+        setLoading(false);
+        return;
+      }
+
+      // Use raw fetch with aggressive no-cache directives to guarantee
+      // the browser never serves a cached /api/auth/me response.
       const res = await fetch(`/api/auth/me?_t=${Date.now()}`, {
         method: 'GET',
         cache: 'no-store',
         credentials: 'include',
-        headers: { 'Accept': 'application/json' },
+        headers: {
+          'Accept': 'application/json',
+          'Cache-Control': 'no-cache, no-store',
+          'Pragma': 'no-cache',
+        },
       });
       if (!res.ok) throw new Error('Not authenticated');
       const data = await res.json();
@@ -189,6 +217,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       rememberMeRef.current = isInstalledApp || remember;
       lastActivityRef.current = Date.now();
       setShowSessionExpiredModal(false);
+      // Clear any stale session-expired flag from a previous timeout
+      localStorage.removeItem('sessionExpired');
       // Load system-wide time format preference
       try {
         const gs = await settingsAPI.getGeneralSettings();
@@ -242,6 +272,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
     rememberMeRef.current = false;
     localStorage.removeItem('rememberMe');
+    localStorage.removeItem('sessionExpired');
     window.location.href = '/login';
   };
 

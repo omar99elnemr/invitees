@@ -31,10 +31,10 @@ def login():
     return jsonify({'error': 'Invalid username or password'}), 401
 
 @auth_bp.route('/logout', methods=['POST'])
-@login_required
 def logout():
-    """Logout endpoint"""
-    AuthService.logout(current_user)
+    """Logout endpoint — works even without a valid session so that
+    the frontend can always destroy the session + remember-me cookie."""
+    AuthService.logout(current_user if current_user.is_authenticated else None)
     return jsonify({'message': 'Logged out successfully'}), 200
 
 @auth_bp.route('/me', methods=['GET'])
