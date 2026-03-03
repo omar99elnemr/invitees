@@ -18,8 +18,6 @@ export const isValidPhone = (phone: string): boolean => {
   const cleaned = phone.replace(/[^\d]/g, '');
   // 7-15 digits, starts with 1-9
   if (cleaned.length < 7 || cleaned.length > 15 || !/^[1-9]/.test(cleaned)) return false;
-  // Egypt-specific: must be 12 digits starting with 201
-  if (cleaned.startsWith('20') && (cleaned.length !== 12 || !cleaned.startsWith('201'))) return false;
   return true;
 };
 

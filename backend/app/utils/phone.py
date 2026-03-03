@@ -67,9 +67,7 @@ def validate_phone(phone, allow_empty=False):
     Validate a cleaned phone number (output of clean_phone).
     Rules:
       - Digits only, 7-15 characters (E.164 without '+')
-      - Must start with 1-9
-      - Egypt (starts with '20'): must be 12 digits, format 20[1][0-9]{9} for mobile
-      - Other countries: 7-15 digits, starts with valid digit
+      - Must start with 1-9 (valid country code)
     Returns (is_valid, error_message).
     """
     if not phone:
@@ -88,14 +86,6 @@ def validate_phone(phone, allow_empty=False):
     # Length check: E.164 allows 7-15 digits (without '+')
     if len(phone) < 7 or len(phone) > 15:
         return False, f'Phone must be 7-15 digits, got {len(phone)}'
-
-    # Egypt-specific validation
-    if phone.startswith('20'):
-        if len(phone) != 12:
-            return False, f'Egyptian numbers must be 12 digits (20 + 10 digits), got {len(phone)}'
-        # Egyptian mobile numbers: 201[0-9]{9}
-        if not re.match(r'^201[0-9]{9}$', phone):
-            return False, 'Egyptian mobile numbers must start with 201'
 
     return True, None
 

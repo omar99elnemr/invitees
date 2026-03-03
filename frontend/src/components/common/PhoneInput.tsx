@@ -251,19 +251,19 @@ export default function PhoneInput({ value, onChange, error, required = false }:
 }
 
 // Helper function to validate a digits-only phone number (no '+' prefix)
+// Accepts any 7-15 digit number starting with 1-9. No country-specific constraints.
 export function validatePhoneNumber(phone: string): { valid: boolean; message?: string } {
   if (!phone) return { valid: false, message: 'Phone number is required' };
   
   const clean = phone.replace(/[^\d]/g, '');
   if (!clean) return { valid: false, message: 'Phone number is required' };
 
-  const parsed = parseDigitsPhone(clean);
-  if (!parsed) {
-    return { valid: false, message: 'Invalid phone number' };
+  if (clean.length < 7 || clean.length > 15) {
+    return { valid: false, message: `Phone must be 7-15 digits, got ${clean.length}` };
   }
 
-  if (!parsed.country.pattern.test(parsed.local)) {
-    return { valid: false, message: `${parsed.country.country} numbers require ${parsed.country.maxLength} digits` };
+  if (!/^[1-9]/.test(clean)) {
+    return { valid: false, message: 'Phone must start with a country code (e.g., 20 for Egypt)' };
   }
   
   return { valid: true };
