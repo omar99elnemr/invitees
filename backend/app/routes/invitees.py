@@ -789,7 +789,12 @@ def invite_existing_to_event(event_id):
                 continue
 
         # Use stored data from invitee if not provided
-        final_inviter_id = inviter_id or invitee.inviter_id
+        # BUT validate the fallback inviter belongs to the submitter's group
+        final_inviter_id = inviter_id
+        if not final_inviter_id and invitee.inviter_id:
+            fallback_inviter = Inviter.query.get(invitee.inviter_id)
+            if fallback_inviter and (current_user.role == 'admin' or fallback_inviter.inviter_group_id == current_user.inviter_group_id):
+                final_inviter_id = invitee.inviter_id
         
         # Resolve category
         final_category_id = None

@@ -33,17 +33,19 @@ class ApprovalService:
         if approver.role == 'admin':
             return True
         
-        # Directors must belong to the same group as the inviter
+        # Directors must belong to the same group as the inviter OR the submitter
         if approver.role == 'director':
-            # First, check if the invitation has an inviter
+            # Check inviter's group
             if event_invitee.inviter_id and event_invitee.inviter:
-                # The inviter's group must match the director's group
-                return event_invitee.inviter.inviter_group_id == approver_inviter_group_id
+                if event_invitee.inviter.inviter_group_id == approver_inviter_group_id:
+                    return True
             
-            # Fallback: check the submitter's group
+            # Also check the submitter's group (handles cases where inviter_id
+            # may point to a different group due to data import or contact edits)
             submitter = User.query.get(event_invitee.inviter_user_id)
             if submitter and submitter.inviter_group_id:
-                return submitter.inviter_group_id == approver_inviter_group_id
+                if submitter.inviter_group_id == approver_inviter_group_id:
+                    return True
         
         return False
     
