@@ -18,7 +18,7 @@ class Invitee(db.Model):
     __tablename__ = 'invitees'
     
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), nullable=False, index=True)
+    name = db.Column(db.String(255), nullable=False, index=True)
     email = db.Column(db.String(150), nullable=False, index=True)
     phone = db.Column(db.String(30), nullable=False)
     secondary_phone = db.Column(db.String(30), nullable=True)

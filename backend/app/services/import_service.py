@@ -103,6 +103,7 @@ class ImportService:
 
         from app.models.inviter import Inviter
         for index, row in df.iterrows():
+            sp = db.session.begin_nested()  # savepoint per row
             try:
                 # Extract fields
                 name = str(row['name']).strip() if pd.notna(row['name']) else None
@@ -213,9 +214,11 @@ class ImportService:
                         updated_fields.append('secondary_phone')
 
                     if updated_fields:
+                        sp.commit()  # flush update within savepoint
                         successful += 1
                         errors.append(f"Row {index + 2}: Updated existing contact '{phone}' ({', '.join(updated_fields)})")
                     else:
+                        sp.commit()  # release savepoint (no-op)
                         skipped += 1
                         reason = f"Contact with phone '{phone}' already exists (no changes)"
                         errors.append(f"Row {index + 2}: {reason}")
@@ -236,9 +239,11 @@ class ImportService:
                     inviter_id=inviter_id
                 )
                 db.session.add(invitee)
+                sp.commit()  # release savepoint
                 successful += 1
 
             except Exception as e:
+                sp.rollback()  # only rolls back this row's savepoint
                 failed += 1
                 reason = str(e)
                 errors.append(f"Row {index + 2}: {reason}")
@@ -332,6 +337,7 @@ class ImportService:
         inviter_cache = {}  # (group_id, inviter_name) -> Inviter
 
         for index, row in df.iterrows():
+            sp = db.session.begin_nested()  # savepoint per row
             try:
                 # Extract inviter group
                 group_name = str(row['inviter_group']).strip().strip('\u200b\ufeff\xa0') if pd.notna(row['inviter_group']) else None
@@ -439,9 +445,11 @@ class ImportService:
                         updated_fields.append('secondary_phone')
 
                     if updated_fields:
+                        sp.commit()  # flush update within savepoint
                         successful += 1
                         errors.append(f"Row {index + 2}: Updated existing contact '{phone}' ({', '.join(updated_fields)})")
                     else:
+                        sp.commit()  # release savepoint (no-op)
                         skipped += 1
                         reason = f"Contact with phone '{phone}' already exists (no changes)"
                         errors.append(f"Row {index + 2}: {reason}")
@@ -462,9 +470,11 @@ class ImportService:
                     inviter_id=inviter_id
                 )
                 db.session.add(invitee)
+                sp.commit()  # release savepoint
                 successful += 1
 
             except Exception as e:
+                sp.rollback()  # only rolls back this row's savepoint
                 failed += 1
                 reason = str(e)
                 errors.append(f"Row {index + 2}: {reason}")
