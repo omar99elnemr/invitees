@@ -65,6 +65,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       clearInterval(sessionCheckIntervalRef.current);
       sessionCheckIntervalRef.current = null;
     }
+    // Stop the heartbeat so it can't extend the backend session further
+    if (heartbeatIntervalRef.current) {
+      clearInterval(heartbeatIntervalRef.current);
+      heartbeatIntervalRef.current = null;
+    }
+    // Destroy the backend session immediately so refreshing the page
+    // or opening a new tab can't bypass the expired-session modal.
+    // Use raw fetch (not axios) to avoid the 401 interceptor re-triggering this flow.
+    fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {});
     setShowSessionExpiredModal(true);
   }, []);
 
@@ -226,13 +235,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // Handle "Login Again" button - destroy backend session then redirect
-  const handleSessionExpiredClose = async () => {
-    try {
-      await authAPI.logout();
-    } catch {
-      // Session may already be expired on the server — that's fine
-    }
+  // Handle "Login Again" button — backend session was already destroyed
+  // by triggerSessionExpired, so just clear frontend state and redirect.
+  const handleSessionExpiredClose = () => {
     setShowSessionExpiredModal(false);
     setUser(null);
     rememberMeRef.current = false;
