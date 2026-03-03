@@ -1,64 +1,90 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { ChevronDown, Search, Check } from 'lucide-react';
 
 // Country codes data with phone validation patterns
+// `digits` = country calling code as digits (no '+'), used for storage & matching
 export const countryCodes = [
-  { code: '+20', country: 'Egypt', iso: 'EG', pattern: /^\d{10}$/, placeholder: '123 456 7890', maxLength: 10 },
-  { code: '+1', country: 'United States', iso: 'US', pattern: /^\d{10}$/, placeholder: '555 123 4567', maxLength: 10 },
-  { code: '+1', country: 'Canada', iso: 'CA', pattern: /^\d{10}$/, placeholder: '555 123 4567', maxLength: 10 },
-  { code: '+44', country: 'United Kingdom', iso: 'GB', pattern: /^\d{10,11}$/, placeholder: '7911 123456', maxLength: 11 },
-  { code: '+971', country: 'UAE', iso: 'AE', pattern: /^\d{9}$/, placeholder: '50 123 4567', maxLength: 9 },
-  { code: '+966', country: 'Saudi Arabia', iso: 'SA', pattern: /^\d{9}$/, placeholder: '50 123 4567', maxLength: 9 },
-  { code: '+962', country: 'Jordan', iso: 'JO', pattern: /^\d{9}$/, placeholder: '79 123 4567', maxLength: 9 },
-  { code: '+961', country: 'Lebanon', iso: 'LB', pattern: /^\d{7,8}$/, placeholder: '71 123456', maxLength: 8 },
-  { code: '+33', country: 'France', iso: 'FR', pattern: /^\d{9}$/, placeholder: '6 12 34 56 78', maxLength: 9 },
-  { code: '+49', country: 'Germany', iso: 'DE', pattern: /^\d{10,11}$/, placeholder: '151 12345678', maxLength: 11 },
-  { code: '+39', country: 'Italy', iso: 'IT', pattern: /^\d{9,10}$/, placeholder: '312 345 6789', maxLength: 10 },
-  { code: '+34', country: 'Spain', iso: 'ES', pattern: /^\d{9}$/, placeholder: '612 34 56 78', maxLength: 9 },
-  { code: '+31', country: 'Netherlands', iso: 'NL', pattern: /^\d{9}$/, placeholder: '6 12345678', maxLength: 9 },
-  { code: '+32', country: 'Belgium', iso: 'BE', pattern: /^\d{9}$/, placeholder: '470 12 34 56', maxLength: 9 },
-  { code: '+41', country: 'Switzerland', iso: 'CH', pattern: /^\d{9}$/, placeholder: '78 123 45 67', maxLength: 9 },
-  { code: '+43', country: 'Austria', iso: 'AT', pattern: /^\d{10,11}$/, placeholder: '664 1234567', maxLength: 11 },
-  { code: '+90', country: 'Turkey', iso: 'TR', pattern: /^\d{10}$/, placeholder: '532 123 4567', maxLength: 10 },
-  { code: '+7', country: 'Russia', iso: 'RU', pattern: /^\d{10}$/, placeholder: '912 345 6789', maxLength: 10 },
-  { code: '+86', country: 'China', iso: 'CN', pattern: /^\d{11}$/, placeholder: '139 1234 5678', maxLength: 11 },
-  { code: '+81', country: 'Japan', iso: 'JP', pattern: /^\d{10}$/, placeholder: '90 1234 5678', maxLength: 10 },
-  { code: '+82', country: 'South Korea', iso: 'KR', pattern: /^\d{10,11}$/, placeholder: '10 1234 5678', maxLength: 11 },
-  { code: '+91', country: 'India', iso: 'IN', pattern: /^\d{10}$/, placeholder: '98765 43210', maxLength: 10 },
-  { code: '+92', country: 'Pakistan', iso: 'PK', pattern: /^\d{10}$/, placeholder: '300 1234567', maxLength: 10 },
-  { code: '+880', country: 'Bangladesh', iso: 'BD', pattern: /^\d{10}$/, placeholder: '1712 345678', maxLength: 10 },
-  { code: '+94', country: 'Sri Lanka', iso: 'LK', pattern: /^\d{9}$/, placeholder: '71 234 5678', maxLength: 9 },
-  { code: '+60', country: 'Malaysia', iso: 'MY', pattern: /^\d{9,10}$/, placeholder: '12 345 6789', maxLength: 10 },
-  { code: '+65', country: 'Singapore', iso: 'SG', pattern: /^\d{8}$/, placeholder: '9123 4567', maxLength: 8 },
-  { code: '+66', country: 'Thailand', iso: 'TH', pattern: /^\d{9}$/, placeholder: '81 234 5678', maxLength: 9 },
-  { code: '+84', country: 'Vietnam', iso: 'VN', pattern: /^\d{9,10}$/, placeholder: '91 234 5678', maxLength: 10 },
-  { code: '+62', country: 'Indonesia', iso: 'ID', pattern: /^\d{9,12}$/, placeholder: '812 3456 7890', maxLength: 12 },
-  { code: '+63', country: 'Philippines', iso: 'PH', pattern: /^\d{10}$/, placeholder: '917 123 4567', maxLength: 10 },
-  { code: '+61', country: 'Australia', iso: 'AU', pattern: /^\d{9}$/, placeholder: '412 345 678', maxLength: 9 },
-  { code: '+64', country: 'New Zealand', iso: 'NZ', pattern: /^\d{9}$/, placeholder: '21 123 4567', maxLength: 9 },
-  { code: '+55', country: 'Brazil', iso: 'BR', pattern: /^\d{10,11}$/, placeholder: '11 91234 5678', maxLength: 11 },
-  { code: '+52', country: 'Mexico', iso: 'MX', pattern: /^\d{10}$/, placeholder: '55 1234 5678', maxLength: 10 },
-  { code: '+54', country: 'Argentina', iso: 'AR', pattern: /^\d{10}$/, placeholder: '11 1234 5678', maxLength: 10 },
-  { code: '+56', country: 'Chile', iso: 'CL', pattern: /^\d{9}$/, placeholder: '9 1234 5678', maxLength: 9 },
-  { code: '+57', country: 'Colombia', iso: 'CO', pattern: /^\d{10}$/, placeholder: '312 345 6789', maxLength: 10 },
-  { code: '+51', country: 'Peru', iso: 'PE', pattern: /^\d{9}$/, placeholder: '987 654 321', maxLength: 9 },
-  { code: '+27', country: 'South Africa', iso: 'ZA', pattern: /^\d{9}$/, placeholder: '82 123 4567', maxLength: 9 },
-  { code: '+234', country: 'Nigeria', iso: 'NG', pattern: /^\d{10}$/, placeholder: '803 123 4567', maxLength: 10 },
-  { code: '+254', country: 'Kenya', iso: 'KE', pattern: /^\d{9}$/, placeholder: '712 345678', maxLength: 9 },
-  { code: '+212', country: 'Morocco', iso: 'MA', pattern: /^\d{9}$/, placeholder: '612 345678', maxLength: 9 },
-  { code: '+213', country: 'Algeria', iso: 'DZ', pattern: /^\d{9}$/, placeholder: '551 234567', maxLength: 9 },
-  { code: '+216', country: 'Tunisia', iso: 'TN', pattern: /^\d{8}$/, placeholder: '22 123 456', maxLength: 8 },
-  { code: '+218', country: 'Libya', iso: 'LY', pattern: /^\d{9}$/, placeholder: '91 1234567', maxLength: 9 },
-  { code: '+249', country: 'Sudan', iso: 'SD', pattern: /^\d{9}$/, placeholder: '91 234 5678', maxLength: 9 },
-  { code: '+965', country: 'Kuwait', iso: 'KW', pattern: /^\d{8}$/, placeholder: '5012 3456', maxLength: 8 },
-  { code: '+968', country: 'Oman', iso: 'OM', pattern: /^\d{8}$/, placeholder: '9212 3456', maxLength: 8 },
-  { code: '+973', country: 'Bahrain', iso: 'BH', pattern: /^\d{8}$/, placeholder: '3612 3456', maxLength: 8 },
-  { code: '+974', country: 'Qatar', iso: 'QA', pattern: /^\d{8}$/, placeholder: '5512 3456', maxLength: 8 },
-  { code: '+964', country: 'Iraq', iso: 'IQ', pattern: /^\d{10}$/, placeholder: '790 123 4567', maxLength: 10 },
-  { code: '+972', country: 'Israel', iso: 'IL', pattern: /^\d{9}$/, placeholder: '50 123 4567', maxLength: 9 },
-  { code: '+98', country: 'Iran', iso: 'IR', pattern: /^\d{10}$/, placeholder: '912 345 6789', maxLength: 10 },
-  { code: '+93', country: 'Afghanistan', iso: 'AF', pattern: /^\d{9}$/, placeholder: '70 123 4567', maxLength: 9 },
+  { code: '+20', digits: '20', country: 'Egypt', iso: 'EG', pattern: /^\d{10}$/, placeholder: '1012345678', maxLength: 10 },
+  { code: '+1', digits: '1', country: 'United States', iso: 'US', pattern: /^\d{10}$/, placeholder: '5551234567', maxLength: 10 },
+  { code: '+1', digits: '1', country: 'Canada', iso: 'CA', pattern: /^\d{10}$/, placeholder: '5551234567', maxLength: 10 },
+  { code: '+44', digits: '44', country: 'United Kingdom', iso: 'GB', pattern: /^\d{10,11}$/, placeholder: '7911123456', maxLength: 11 },
+  { code: '+971', digits: '971', country: 'UAE', iso: 'AE', pattern: /^\d{9}$/, placeholder: '501234567', maxLength: 9 },
+  { code: '+966', digits: '966', country: 'Saudi Arabia', iso: 'SA', pattern: /^\d{9}$/, placeholder: '501234567', maxLength: 9 },
+  { code: '+962', digits: '962', country: 'Jordan', iso: 'JO', pattern: /^\d{9}$/, placeholder: '791234567', maxLength: 9 },
+  { code: '+961', digits: '961', country: 'Lebanon', iso: 'LB', pattern: /^\d{7,8}$/, placeholder: '71123456', maxLength: 8 },
+  { code: '+33', digits: '33', country: 'France', iso: 'FR', pattern: /^\d{9}$/, placeholder: '612345678', maxLength: 9 },
+  { code: '+49', digits: '49', country: 'Germany', iso: 'DE', pattern: /^\d{10,11}$/, placeholder: '15112345678', maxLength: 11 },
+  { code: '+39', digits: '39', country: 'Italy', iso: 'IT', pattern: /^\d{9,10}$/, placeholder: '3123456789', maxLength: 10 },
+  { code: '+34', digits: '34', country: 'Spain', iso: 'ES', pattern: /^\d{9}$/, placeholder: '612345678', maxLength: 9 },
+  { code: '+31', digits: '31', country: 'Netherlands', iso: 'NL', pattern: /^\d{9}$/, placeholder: '612345678', maxLength: 9 },
+  { code: '+32', digits: '32', country: 'Belgium', iso: 'BE', pattern: /^\d{9}$/, placeholder: '470123456', maxLength: 9 },
+  { code: '+41', digits: '41', country: 'Switzerland', iso: 'CH', pattern: /^\d{9}$/, placeholder: '781234567', maxLength: 9 },
+  { code: '+43', digits: '43', country: 'Austria', iso: 'AT', pattern: /^\d{10,11}$/, placeholder: '6641234567', maxLength: 11 },
+  { code: '+90', digits: '90', country: 'Turkey', iso: 'TR', pattern: /^\d{10}$/, placeholder: '5321234567', maxLength: 10 },
+  { code: '+7', digits: '7', country: 'Russia', iso: 'RU', pattern: /^\d{10}$/, placeholder: '9123456789', maxLength: 10 },
+  { code: '+86', digits: '86', country: 'China', iso: 'CN', pattern: /^\d{11}$/, placeholder: '13912345678', maxLength: 11 },
+  { code: '+81', digits: '81', country: 'Japan', iso: 'JP', pattern: /^\d{10}$/, placeholder: '9012345678', maxLength: 10 },
+  { code: '+82', digits: '82', country: 'South Korea', iso: 'KR', pattern: /^\d{10,11}$/, placeholder: '1012345678', maxLength: 11 },
+  { code: '+91', digits: '91', country: 'India', iso: 'IN', pattern: /^\d{10}$/, placeholder: '9876543210', maxLength: 10 },
+  { code: '+92', digits: '92', country: 'Pakistan', iso: 'PK', pattern: /^\d{10}$/, placeholder: '3001234567', maxLength: 10 },
+  { code: '+880', digits: '880', country: 'Bangladesh', iso: 'BD', pattern: /^\d{10}$/, placeholder: '1712345678', maxLength: 10 },
+  { code: '+94', digits: '94', country: 'Sri Lanka', iso: 'LK', pattern: /^\d{9}$/, placeholder: '712345678', maxLength: 9 },
+  { code: '+60', digits: '60', country: 'Malaysia', iso: 'MY', pattern: /^\d{9,10}$/, placeholder: '123456789', maxLength: 10 },
+  { code: '+65', digits: '65', country: 'Singapore', iso: 'SG', pattern: /^\d{8}$/, placeholder: '91234567', maxLength: 8 },
+  { code: '+66', digits: '66', country: 'Thailand', iso: 'TH', pattern: /^\d{9}$/, placeholder: '812345678', maxLength: 9 },
+  { code: '+84', digits: '84', country: 'Vietnam', iso: 'VN', pattern: /^\d{9,10}$/, placeholder: '912345678', maxLength: 10 },
+  { code: '+62', digits: '62', country: 'Indonesia', iso: 'ID', pattern: /^\d{9,12}$/, placeholder: '81234567890', maxLength: 12 },
+  { code: '+63', digits: '63', country: 'Philippines', iso: 'PH', pattern: /^\d{10}$/, placeholder: '9171234567', maxLength: 10 },
+  { code: '+61', digits: '61', country: 'Australia', iso: 'AU', pattern: /^\d{9}$/, placeholder: '412345678', maxLength: 9 },
+  { code: '+64', digits: '64', country: 'New Zealand', iso: 'NZ', pattern: /^\d{9}$/, placeholder: '211234567', maxLength: 9 },
+  { code: '+55', digits: '55', country: 'Brazil', iso: 'BR', pattern: /^\d{10,11}$/, placeholder: '11912345678', maxLength: 11 },
+  { code: '+52', digits: '52', country: 'Mexico', iso: 'MX', pattern: /^\d{10}$/, placeholder: '5512345678', maxLength: 10 },
+  { code: '+54', digits: '54', country: 'Argentina', iso: 'AR', pattern: /^\d{10}$/, placeholder: '1112345678', maxLength: 10 },
+  { code: '+56', digits: '56', country: 'Chile', iso: 'CL', pattern: /^\d{9}$/, placeholder: '912345678', maxLength: 9 },
+  { code: '+57', digits: '57', country: 'Colombia', iso: 'CO', pattern: /^\d{10}$/, placeholder: '3123456789', maxLength: 10 },
+  { code: '+51', digits: '51', country: 'Peru', iso: 'PE', pattern: /^\d{9}$/, placeholder: '987654321', maxLength: 9 },
+  { code: '+27', digits: '27', country: 'South Africa', iso: 'ZA', pattern: /^\d{9}$/, placeholder: '821234567', maxLength: 9 },
+  { code: '+234', digits: '234', country: 'Nigeria', iso: 'NG', pattern: /^\d{10}$/, placeholder: '8031234567', maxLength: 10 },
+  { code: '+254', digits: '254', country: 'Kenya', iso: 'KE', pattern: /^\d{9}$/, placeholder: '712345678', maxLength: 9 },
+  { code: '+212', digits: '212', country: 'Morocco', iso: 'MA', pattern: /^\d{9}$/, placeholder: '612345678', maxLength: 9 },
+  { code: '+213', digits: '213', country: 'Algeria', iso: 'DZ', pattern: /^\d{9}$/, placeholder: '551234567', maxLength: 9 },
+  { code: '+216', digits: '216', country: 'Tunisia', iso: 'TN', pattern: /^\d{8}$/, placeholder: '22123456', maxLength: 8 },
+  { code: '+218', digits: '218', country: 'Libya', iso: 'LY', pattern: /^\d{9}$/, placeholder: '911234567', maxLength: 9 },
+  { code: '+249', digits: '249', country: 'Sudan', iso: 'SD', pattern: /^\d{9}$/, placeholder: '912345678', maxLength: 9 },
+  { code: '+965', digits: '965', country: 'Kuwait', iso: 'KW', pattern: /^\d{8}$/, placeholder: '50123456', maxLength: 8 },
+  { code: '+968', digits: '968', country: 'Oman', iso: 'OM', pattern: /^\d{8}$/, placeholder: '92123456', maxLength: 8 },
+  { code: '+973', digits: '973', country: 'Bahrain', iso: 'BH', pattern: /^\d{8}$/, placeholder: '36123456', maxLength: 8 },
+  { code: '+974', digits: '974', country: 'Qatar', iso: 'QA', pattern: /^\d{8}$/, placeholder: '55123456', maxLength: 8 },
+  { code: '+964', digits: '964', country: 'Iraq', iso: 'IQ', pattern: /^\d{10}$/, placeholder: '7901234567', maxLength: 10 },
+  { code: '+972', digits: '972', country: 'Israel', iso: 'IL', pattern: /^\d{9}$/, placeholder: '501234567', maxLength: 9 },
+  { code: '+98', digits: '98', country: 'Iran', iso: 'IR', pattern: /^\d{10}$/, placeholder: '9123456789', maxLength: 10 },
+  { code: '+93', digits: '93', country: 'Afghanistan', iso: 'AF', pattern: /^\d{9}$/, placeholder: '701234567', maxLength: 9 },
 ];
+
+// Pre-sorted by digits length DESC for longest-prefix-first matching
+const sortedByDigitsLen = [...countryCodes].sort((a, b) => b.digits.length - a.digits.length);
+
+/** Given a digits-only phone string, detect country + local number */
+export function parseDigitsPhone(digits: string): { country: typeof countryCodes[0]; local: string } | null {
+  if (!digits) return null;
+  const clean = digits.replace(/[^\d]/g, '');
+  if (!clean) return null;
+  for (const c of sortedByDigitsLen) {
+    if (clean.startsWith(c.digits)) {
+      const local = clean.slice(c.digits.length);
+      if (c.pattern.test(local)) {
+        return { country: c, local };
+      }
+    }
+  }
+  // Fallback: couldn't match — try Egypt (default) if it starts with 20
+  const egypt = countryCodes[0];
+  if (clean.startsWith('20')) {
+    return { country: egypt, local: clean.slice(2) };
+  }
+  // Last resort: return Egypt with full digits as local
+  return { country: egypt, local: clean };
+}
 
 interface PhoneInputProps {
   value: string;
@@ -74,26 +100,24 @@ export default function PhoneInput({ value, onChange, error, required = false }:
   const [phoneNumber, setPhoneNumber] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const initialParseDone = useRef(false);
 
-  // Parse existing value on mount
+  // Parse existing digits-only value on mount or when value changes externally
   useEffect(() => {
+    if (initialParseDone.current) return;
     if (value) {
-      // Try to parse existing phone number
-      const matched = countryCodes.find(c => value.startsWith(c.code));
-      if (matched) {
-        setSelectedCountry(matched);
-        setPhoneNumber(value.slice(matched.code.length).replace(/\s/g, ''));
-      } else if (value.startsWith('+')) {
-        // Unknown country code, just use the number part
-        const parts = value.match(/^\+(\d+)\s*(.*)$/);
-        if (parts) {
-          setPhoneNumber(parts[2].replace(/\s/g, ''));
-        }
+      // Strip any '+' that may have leaked in
+      const clean = value.replace(/[^\d]/g, '');
+      const parsed = parseDigitsPhone(clean);
+      if (parsed) {
+        setSelectedCountry(parsed.country);
+        setPhoneNumber(parsed.local);
       } else {
-        setPhoneNumber(value.replace(/\s/g, ''));
+        setPhoneNumber(clean);
       }
+      initialParseDone.current = true;
     }
-  }, []);
+  }, [value]);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -111,15 +135,22 @@ export default function PhoneInput({ value, onChange, error, required = false }:
     c =>
       c.country.toLowerCase().includes(search.toLowerCase()) ||
       c.code.includes(search) ||
+      c.digits.includes(search) ||
       c.iso.toLowerCase().includes(search.toLowerCase())
   );
+
+  // Emit digits-only value: countryDigits + localNumber (no '+')
+  const emitValue = useCallback((country: typeof countryCodes[0], local: string) => {
+    onChange(local ? `${country.digits}${local}` : '');
+  }, [onChange]);
 
   // Handle phone number change
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const rawValue = e.target.value.replace(/\D/g, ''); // Only digits
     const limited = rawValue.slice(0, selectedCountry.maxLength);
     setPhoneNumber(limited);
-    onChange(`${selectedCountry.code}${limited}`);
+    initialParseDone.current = true;
+    emitValue(selectedCountry, limited);
   };
 
   // Handle country selection
@@ -127,7 +158,8 @@ export default function PhoneInput({ value, onChange, error, required = false }:
     setSelectedCountry(country);
     setIsOpen(false);
     setSearch('');
-    onChange(`${country.code}${phoneNumber}`);
+    initialParseDone.current = true;
+    emitValue(country, phoneNumber);
     inputRef.current?.focus();
   };
 
@@ -218,18 +250,20 @@ export default function PhoneInput({ value, onChange, error, required = false }:
   );
 }
 
-// Helper function to validate phone number with country code
+// Helper function to validate a digits-only phone number (no '+' prefix)
 export function validatePhoneNumber(phone: string): { valid: boolean; message?: string } {
   if (!phone) return { valid: false, message: 'Phone number is required' };
   
-  const matched = countryCodes.find(c => phone.startsWith(c.code));
-  if (!matched) {
-    return { valid: false, message: 'Invalid country code' };
+  const clean = phone.replace(/[^\d]/g, '');
+  if (!clean) return { valid: false, message: 'Phone number is required' };
+
+  const parsed = parseDigitsPhone(clean);
+  if (!parsed) {
+    return { valid: false, message: 'Invalid phone number' };
   }
-  
-  const numberPart = phone.slice(matched.code.length);
-  if (!matched.pattern.test(numberPart)) {
-    return { valid: false, message: `${matched.country} numbers require ${matched.maxLength} digits` };
+
+  if (!parsed.country.pattern.test(parsed.local)) {
+    return { valid: false, message: `${parsed.country.country} numbers require ${parsed.country.maxLength} digits` };
   }
   
   return { valid: true };

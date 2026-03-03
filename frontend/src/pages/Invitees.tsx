@@ -37,6 +37,7 @@ import TablePagination from '../components/common/TablePagination';
 import SortableColumnHeader, { applySorting, type SortDirection } from '../components/common/SortableColumnHeader';
 import { formatDateEgypt, formatEventDateTime, formatEventDate } from '../utils/formatters';
 import { exportToExcel, exportToPDF, exportToCSV } from '../utils/exportHelpers';
+import PhoneInput, { validatePhoneNumber } from '../components/common/PhoneInput';
 
 // Status display helpers
 const statusColors: Record<string, string> = {
@@ -516,11 +517,9 @@ export default function Invitees() {
     if (!formData.phone?.trim()) {
       errors.phone = 'Phone is required';
     } else {
-      const p = formData.phone.trim().replace(/[^\d]/g, '');
-      if (p.length < 7 || p.length > 15 || !/^[1-9]/.test(p)) {
-        errors.phone = 'Enter international phone number (7-15 digits, no +). E.g. 201012345678';
-      } else if (p.startsWith('20') && (p.length !== 12 || !/^201/.test(p))) {
-        errors.phone = 'Egyptian numbers must be 12 digits starting with 201';
+      const phoneResult = validatePhoneNumber(formData.phone);
+      if (!phoneResult.valid) {
+        errors.phone = phoneResult.message || 'Invalid phone number';
       }
     }
     if (!formData.inviter_id) {
@@ -1985,27 +1984,19 @@ export default function Invitees() {
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Phone <span className="text-red-500">*</span>
                     </label>
-                    <input
-                      type="tel"
+                    <PhoneInput
                       value={formData.phone}
-                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                      placeholder="201012345678 or 971501234567"
-                      maxLength={15}
-                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-700 dark:text-white ${formErrors.phone ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
-                        }`}
+                      onChange={(val) => setFormData({ ...formData, phone: val })}
+                      error={formErrors.phone}
+                      required
                     />
-                    {formErrors.phone && <p className="text-red-500 text-sm mt-1">{formErrors.phone}</p>}
                   </div>
                   {/* Secondary Phone */}
                   <div className="col-span-1">
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Secondary Phone</label>
-                    <input
-                      type="tel"
+                    <PhoneInput
                       value={formData.secondary_phone || ''}
-                      onChange={(e) => setFormData({ ...formData, secondary_phone: e.target.value })}
-                      placeholder="201012345678"
-                      maxLength={15}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-700 dark:text-white"
+                      onChange={(val) => setFormData({ ...formData, secondary_phone: val })}
                     />
                   </div>
                   {/* Optional Fields - Right Column */}
@@ -2175,26 +2166,19 @@ export default function Invitees() {
                   {/* Phone */}
                   <div className="col-span-1">
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Phone <span className="text-red-500">*</span></label>
-                    <input
-                      type="tel"
+                    <PhoneInput
                       value={formData.phone}
-                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                      placeholder="201012345678 or 971501234567"
-                      maxLength={15}
-                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-700 dark:text-white ${formErrors.phone ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'}`}
+                      onChange={(val) => setFormData({ ...formData, phone: val })}
+                      error={formErrors.phone}
+                      required
                     />
-                    {formErrors.phone && <p className="text-red-500 text-sm mt-1">{formErrors.phone}</p>}
                   </div>
                   {/* Secondary Phone */}
                   <div className="col-span-1">
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Secondary Phone</label>
-                    <input
-                      type="tel"
+                    <PhoneInput
                       value={formData.secondary_phone || ''}
-                      onChange={(e) => setFormData({ ...formData, secondary_phone: e.target.value })}
-                      placeholder="201012345678"
-                      maxLength={15}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-700 dark:text-white"
+                      onChange={(val) => setFormData({ ...formData, secondary_phone: val })}
                     />
                   </div>
                   {/* Category */}
