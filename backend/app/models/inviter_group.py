@@ -42,5 +42,10 @@ class InviterGroup(db.Model):
     
     @staticmethod
     def get_by_name(name):
-        """Get inviter group by name"""
-        return InviterGroup.query.filter_by(name=name).first()
+        """Get inviter group by name (case-insensitive, whitespace-tolerant)"""
+        if not name:
+            return None
+        cleaned = name.strip().strip('\u200b\ufeff\xa0')
+        return InviterGroup.query.filter(
+            db.func.lower(db.func.trim(InviterGroup.name)) == cleaned.lower()
+        ).first()

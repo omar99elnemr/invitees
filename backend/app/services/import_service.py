@@ -37,7 +37,7 @@ class ImportService:
         Import contacts from Excel or CSV file.
         Extracts: name, email, phone, inviter, category, allowed_guests, etc.
         Mandatory: name, email, phone, inviter. Others optional.
-        Validates phone: must start with 201 and be 12 digits. Skips invalid entries.
+        Validates phone: international digits only (no '+'). Skips invalid entries.
         Returns dict with import results.
         """
         # Read file based on extension
@@ -334,7 +334,7 @@ class ImportService:
         for index, row in df.iterrows():
             try:
                 # Extract inviter group
-                group_name = str(row['inviter_group']).strip() if pd.notna(row['inviter_group']) else None
+                group_name = str(row['inviter_group']).strip().strip('\u200b\ufeff\xa0') if pd.notna(row['inviter_group']) else None
                 name = str(row['name']).strip() if pd.notna(row['name']) else None
                 email = str(row['email']).strip().lower() if pd.notna(row['email']) else None
                 from app.utils.phone import clean_phone
@@ -524,7 +524,7 @@ class ImportService:
             ["Column Name", "Required?", "Description", "Example", "", "", "", "", "", ""],
             ["Name", "YES", "Full name of the invitee", "John Smith", "", "", "", "", "", ""],
             ["Email", "YES", "Valid email address", "john@example.com", "", "", "", "", "", ""],
-            ["Phone", "YES", "Phone number (must start with 201 and be 12 digits)", "201012345678", "", "", "", "", "", ""],
+            ["Phone", "YES", "International phone (digits only, no '+'). E.g. Egypt: 201XXXXXXXXX, UAE: 971XXXXXXXXX", "201012345678", "", "", "", "", "", ""],
             ["Inviter", "YES", "Name of inviter (person or group)", "Ali Hassan", "", "", "", "", "", ""],
             [],
             ["OPTIONAL COLUMNS", "", "", "", "", "", "", "", "", ""],
@@ -538,7 +538,7 @@ class ImportService:
             ["IMPORTANT NOTES", "", "", "", "", "", "", "", "", ""],
             ["1. Do not change the column headers in the template", "", "", "", "", "", "", "", "", ""],
             ["2. All rows with missing Name, Email, Phone, or Inviter will be skipped", "", "", "", "", "", "", "", "", ""],
-            ["3. Phone: digits only, no '+'. Egypt numbers must start with 20 (e.g., 201012345678)", "", "", "", "", "", "", "", "", ""],
+            ["3. Phone: digits only, no '+'. Country code + local number. Egypt: 201XXXXXXXXX (12 digits), UAE: 971XXXXXXXXX, etc.", "", "", "", "", "", "", "", "", ""],
             ["4. If a contact with the same phone already exists, the row will be skipped or updated", "", "", "", "", "", "", "", "", ""],
             ["5. After importing contacts, go to the Events tab to submit them to events", "", "", "", "", "", "", "", "", ""],
             [],
@@ -623,7 +623,7 @@ class ImportService:
             ["Inviter_Group", "YES", "Name of the inviter group (must already exist)", "Marketing Team", "", "", "", "", "", ""],
             ["Name", "YES", "Full name of the invitee", "John Smith", "", "", "", "", "", ""],
             ["Email", "YES", "Valid email address", "john@example.com", "", "", "", "", "", ""],
-            ["Phone", "YES", "International phone (digits only, no +). Egypt: 201XXXXXXXXX", "201012345678", "", "", "", "", "", ""],
+            ["Phone", "YES", "International phone (digits only, no '+'). E.g. Egypt: 201XXXXXXXXX, UAE: 971XXXXXXXXX", "201012345678", "", "", "", "", "", ""],
             ["Inviter", "YES", "Name of inviter (auto-created if new in group)", "Ali Hassan", "", "", "", "", "", ""],
             [],
             ["OPTIONAL COLUMNS", "", "", "", "", "", "", "", "", ""],
@@ -637,7 +637,7 @@ class ImportService:
             ["IMPORTANT NOTES", "", "", "", "", "", "", "", "", ""],
             ["1. Inviter groups must exist before import — create them in the Groups page", "", "", "", "", "", "", "", "", ""],
             ["2. Inviters are automatically created within the specified group if they don't exist", "", "", "", "", "", "", "", "", ""],
-            ["3. Phone: digits only, no '+'. Egypt numbers must start with 20 (e.g., 201012345678)", "", "", "", "", "", "", "", "", ""],
+            ["3. Phone: digits only, no '+'. Country code + local number. Egypt: 201XXXXXXXXX (12 digits), UAE: 971XXXXXXXXX, etc.", "", "", "", "", "", "", "", "", ""],
             ["4. If a contact with the same phone already exists in the group, it will be updated", "", "", "", "", "", "", "", "", ""],
             ["5. You can mix contacts from different groups in one file", "", "", "", "", "", "", "", "", ""],
             [],
