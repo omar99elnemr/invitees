@@ -109,6 +109,7 @@ export default function Approvals() {
     const matchesSearch =
       approval.invitee_name?.toLowerCase().includes(q) ||
       approval.invitee_email?.toLowerCase().includes(q) ||
+      approval.invitee_phone?.toLowerCase().includes(q) ||
       approval.inviter_name?.toLowerCase().includes(q) ||
       approval.invitee_position?.toLowerCase().includes(q) ||
       approval.invitee_company?.toLowerCase().includes(q);
@@ -124,6 +125,7 @@ export default function Approvals() {
     const matchesSearch =
       invitee.invitee_name?.toLowerCase().includes(q) ||
       invitee.invitee_email?.toLowerCase().includes(q) ||
+      invitee.invitee_phone?.toLowerCase().includes(q) ||
       invitee.inviter_name?.toLowerCase().includes(q) ||
       invitee.invitee_position?.toLowerCase().includes(q) ||
       invitee.invitee_company?.toLowerCase().includes(q);
@@ -465,7 +467,7 @@ export default function Approvals() {
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
           <input
             type="text"
-            placeholder="Search by name, email, or inviter..."
+            placeholder="Search by name, phone, email, or inviter..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-800 dark:text-white"

@@ -314,10 +314,10 @@ export const inviteesAPI = {
 // =========================
 export const approvalsAPI = {
   getPending: (filters?: ReportFilters) =>
-    api.get<EventInvitee[]>('/approvals/pending', { params: filters }),
+    api.get<EventInvitee[]>('/approvals/pending', { params: { ...filters, include_contact_details: 'true' } }),
 
   getApproved: (filters?: ReportFilters) =>
-    api.get<EventInvitee[]>('/approvals/approved', { params: filters }),
+    api.get<EventInvitee[]>('/approvals/approved', { params: { ...filters, include_contact_details: 'true' } }),
 
   approve: (event_invitee_ids: number[], notes?: string) =>
     api.post<ApprovalResult>('/approvals/approve', { event_invitee_ids, notes }),
