@@ -377,6 +377,52 @@ export default function Invitees() {
     setShowExportMenu(false);
   };
 
+  // Build deduplicated master contact list (all contacts, first-by-phone, no group columns)
+  const getMasterContactListData = () => {
+    const seen = new Set<string>();
+    const result: Record<string, string | number>[] = [];
+    for (const c of contacts) {
+      const key = c.phone || '';
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      result.push({
+        'Name': c.name || '',
+        'Phone': c.phone || '',
+        '2nd Phone': c.secondary_phone || '',
+        'Email': c.email || '',
+        'Category': c.category || '',
+        'Position': c.position || '',
+        'Company': c.company || '',
+      });
+    }
+    return result;
+  };
+
+  const handleMasterListExport = (format: 'excel' | 'csv') => {
+    const data = getMasterContactListData();
+    if (data.length === 0) {
+      toast.error('No contacts to export');
+      return;
+    }
+    const filename = `master_contact_list_${new Date().toISOString().split('T')[0]}`;
+    const title = 'Master Contact List';
+    const logoOptions = exportLogosLoaded
+      ? { logoLeft: exportLogoLeft, logoRight: exportLogoRight, logoScale, logoPaddingTop, logoPaddingBottom }
+      : undefined;
+
+    try {
+      if (format === 'excel') {
+        exportToExcel(data, filename, title, logoImageData, logoOptions);
+      } else {
+        exportToCSV(data, filename);
+      }
+      toast.success(`Exported ${data.length} unique contacts as ${format.toUpperCase()}`);
+    } catch {
+      toast.error('Failed to export master contact list');
+    }
+    setShowExportMenu(false);
+  };
+
   // React to URL param changes (deep-linking from dashboard)
   useEffect(() => {
     if (urlTab === 'events' || urlTab === 'contacts') {
@@ -1749,6 +1795,24 @@ export default function Invitees() {
                         >
                           <Printer className="w-4 h-4" />
                           Print
+                        </button>
+                        <div className="border-t border-gray-100 dark:border-gray-700 my-1" />
+                        <div className="px-4 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+                          Master Contact List
+                        </div>
+                        <button
+                          onClick={() => handleMasterListExport('csv')}
+                          className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 flex items-center gap-2.5"
+                        >
+                          <Download className="w-4 h-4" />
+                          CSV (Unique)
+                        </button>
+                        <button
+                          onClick={() => handleMasterListExport('excel')}
+                          className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 flex items-center gap-2.5"
+                        >
+                          <FileSpreadsheet className="w-4 h-4" />
+                          Excel (Unique)
                         </button>
                       </div>
                     )}
