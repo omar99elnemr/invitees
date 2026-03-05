@@ -237,7 +237,11 @@ class InviteeService:
         
         # Handle new fields
         if secondary_phone is not None:
-            invitee.secondary_phone = secondary_phone if secondary_phone else None
+            if secondary_phone:
+                from app.utils.phone import clean_phone
+                invitee.secondary_phone = clean_phone(secondary_phone)
+            else:
+                invitee.secondary_phone = None
         
         if title is not None:
             invitee.title = title if title else None

@@ -6,7 +6,7 @@ import { useState, useEffect, useRef } from 'react';
 import { FormSkeleton } from '../components/common/LoadingSkeleton';
 import { Upload, Trash2, Image, Save, RefreshCw, AlertCircle, CheckCircle, Pencil, Download, Database, FileSpreadsheet, FileText, FileJson, Shield, Users as UsersIcon, Calendar, UserCheck, Tag, Building, ZoomIn, ChevronDown, Settings, Clock, BarChart3 } from 'lucide-react';
 import ImageEditor from '../components/common/ImageEditor';
-import { settingsAPI } from '../services/api';
+import { settingsAPI, inviteesAPI } from '../services/api';
 import type { ExportSettings as ExportSettingsType } from '../services/api';
 import toast from 'react-hot-toast';
 import { setTimeFormat } from '../utils/formatters';
@@ -43,6 +43,7 @@ export default function ExportSettings() {
   // Accordion state
   const [logoSectionOpen, setLogoSectionOpen] = useState(true);
   const [backupSectionOpen, setBackupSectionOpen] = useState(false);
+  const [masterListSectionOpen, setMasterListSectionOpen] = useState(false);
   const [generalSectionOpen, setGeneralSectionOpen] = useState(true);
 
   // General config state
@@ -627,6 +628,9 @@ export default function ExportSettings() {
 
       {/* ==================== SECTION 3: Data Backup (Collapsible) ==================== */}
       <DataBackupSection isOpen={backupSectionOpen} onToggle={() => setBackupSectionOpen(!backupSectionOpen)} />
+
+      {/* ==================== SECTION 4: Master Contact List (Collapsible) ==================== */}
+      <MasterContactListSection isOpen={masterListSectionOpen} onToggle={() => setMasterListSectionOpen(!masterListSectionOpen)} />
     </div>
   );
 }
@@ -772,6 +776,211 @@ function LogoCard({ side, title, description, image, status, meta, inputRef, onF
   );
 }
 
+
+// ===================================
+// Master Contact List Section
+// ===================================
+function MasterContactListSection({ isOpen, onToggle }: { isOpen: boolean; onToggle: () => void }) {
+  const [contacts, setContacts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const [exporting, setExporting] = useState(false);
+
+  const totalContacts = contacts.length;
+  const uniqueMap = new Map<string, any>();
+  for (const c of contacts) {
+    const key = c.phone || '';
+    if (key && !uniqueMap.has(key)) uniqueMap.set(key, c);
+  }
+  const uniqueContacts = Array.from(uniqueMap.values());
+  const uniqueCount = uniqueContacts.length;
+  const duplicateCount = totalContacts - uniqueCount;
+
+  const fetchContacts = async () => {
+    if (loaded) return;
+    setLoading(true);
+    try {
+      const res = await inviteesAPI.getAll();
+      setContacts(res.data);
+      setLoaded(true);
+    } catch {
+      toast.error('Failed to load contacts');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fetch when section opens
+  const handleToggle = () => {
+    if (!isOpen && !loaded) fetchContacts();
+    onToggle();
+  };
+
+  const buildExportData = () => {
+    return uniqueContacts.map(c => ({
+      'Name': c.name || '',
+      'Phone': c.phone || '',
+      '2nd Phone': c.secondary_phone || '',
+      'Email': c.email || '',
+      'Category': c.category || '',
+      'Position': c.position || '',
+      'Company': c.company || '',
+    }));
+  };
+
+  const downloadFile = (content: string, filename: string, mime: string) => {
+    const blob = new Blob([content], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExport = async (fmt: 'csv' | 'excel') => {
+    const data = buildExportData();
+    if (data.length === 0) {
+      toast.error('No contacts to export');
+      return;
+    }
+    setExporting(true);
+    const ts = format(new Date(), 'yyyy-MM-dd_HHmm');
+    try {
+      if (fmt === 'csv') {
+        const csv = Papa.unparse(data);
+        downloadFile(csv, `master_contact_list_${ts}.csv`, 'text/csv');
+      } else {
+        const ExcelJS = await import('exceljs');
+        const workbook = new ExcelJS.Workbook();
+        const ws = workbook.addWorksheet('Master Contact List');
+        const headers = Object.keys(data[0]);
+        const headerRow = ws.addRow(headers);
+        headerRow.eachCell(cell => {
+          cell.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 10 };
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2980B9' } };
+          cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        });
+        data.forEach(row => {
+          ws.addRow(headers.map(h => (row as Record<string, any>)[h] ?? ''));
+        });
+        headers.forEach((h, i) => {
+          let max = h.length;
+          data.forEach(r => { const v = String((r as Record<string, any>)[h] || ''); if (v.length > max) max = v.length; });
+          ws.getColumn(i + 1).width = Math.min(Math.max(max + 2, 10), 40);
+        });
+        const buffer = await workbook.xlsx.writeBuffer();
+        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `master_contact_list_${ts}.xlsx`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
+      toast.success(`Exported ${data.length} unique contacts as ${fmt.toUpperCase()}`);
+    } catch (err: any) {
+      console.error('Export failed:', err);
+      toast.error('Failed to export master contact list');
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  return (
+    <div className="rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-hidden">
+      <button
+        onClick={handleToggle}
+        className="w-full px-6 py-4 flex items-center justify-between bg-gradient-to-r from-violet-50 to-purple-50 dark:from-violet-900/20 dark:to-purple-900/20 hover:from-violet-100 hover:to-purple-100 dark:hover:from-violet-900/30 dark:hover:to-purple-900/30 transition-colors"
+      >
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 bg-gradient-to-br from-violet-500 to-purple-600 rounded-lg flex items-center justify-center shadow">
+            <UsersIcon className="w-4.5 h-4.5 text-white" />
+          </div>
+          <div className="text-left">
+            <h2 className="text-base font-semibold text-gray-900 dark:text-white">Master Contact List</h2>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Export all unique contacts across groups — deduplicated for campaigns & communications</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          {loaded && (
+            <span className="text-xs font-medium text-violet-600 dark:text-violet-400 bg-violet-100 dark:bg-violet-900/30 px-2.5 py-1 rounded-full">
+              {uniqueCount.toLocaleString()} unique
+            </span>
+          )}
+          <ChevronDown className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+        </div>
+      </button>
+
+      {isOpen && <div className="border-t border-gray-200 dark:border-gray-700 p-6 space-y-5">
+        {loading ? (
+          <div className="flex items-center justify-center py-8">
+            <RefreshCw className="w-5 h-5 animate-spin text-violet-500 mr-2" />
+            <span className="text-sm text-gray-500">Loading contacts…</span>
+          </div>
+        ) : loaded ? (
+          <>
+            {/* Stats */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="p-4 rounded-lg bg-gray-50 dark:bg-gray-700/40 border border-gray-200 dark:border-gray-600">
+                <div className="text-2xl font-bold text-gray-900 dark:text-white">{totalContacts.toLocaleString()}</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Total Contacts</div>
+              </div>
+              <div className="p-4 rounded-lg bg-violet-50 dark:bg-violet-900/20 border border-violet-200 dark:border-violet-800/40">
+                <div className="text-2xl font-bold text-violet-700 dark:text-violet-300">{uniqueCount.toLocaleString()}</div>
+                <div className="text-xs text-violet-600 dark:text-violet-400 mt-0.5">Unique Contacts (by phone)</div>
+              </div>
+              <div className="p-4 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/40">
+                <div className="text-2xl font-bold text-amber-700 dark:text-amber-300">{duplicateCount.toLocaleString()}</div>
+                <div className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">Duplicates Removed</div>
+              </div>
+            </div>
+
+            {/* Info */}
+            <div className="flex items-start gap-3 p-3 bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800/30 rounded-lg">
+              <AlertCircle className="w-4 h-4 text-blue-500 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+              <div className="text-xs text-blue-700 dark:text-blue-300">
+                <span className="font-medium">What's included:</span> Name, Phone, 2nd Phone, Email, Category, Position, Company.
+                <br />Group-specific data (Inviter, Group, event stats) is excluded. First occurrence per phone number is kept.
+              </div>
+            </div>
+
+            {/* Export */}
+            <div>
+              <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Export Format</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <button
+                  onClick={() => handleExport('csv')}
+                  disabled={exporting || uniqueCount === 0}
+                  className="flex items-center justify-center gap-2.5 px-4 py-3 rounded-xl border-2 border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 font-medium text-sm hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <FileText className="w-5 h-5" />
+                  CSV
+                  <span className="text-[10px] font-normal opacity-70">Flat file</span>
+                </button>
+                <button
+                  onClick={() => handleExport('excel')}
+                  disabled={exporting || uniqueCount === 0}
+                  className="flex items-center justify-center gap-2.5 px-4 py-3 rounded-xl border-2 border-purple-200 dark:border-purple-800 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-400 font-medium text-sm hover:bg-purple-100 dark:hover:bg-purple-900/40 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <FileSpreadsheet className="w-5 h-5" />
+                  Excel
+                  <span className="text-[10px] font-normal opacity-70">Formatted workbook</span>
+                </button>
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className="text-center py-6 text-sm text-gray-400">Open this section to load contacts</div>
+        )}
+      </div>}
+    </div>
+  );
+}
 
 // =========================
 // Data Backup Section

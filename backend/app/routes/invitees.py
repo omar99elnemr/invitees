@@ -193,10 +193,13 @@ def create_contact():
         return jsonify({'error': 'Invalid email format'}), 400
     
     # Normalize and validate phone
-    from app.utils.phone import normalize_and_validate
+    from app.utils.phone import normalize_and_validate, clean_phone as _clean_phone
     phone, phone_valid, phone_error = normalize_and_validate(data['phone'])
     if not phone_valid:
         return jsonify({'error': f'Invalid phone: {phone_error}'}), 400
+    
+    # Normalize secondary phone (optional)
+    secondary_phone = _clean_phone(data.get('secondary_phone')) if data.get('secondary_phone') else None
     
     # Clean email
     email = data['email'].lower().strip()
@@ -215,8 +218,8 @@ def create_contact():
     invitee = Invitee(
         name=data['name'],
         email=email,
-        phone=data['phone'],
-        secondary_phone=data.get('secondary_phone'),
+        phone=phone,
+        secondary_phone=secondary_phone,
         title=data.get('title'),
         address=data.get('address'),
         position=data.get('position'),
