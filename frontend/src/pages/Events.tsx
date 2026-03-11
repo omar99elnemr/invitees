@@ -472,13 +472,14 @@ export default function Events() {
     setLoadingPin(true);
     try {
       const response = await eventsAPI.getCheckinPin(event.id);
-      setPinInfo(response.data);
-      setAutoDeactivateHours(response.data.auto_deactivate_hours);
-    } catch (error: any) {
-      // No PIN exists yet - that's ok
-      if (error.response?.status !== 404) {
-        toast.error('Failed to load PIN info');
+      if (response.data.has_pin === false) {
+        setPinInfo(null);
+      } else {
+        setPinInfo(response.data);
+        setAutoDeactivateHours(response.data.auto_deactivate_hours);
       }
+    } catch (error: any) {
+      toast.error('Failed to load PIN info');
     } finally {
       setLoadingPin(false);
     }

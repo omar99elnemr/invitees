@@ -78,6 +78,7 @@ export interface Invitee {
   phone: string;
   position?: string;
   company?: string;
+  unit_number?: string;
   category?: InviteeCategory;
   inviter_group_id?: number;
   inviter_group_name?: string;
@@ -92,6 +93,7 @@ export interface InviteeWithStats extends Invitee {
   inviter_name?: string;
   plus_one?: number;
   secondary_phone?: string;
+  unit_number?: string;
   total_events: number;
   approved_count: number;
   rejected_count: number;
@@ -110,6 +112,7 @@ export interface EventInvitee {
   invitee_phone?: string;
   invitee_position?: string;
   invitee_company?: string;
+  invitee_unit_number?: string;
   invitee_title?: string;
   category?: InviteeCategory;
   category_id?: number;
@@ -245,6 +248,7 @@ export interface InviteeFormData {
   title?: string;
   position?: string;
   company?: string;
+  unit_number?: string;
   category?: InviteeCategory;
   inviter_id?: number;
   plus_one?: number;

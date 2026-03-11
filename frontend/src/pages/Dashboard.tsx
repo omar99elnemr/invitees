@@ -45,7 +45,7 @@ import {
   CloudLightning,
   CloudFog,
 } from 'lucide-react';
-import { formatDateTimeEgypt, formatEventDate, getHour12 } from '../utils/formatters';
+import { formatDateTimeEgypt, formatEventDate, formatEventDateTime, getHour12 } from '../utils/formatters';
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -445,7 +445,7 @@ function AdminDashboard({ stats, events, recentActivity, navigate, user, selecte
             Recent System Activity
           </h2>
           <button
-            onClick={() => navigate('/reports')}
+            onClick={() => navigate('/reports?report=activity-log')}
             className="text-sm text-indigo-600 hover:text-indigo-700 font-medium"
           >
             View full log
@@ -1121,11 +1121,11 @@ function EventDetailModal({ event, onClose, navigate }: { event: Event; onClose:
           <div className="space-y-2.5">
             <div className="flex items-center gap-2.5 text-sm text-gray-600 dark:text-gray-400">
               <Calendar className="w-4 h-4 text-indigo-400 shrink-0" />
-              <span>{formatEventDate(event.start_date)}</span>
+              <span>{formatEventDateTime(event.start_date)}</span>
             </div>
             <div className="flex items-center gap-2.5 text-sm text-gray-600 dark:text-gray-400">
               <Clock className="w-4 h-4 text-indigo-400 shrink-0" />
-              <span>to {formatEventDate(event.end_date)}</span>
+              <span>to {formatEventDateTime(event.end_date)}</span>
             </div>
             {event.venue && (
               <div className="flex items-center gap-2.5 text-sm text-gray-600 dark:text-gray-400">

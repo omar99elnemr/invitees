@@ -27,6 +27,13 @@ const HEARTBEAT_INTERVAL = 10 * 60 * 1000;
 // Throttle activity updates to avoid excessive processing (2 seconds)
 const ACTIVITY_THROTTLE = 2000;
 
+interface GeneralSettings {
+  time_format: string;
+  expected_total_metric: string;
+  email_required: string;
+  column_visibility: string | null;
+}
+
 interface AuthContextType {
   user: User | null;
   loading: boolean;
@@ -35,6 +42,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   hasRole: (roles: string[]) => boolean;
   refetchUser: () => Promise<void>;
+  generalSettings: GeneralSettings | null;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -42,6 +50,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [generalSettings, setGeneralSettings] = useState<GeneralSettings | null>(null);
   const [showSessionExpiredModal, setShowSessionExpiredModal] = useState(false);
   const lastActivityRef = useRef<number>(Date.now());
   const rememberMeRef = useRef<boolean>(isInstalledApp || localStorage.getItem('rememberMe') === 'true');
@@ -195,14 +204,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(data);
       // Restore remember me preference (PWA always remembers)
       rememberMeRef.current = isInstalledApp || localStorage.getItem('rememberMe') === 'true';
-      // Load system-wide time format preference
+      // Load system-wide settings (time format, column visibility, etc.)
       try {
         const gs = await settingsAPI.getGeneralSettings();
-        const fmt = gs.data.settings?.time_format;
-        if (fmt === '12' || fmt === '24') setTimeFormat(fmt);
+        const s = gs.data.settings;
+        if (s) {
+          setGeneralSettings(s);
+          const fmt = s.time_format;
+          if (fmt === '12' || fmt === '24') setTimeFormat(fmt);
+        }
       } catch { /* non-critical */ }
     } catch (error) {
       setUser(null);
+      setGeneralSettings(null);
       // If not authenticated, clear stale remember flag
       localStorage.removeItem('rememberMe');
     } finally {
@@ -219,11 +233,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setShowSessionExpiredModal(false);
       // Clear any stale session-expired flag from a previous timeout
       localStorage.removeItem('sessionExpired');
-      // Load system-wide time format preference
+      // Load system-wide settings (time format, column visibility, etc.)
       try {
         const gs = await settingsAPI.getGeneralSettings();
-        const fmt = gs.data.settings?.time_format;
-        if (fmt === '12' || fmt === '24') setTimeFormat(fmt);
+        const s = gs.data.settings;
+        if (s) {
+          setGeneralSettings(s);
+          const fmt = s.time_format;
+          if (fmt === '12' || fmt === '24') setTimeFormat(fmt);
+        }
       } catch { /* non-critical */ }
       // Persist remember me preference (PWA always remembers)
       if (isInstalledApp || remember) {
@@ -286,6 +304,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAuthenticated: !!user,
         hasRole,
         refetchUser,
+        generalSettings,
       }}
     >
       {children}

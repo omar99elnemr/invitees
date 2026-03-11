@@ -164,14 +164,20 @@ class ApprovalService:
     @staticmethod
     def get_approval_history(invitee_id):
         """Get approval history for an invitee"""
-        return EventInvitee.query.filter_by(invitee_id=invitee_id).order_by(EventInvitee.status_date.desc()).all()
+        from app.utils.query_helpers import eager_load_event_invitees
+        return eager_load_event_invitees(
+            EventInvitee.query.filter_by(invitee_id=invitee_id)
+        ).order_by(EventInvitee.status_date.desc()).all()
     
     @staticmethod
     def get_approvals_by_approver(approver_user_id, limit=100):
         """Get approvals made by a specific approver"""
-        return EventInvitee.query.filter(
-            EventInvitee.approved_by_user_id == approver_user_id,
-            EventInvitee.status.in_(['approved', 'rejected'])
+        from app.utils.query_helpers import eager_load_event_invitees
+        return eager_load_event_invitees(
+            EventInvitee.query.filter(
+                EventInvitee.approved_by_user_id == approver_user_id,
+                EventInvitee.status.in_(['approved', 'rejected'])
+            )
         ).order_by(EventInvitee.status_date.desc()).limit(limit).all()
     
     @staticmethod
@@ -181,7 +187,10 @@ class ApprovalService:
         from app.models.inviter import Inviter
         from sqlalchemy import or_
         
-        query = EventInvitee.query.filter_by(status='approved')
+        from app.utils.query_helpers import eager_load_event_invitees
+        query = eager_load_event_invitees(
+            EventInvitee.query.filter_by(status='approved')
+        )
         
         if filters:
             if 'event_id' in filters and filters['event_id']:

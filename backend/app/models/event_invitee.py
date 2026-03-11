@@ -78,12 +78,23 @@ class EventInvitee(db.Model):
     def __repr__(self):
         return f'<EventInvitee Event:{self.event_id} Invitee:{self.invitee_id} Status:{self.status}>'
     
-    def to_dict(self, include_relations=True, include_contact_details=True):
-        """Convert event invitee to dictionary"""
-        from app.models.user import User
+    def to_dict(self, include_relations=True, include_contact_details=True, user_cache=None):
+        """Convert event invitee to dictionary.
         
-        # Get the submitter user
-        submitter = User.query.get(self.inviter_user_id) if self.inviter_user_id else None
+        Args:
+            user_cache: Optional dict {user_id: User} to avoid per-row DB lookups.
+                        When provided, submitter/approver/checked_in_by are read
+                        from the cache instead of issuing individual queries.
+        """
+        def _get_user(uid):
+            if not uid:
+                return None
+            if user_cache is not None:
+                return user_cache.get(uid)
+            from app.models.user import User
+            return User.query.get(uid)
+
+        submitter = _get_user(self.inviter_user_id)
         
         data = {
             'id': self.id,
@@ -132,6 +143,7 @@ class EventInvitee(db.Model):
                 data['invitee_phone'] = self.invitee.phone if self.invitee else None
             data['invitee_position'] = self.invitee.position if self.invitee else None
             data['invitee_company'] = self.invitee.company if self.invitee else None
+            data['invitee_unit_number'] = self.invitee.unit_number if self.invitee else None
             # Inviter is the actual inviter from the group
             data['inviter_name'] = self.inviter.name if self.inviter else None
             data['inviter_group_name'] = self.inviter.inviter_group.name if self.inviter and self.inviter.inviter_group else (submitter.inviter_group.name if submitter and submitter.inviter_group else None)
@@ -139,11 +151,11 @@ class EventInvitee(db.Model):
             data['submitter_name'] = submitter.full_name if submitter and submitter.full_name else (submitter.username if submitter else None)
             data['approved_by_name'] = None
             if self.approved_by_user_id:
-                approver = User.query.get(self.approved_by_user_id)
+                approver = _get_user(self.approved_by_user_id)
                 data['approved_by_name'] = approver.full_name if approver and approver.full_name else (approver.username if approver else None)
             # Add checked_in_by name
             if self.checked_in_by_user_id:
-                checked_in_by = User.query.get(self.checked_in_by_user_id)
+                checked_in_by = _get_user(self.checked_in_by_user_id)
                 data['checked_in_by_name'] = checked_in_by.full_name if checked_in_by and checked_in_by.full_name else (checked_in_by.username if checked_in_by else None)
             else:
                 data['checked_in_by_name'] = None
@@ -258,8 +270,11 @@ class EventInvitee(db.Model):
         from app.models.user import User
         from app.models.inviter import Inviter
         from sqlalchemy import or_
+        from app.utils.query_helpers import eager_load_event_invitees
         
-        query = EventInvitee.query.filter_by(status='waiting_for_approval')
+        query = eager_load_event_invitees(
+            EventInvitee.query.filter_by(status='waiting_for_approval')
+        )
         
         if filters:
             if 'event_id' in filters and filters['event_id']:
@@ -289,8 +304,11 @@ class EventInvitee(db.Model):
         from app.models.user import User
         from app.models.inviter import Inviter
         from sqlalchemy import or_
+        from app.utils.query_helpers import eager_load_event_invitees
         
-        query = EventInvitee.query.filter_by(event_id=event_id)
+        query = eager_load_event_invitees(
+            EventInvitee.query.filter_by(event_id=event_id)
+        )
         
         if filters:
             if 'status' in filters and filters['status']:

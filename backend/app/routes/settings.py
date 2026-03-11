@@ -70,11 +70,15 @@ def get_general_settings():
         from app.models.export_setting import ExportSetting
         time_fmt = ExportSetting.get_setting('time_format')
         etm = ExportSetting.get_setting('expected_total_metric')
+        email_req = ExportSetting.get_setting('email_required')
+        col_vis = ExportSetting.get_setting('column_visibility')
         return jsonify({
             'success': True,
             'settings': {
                 'time_format': time_fmt.setting_value if time_fmt else '12',
                 'expected_total_metric': etm.setting_value if etm else 'confirmed',
+                'email_required': email_req.setting_value if email_req else 'true',
+                'column_visibility': col_vis.setting_value if col_vis else None,
             },
         }), 200
     except Exception as e:
@@ -105,13 +109,32 @@ def update_general_settings():
                 return jsonify({'error': 'expected_total_metric must be "approved", "invited", or "confirmed"'}), 400
             ExportSetting.set_setting('expected_total_metric', val, current_user.id)
 
+        if 'email_required' in data:
+            val = data['email_required']
+            if val not in ('true', 'false'):
+                return jsonify({'error': 'email_required must be "true" or "false"'}), 400
+            ExportSetting.set_setting('email_required', val, current_user.id)
+
+        if 'column_visibility' in data:
+            import json
+            val = data['column_visibility']
+            if val is not None:
+                if not isinstance(val, dict):
+                    return jsonify({'error': 'column_visibility must be an object'}), 400
+                val = json.dumps(val)
+            ExportSetting.set_setting('column_visibility', val, current_user.id)
+
         time_fmt = ExportSetting.get_setting('time_format')
         etm = ExportSetting.get_setting('expected_total_metric')
+        email_req = ExportSetting.get_setting('email_required')
+        col_vis = ExportSetting.get_setting('column_visibility')
         return jsonify({
             'success': True,
             'settings': {
                 'time_format': time_fmt.setting_value if time_fmt else '12',
                 'expected_total_metric': etm.setting_value if etm else 'confirmed',
+                'email_required': email_req.setting_value if email_req else 'true',
+                'column_visibility': col_vis.setting_value if col_vis else None,
             },
         }), 200
     except ValueError as e:

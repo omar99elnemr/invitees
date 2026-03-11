@@ -186,7 +186,8 @@ class ReportService:
                         Invitee.name.ilike(search_term),
                         Invitee.email.ilike(search_term),
                         Invitee.position.ilike(search_term),
-                        Invitee.company.ilike(search_term)
+                        Invitee.company.ilike(search_term),
+                        Invitee.unit_number.ilike(search_term)
                     )
                 )
         
@@ -194,12 +195,15 @@ class ReportService:
         if not inviter_joined:
             query = query.outerjoin(Inviter, EventInvitee.inviter_id == Inviter.id)
         
+        from app.utils.query_helpers import eager_load_event_invitees, build_user_cache
+        query = eager_load_event_invitees(query)
         results = query.order_by(
             Inviter.name,
             EventInvitee.created_at.desc()
         ).all()
         
-        return [r.to_dict(include_relations=True) for r in results]
+        ucache = build_user_cache(results)
+        return [r.to_dict(include_relations=True, user_cache=ucache) for r in results]
     
     @staticmethod
     def get_detail_going(filters=None):
@@ -237,12 +241,15 @@ class ReportService:
         if not inviter_joined:
             query = query.outerjoin(Inviter, EventInvitee.inviter_id == Inviter.id)
         
+        from app.utils.query_helpers import eager_load_event_invitees, build_user_cache
+        query = eager_load_event_invitees(query)
         results = query.order_by(
             Inviter.name,
             EventInvitee.status_date.desc()
         ).all()
         
-        return [r.to_dict(include_relations=True) for r in results]
+        ucache = build_user_cache(results)
+        return [r.to_dict(include_relations=True, user_cache=ucache) for r in results]
     
     @staticmethod
     def get_dashboard_stats(user):

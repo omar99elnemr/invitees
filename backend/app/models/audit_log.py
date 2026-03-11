@@ -133,6 +133,33 @@ class AuditLog(db.Model):
                 name = _extract_entity_name(raw, self.table_name)
                 if name:
                     return name
+
+        # Fallback: look up from database by record_id
+        if self.record_id:
+            try:
+                if self.table_name in ('events', 'event_group_quotas'):
+                    from app.models.event import Event
+                    event = Event.query.get(self.record_id)
+                    if event:
+                        return event.name
+                elif self.table_name == 'invitees':
+                    from app.models.invitee import Invitee
+                    inv = Invitee.query.get(self.record_id)
+                    if inv:
+                        return inv.name
+                elif self.table_name == 'users':
+                    from app.models.user import User
+                    u = User.query.get(self.record_id)
+                    if u:
+                        return u.full_name or u.username
+                elif self.table_name == 'event_invitees':
+                    from app.models.event_invitee import EventInvitee
+                    ei = EventInvitee.query.get(self.record_id)
+                    if ei and ei.invitee:
+                        return ei.invitee.name
+            except Exception:
+                pass
+
         return None
 
     def _build_formatted(self):
@@ -144,9 +171,12 @@ class AuditLog(db.Model):
                 prefix = f'[{entity}] ' if entity else ''
                 summary = prefix + ' | '.join(lines)
                 return summary, lines, entity
-        # For non-diff actions, new_value is already human-readable
+        # For non-diff actions, use entity_name and format details
+        entity = self._get_entity_name()
         val = self.new_value or self.old_value
-        return val, [val] if val else [], None
+        summary = val
+        lines = [val] if val else []
+        return summary, lines, entity
 
     def to_dict(self):
         """Convert audit log to dictionary"""

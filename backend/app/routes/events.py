@@ -353,10 +353,11 @@ def get_checkin_pin(event_id):
         return jsonify({'error': 'Event not found'}), 404
     
     if not event.checkin_pin:
-        return jsonify({'error': 'No PIN generated for this event'}), 404
+        return jsonify({'success': True, 'has_pin': False}), 200
     
     return jsonify({
         'success': True,
+        'has_pin': True,
         'code': event.code,
         'pin': event.checkin_pin,
         'active': event.checkin_pin_active,

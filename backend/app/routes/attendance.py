@@ -70,9 +70,11 @@ def get_event_attendees(event_id):
     
     attendees = AttendanceService.get_event_attendees(event_id, filters if filters else None)
     
+    from app.utils.query_helpers import build_user_cache
+    ucache = build_user_cache(attendees)
     return jsonify({
         'success': True,
-        'attendees': [a.to_dict(include_relations=True) for a in attendees],
+        'attendees': [a.to_dict(include_relations=True, user_cache=ucache) for a in attendees],
         'total': len(attendees)
     })
 

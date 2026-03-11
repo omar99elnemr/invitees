@@ -53,8 +53,15 @@ class ImportService:
         print(f"DEBUG: Original columns: {list(df.columns)}")
         print(f"DEBUG: Normalized columns: {list(df.columns)}")
 
+        # Check email_required setting
+        from app.models.export_setting import ExportSetting
+        email_req_setting = ExportSetting.get_setting('email_required')
+        email_is_required = (email_req_setting.setting_value if email_req_setting else 'true') == 'true'
+        
         # Validate required columns
-        required_columns = ['name', 'email', 'phone', 'inviter']
+        required_columns = ['name', 'phone', 'inviter']
+        if email_is_required:
+            required_columns.insert(1, 'email')
         missing_columns = [col for col in required_columns if col not in df.columns]
         
         # Try alternative column name patterns if some are missing
@@ -82,9 +89,10 @@ class ImportService:
             missing_columns = [col for col in required_columns if col not in df.columns]
         
         if missing_columns:
+            headers_hint = 'Name, Email, Phone, Inviter' if email_is_required else 'Name, Phone, Inviter'
             raise ValueError(
                 f"Missing required columns: {', '.join(missing_columns)}. "
-                "Please make sure the first row contains properly named column headers: Name, Email, Phone, Inviter. "
+                f"Please make sure the first row contains properly named column headers: {headers_hint}. "
                 "Your file appears to have data in the first row instead of headers."
             )
 
@@ -107,7 +115,7 @@ class ImportService:
             try:
                 # Extract fields
                 name = str(row['name']).strip() if pd.notna(row['name']) else None
-                email = str(row['email']).strip().lower() if pd.notna(row['email']) else None
+                email = str(row['email']).strip().lower() if 'email' in row and pd.notna(row.get('email')) else None
                 # Clean phone: normalize to international format (no '+')
                 from app.utils.phone import clean_phone
                 raw_phone = str(row['phone']).strip() if pd.notna(row['phone']) else None
@@ -131,14 +139,22 @@ class ImportService:
                 allowed_guests = int(row['allowed_guests']) if 'allowed_guests' in row and pd.notna(row['allowed_guests']) else None
                 position = str(row['position']).strip() if 'position' in row and pd.notna(row['position']) else None
                 company = str(row['company']).strip() if 'company' in row and pd.notna(row['company']) else None
+                unit_number = str(row['unit_number']).strip() if 'unit_number' in row and pd.notna(row.get('unit_number')) else None
 
                 # Validate mandatory fields
-                if not name or not email or not phone or not inviter_name:
+                mandatory_missing = not name or not phone or not inviter_name
+                if email_is_required and not email:
+                    mandatory_missing = True
+                if mandatory_missing:
+                    reason = "Missing required field (name, email, phone, or inviter)" if email_is_required else "Missing required field (name, phone, or inviter)"
                     skipped += 1
-                    reason = "Missing required field (name, email, phone, or inviter)"
                     errors.append(f"Row {index + 2}: {reason}")
                     rejected_rows.append({**{col: (str(row[col]) if pd.notna(row[col]) else '') for col in df.columns}, 'reason': reason})
                     continue
+                
+                # Generate placeholder email if not provided and not required
+                if not email:
+                    email = f'noemail.{phone}@placeholder.local'
 
                 # Validate phone format
                 from app.utils.phone import validate_phone as _validate_phone
@@ -212,6 +228,11 @@ class ImportService:
                     if secondary_phone and existing_invitee.secondary_phone != secondary_phone:
                         existing_invitee.secondary_phone = secondary_phone
                         updated_fields.append('secondary_phone')
+                    
+                    # Update unit_number if provided
+                    if unit_number is not None and existing_invitee.unit_number != unit_number:
+                        existing_invitee.unit_number = unit_number
+                        updated_fields.append('unit_number')
 
                     if updated_fields:
                         sp.commit()  # flush update within savepoint
@@ -233,6 +254,7 @@ class ImportService:
                     secondary_phone=secondary_phone,
                     position=position,
                     company=company,
+                    unit_number=unit_number,
                     category_id=category_id,
                     plus_one=allowed_guests,
                     inviter_group_id=user.inviter_group_id,
@@ -291,8 +313,15 @@ class ImportService:
 
         df.columns = df.columns.str.strip().str.lower().str.replace(' ', '_')
 
+        # Check email_required setting
+        from app.models.export_setting import ExportSetting
+        email_req_setting = ExportSetting.get_setting('email_required')
+        email_is_required = (email_req_setting.setting_value if email_req_setting else 'true') == 'true'
+        
         # Validate required columns (inviter_group is the new required column)
-        required_columns = ['inviter_group', 'name', 'email', 'phone', 'inviter']
+        required_columns = ['inviter_group', 'name', 'phone', 'inviter']
+        if email_is_required:
+            required_columns.insert(2, 'email')
         missing_columns = [col for col in required_columns if col not in df.columns]
 
         if missing_columns:
@@ -312,9 +341,10 @@ class ImportService:
             missing_columns = [col for col in required_columns if col not in df.columns]
 
         if missing_columns:
+            headers_hint = 'Inviter_Group, Name, Email, Phone, Inviter' if email_is_required else 'Inviter_Group, Name, Phone, Inviter'
             raise ValueError(
                 f"Missing required columns: {', '.join(missing_columns)}. "
-                "Required headers: Inviter_Group, Name, Email, Phone, Inviter."
+                f"Required headers: {headers_hint}."
             )
 
         user = User.query.get(user_id)
@@ -342,7 +372,7 @@ class ImportService:
                 # Extract inviter group
                 group_name = str(row['inviter_group']).strip().strip('\u200b\ufeff\xa0') if pd.notna(row['inviter_group']) else None
                 name = str(row['name']).strip() if pd.notna(row['name']) else None
-                email = str(row['email']).strip().lower() if pd.notna(row['email']) else None
+                email = str(row['email']).strip().lower() if 'email' in row and pd.notna(row.get('email')) else None
                 from app.utils.phone import clean_phone
                 raw_phone = str(row['phone']).strip() if pd.notna(row['phone']) else None
                 phone = clean_phone(raw_phone)
@@ -361,14 +391,22 @@ class ImportService:
                 allowed_guests = int(row['allowed_guests']) if 'allowed_guests' in row and pd.notna(row['allowed_guests']) else None
                 position = str(row['position']).strip() if 'position' in row and pd.notna(row['position']) else None
                 company = str(row['company']).strip() if 'company' in row and pd.notna(row['company']) else None
+                unit_number = str(row['unit_number']).strip() if 'unit_number' in row and pd.notna(row.get('unit_number')) else None
 
                 # Validate mandatory fields
-                if not group_name or not name or not email or not phone or not inviter_name:
+                mandatory_missing = not group_name or not name or not phone or not inviter_name
+                if email_is_required and not email:
+                    mandatory_missing = True
+                if mandatory_missing:
+                    reason = "Missing required field (inviter_group, name, email, phone, or inviter)" if email_is_required else "Missing required field (inviter_group, name, phone, or inviter)"
                     skipped += 1
-                    reason = "Missing required field (inviter_group, name, email, phone, or inviter)"
                     errors.append(f"Row {index + 2}: {reason}")
                     rejected_rows.append({**{col: (str(row[col]) if pd.notna(row[col]) else '') for col in df.columns}, 'reason': reason})
                     continue
+                
+                # Generate placeholder email if not provided and not required
+                if not email:
+                    email = f'noemail.{phone}@placeholder.local'
 
                 # Validate phone format
                 from app.utils.phone import validate_phone as _validate_phone
@@ -443,6 +481,11 @@ class ImportService:
                     if secondary_phone and existing_invitee.secondary_phone != secondary_phone:
                         existing_invitee.secondary_phone = secondary_phone
                         updated_fields.append('secondary_phone')
+                    
+                    # Update unit_number if provided
+                    if unit_number is not None and existing_invitee.unit_number != unit_number:
+                        existing_invitee.unit_number = unit_number
+                        updated_fields.append('unit_number')
 
                     if updated_fields:
                         sp.commit()  # flush update within savepoint
@@ -464,6 +507,7 @@ class ImportService:
                     secondary_phone=secondary_phone,
                     position=position,
                     company=company,
+                    unit_number=unit_number,
                     category_id=category_id,
                     plus_one=allowed_guests,
                     inviter_group_id=group_id,
@@ -512,6 +556,11 @@ class ImportService:
         Generate Excel template for contact import.
         Returns the file path of the generated template.
         """
+        # Check email_required setting
+        from app.models.export_setting import ExportSetting
+        email_req_setting = ExportSetting.get_setting('email_required')
+        email_is_required = (email_req_setting.setting_value if email_req_setting else 'true') == 'true'
+        
         wb = Workbook()
 
         # Remove default sheet
@@ -533,7 +582,7 @@ class ImportService:
             ["REQUIRED COLUMNS", "", "", "", "", "", "", "", "", ""],
             ["Column Name", "Required?", "Description", "Example", "", "", "", "", "", ""],
             ["Name", "YES", "Full name of the invitee", "John Smith", "", "", "", "", "", ""],
-            ["Email", "YES", "Valid email address", "john@example.com", "", "", "", "", "", ""],
+            ["Email", "YES" if email_is_required else "NO", "Valid email address" if email_is_required else "Valid email address (optional — placeholder used if empty)", "john@example.com", "", "", "", "", "", ""],
             ["Phone", "YES", "Digits only (7-15 digits, no '+'). Country code + number. E.g. 201012345678, 971501234567", "201012345678", "", "", "", "", "", ""],
             ["Inviter", "YES", "Name of inviter (person or group)", "Ali Hassan", "", "", "", "", "", ""],
             [],
@@ -544,10 +593,11 @@ class ImportService:
             ["Allowed_Guests", "NO", "Guests allowed for this invitee", "2", "", "", "", "", "", ""],
             ["Position", "NO", "Job title or position", "Manager", "", "", "", "", "", ""],
             ["Company", "NO", "Company name", "ABC Corporation", "", "", "", "", "", ""],
+            ["Unit_Number", "NO", "Unit or apartment number", "100B", "", "", "", "", "", ""],
             [],
             ["IMPORTANT NOTES", "", "", "", "", "", "", "", "", ""],
             ["1. Do not change the column headers in the template", "", "", "", "", "", "", "", "", ""],
-            ["2. All rows with missing Name, Email, Phone, or Inviter will be skipped", "", "", "", "", "", "", "", "", ""],
+            ["2. All rows with missing " + ("Name, Email, Phone, or Inviter" if email_is_required else "Name, Phone, or Inviter") + " will be skipped", "", "", "", "", "", "", "", "", ""],
             ["3. Phone: digits only, no '+'. Country code + local number. 7-15 digits (e.g. 201012345678, 971501234567)", "", "", "", "", "", "", "", "", ""],
             ["4. If a contact with the same phone already exists, the row will be skipped or updated", "", "", "", "", "", "", "", "", ""],
             ["5. Extra columns beyond the required/optional ones will be ignored safely", "", "", "", "", "", "", "", "", ""],
@@ -567,10 +617,10 @@ class ImportService:
                 elif i == 3 or i == 10:
                     cell.font = Font(bold=True)
                     cell.fill = PatternFill(start_color="E5E7EB", end_color="E5E7EB", fill_type="solid")
-                elif i == 14:
+                elif i == 15:
                     cell.font = Font(bold=True, color="FFFFFF")
                     cell.fill = PatternFill(start_color="EF4444", end_color="EF4444", fill_type="solid")
-                elif i == 20:
+                elif i == 21:
                     cell.font = Font(bold=True, size=12, color="3B82F6")
 
         # Adjust column widths
@@ -581,7 +631,7 @@ class ImportService:
         template_ws = wb.create_sheet("Template", 1)
 
         # Headers (contacts only - no event-specific fields)
-        headers = ["Name", "Email", "Phone", "Secondary_Phone", "Inviter", "Category", "Allowed_Guests", "Position", "Company"]
+        headers = ["Name", "Email", "Phone", "Secondary_Phone", "Inviter", "Category", "Allowed_Guests", "Position", "Company", "Unit_Number"]
         for col, header in enumerate(headers, start=1):
             cell = template_ws.cell(row=1, column=col, value=header)
             cell.font = Font(bold=True, color="FFFFFF")
@@ -590,9 +640,9 @@ class ImportService:
 
         # Add sample data
         sample_data = [
-            ["Ahmed Hassan", "ahmed.hassan@example.com", "201012345678", "201198765432", "Ali Hassan", "White", 2, "CEO", "Tech Solutions"],
-            ["Sarah Mohamed", "sarah.mohamed@example.com", "201123456789", "", "Fatma Ali", "Gold", 1, "Marketing Director", "Creative Agency"],
-            ["Mohamed Ali", "mohamed.ali@example.com", "971501234567", "", "Omar Said", "White", 0, "Sales Manager", "Sales Corp"],
+            ["Ahmed Hassan", "ahmed.hassan@example.com", "201012345678", "201198765432", "Ali Hassan", "White", 2, "CEO", "Tech Solutions", "100B"],
+            ["Sarah Mohamed", "sarah.mohamed@example.com", "201123456789", "", "Fatma Ali", "Gold", 1, "Marketing Director", "Creative Agency", "101A"],
+            ["Mohamed Ali", "mohamed.ali@example.com", "971501234567", "", "Omar Said", "White", 0, "Sales Manager", "Sales Corp", ""],
         ]
 
         for row_idx, row_data in enumerate(sample_data, start=2):
@@ -600,7 +650,7 @@ class ImportService:
                 template_ws.cell(row=row_idx, column=col_idx, value=value)
 
         # Adjust column widths
-        for col in ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I']:
+        for col in ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J']:
             template_ws.column_dimensions[col].width = 20
 
         # Save template - use absolute path based on app root
@@ -644,6 +694,7 @@ class ImportService:
             ["Allowed_Guests", "NO", "Guests allowed for this invitee", "2", "", "", "", "", "", ""],
             ["Position", "NO", "Job title or position", "Manager", "", "", "", "", "", ""],
             ["Company", "NO", "Company name", "ABC Corporation", "", "", "", "", "", ""],
+            ["Unit_Number", "NO", "Unit or apartment number", "100B", "", "", "", "", "", ""],
             [],
             ["IMPORTANT NOTES", "", "", "", "", "", "", "", "", ""],
             ["1. Inviter groups must exist before import — create them in the Groups page", "", "", "", "", "", "", "", "", ""],
@@ -665,18 +716,18 @@ class ImportService:
                 elif i == 3 or i == 11:
                     cell.font = Font(bold=True)
                     cell.fill = PatternFill(start_color="E5E7EB", end_color="E5E7EB", fill_type="solid")
-                elif i == 16:
+                elif i == 17:
                     cell.font = Font(bold=True, color="FFFFFF")
                     cell.fill = PatternFill(start_color="EF4444", end_color="EF4444", fill_type="solid")
-                elif i == 22:
+                elif i == 23:
                     cell.font = Font(bold=True, size=12, color="7C3AED")
 
-        for col in ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J']:
+        for col in ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K']:
             instructions_ws.column_dimensions[col].width = 22
 
         # Template sheet
         template_ws = wb.create_sheet("Template", 1)
-        headers = ["Inviter_Group", "Name", "Email", "Phone", "Secondary_Phone", "Inviter", "Category", "Allowed_Guests", "Position", "Company"]
+        headers = ["Inviter_Group", "Name", "Email", "Phone", "Secondary_Phone", "Inviter", "Category", "Allowed_Guests", "Position", "Company", "Unit_Number"]
         for col, header in enumerate(headers, start=1):
             cell = template_ws.cell(row=1, column=col, value=header)
             cell.font = Font(bold=True, color="FFFFFF")
@@ -684,17 +735,17 @@ class ImportService:
             cell.alignment = Alignment(horizontal="center")
 
         sample_data = [
-            ["Marketing Team", "Ahmed Hassan", "ahmed@example.com", "201012345678", "201198765432", "Ali Hassan", "White", 2, "CEO", "Tech Solutions"],
-            ["Marketing Team", "Sarah Mohamed", "sarah@example.com", "201123456789", "", "Ali Hassan", "Gold", 1, "Director", "Creative Agency"],
-            ["Sales Division", "Mohamed Ali", "mohamed@example.com", "971501234567", "", "Omar Said", "White", 0, "Manager", "Sales Corp"],
-            ["Sales Division", "Fatma Nour", "fatma@example.com", "201345678901", "", "Layla Ahmed", "Gold", 1, "VP Sales", "Nile Group"],
+            ["Marketing Team", "Ahmed Hassan", "ahmed@example.com", "201012345678", "201198765432", "Ali Hassan", "White", 2, "CEO", "Tech Solutions", "100B"],
+            ["Marketing Team", "Sarah Mohamed", "sarah@example.com", "201123456789", "", "Ali Hassan", "Gold", 1, "Director", "Creative Agency", "101A"],
+            ["Sales Division", "Mohamed Ali", "mohamed@example.com", "971501234567", "", "Omar Said", "White", 0, "Manager", "Sales Corp", ""],
+            ["Sales Division", "Fatma Nour", "fatma@example.com", "201345678901", "", "Layla Ahmed", "Gold", 1, "VP Sales", "Nile Group", "103A"],
         ]
 
         for row_idx, row_data in enumerate(sample_data, start=2):
             for col_idx, value in enumerate(row_data, start=1):
                 template_ws.cell(row=row_idx, column=col_idx, value=value)
 
-        for col in ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J']:
+        for col in ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K']:
             template_ws.column_dimensions[col].width = 22
 
         import tempfile

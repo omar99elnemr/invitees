@@ -40,8 +40,13 @@ def get_export_data():
     # Get all events ordered by date (newest first)
     events = Event.query.order_by(Event.start_date.desc()).all()
 
-    # Get contacts
-    query = Invitee.query
+    # Get contacts — eager-load relationships used by to_dict()
+    from sqlalchemy.orm import selectinload
+    query = Invitee.query.options(
+        selectinload(Invitee.inviter_group),
+        selectinload(Invitee.inviter),
+        selectinload(Invitee.category_rel),
+    )
     if group_id:
         query = query.filter_by(inviter_group_id=group_id)
     invitees = query.order_by(Invitee.created_at.desc()).all()
@@ -86,8 +91,13 @@ def get_all_invitees():
     from app.models.event_invitee import EventInvitee
     from sqlalchemy import func
     
-    # Base query
-    query = Invitee.query
+    # Base query — eager-load relationships used by to_dict()
+    from sqlalchemy.orm import selectinload
+    query = Invitee.query.options(
+        selectinload(Invitee.inviter_group),
+        selectinload(Invitee.inviter),
+        selectinload(Invitee.category_rel),
+    )
     
     # Admins see all, others see only their group's invitees
     if current_user.role != 'admin':
@@ -154,8 +164,15 @@ def create_contact():
     
     data = request.get_json()
     
+    # Check email_required setting
+    from app.models.export_setting import ExportSetting
+    email_req_setting = ExportSetting.get_setting('email_required')
+    email_is_required = (email_req_setting.setting_value if email_req_setting else 'true') == 'true'
+    
     # Validate required fields
-    required_fields = ['name', 'email', 'phone']
+    required_fields = ['name', 'phone']
+    if email_is_required:
+        required_fields.append('email')
     for field in required_fields:
         if field not in data or not data[field]:
             return jsonify({'error': f'{field} is required'}), 400
@@ -188,9 +205,11 @@ def create_contact():
     if not inviter_group_id:
         return jsonify({'error': 'Could not determine inviter group'}), 400
     
-    # Validate email format
-    if not InviteeService.validate_email(data['email']):
-        return jsonify({'error': 'Invalid email format'}), 400
+    # Validate email format (only if provided or required)
+    raw_email = data.get('email', '').strip() if data.get('email') else ''
+    if raw_email:
+        if not InviteeService.validate_email(raw_email):
+            return jsonify({'error': 'Invalid email format'}), 400
     
     # Normalize and validate phone
     from app.utils.phone import normalize_and_validate, clean_phone as _clean_phone
@@ -201,8 +220,11 @@ def create_contact():
     # Normalize secondary phone (optional)
     secondary_phone = _clean_phone(data.get('secondary_phone')) if data.get('secondary_phone') else None
     
-    # Clean email
-    email = data['email'].lower().strip()
+    # Clean email or generate placeholder
+    if raw_email:
+        email = raw_email.lower().strip()
+    else:
+        email = f'noemail.{phone}@placeholder.local'
     
     # Check if phone already exists in this group (phone must be unique)
     existing_by_phone = Invitee.query.filter_by(phone=phone, inviter_group_id=inviter_group_id).first()
@@ -225,6 +247,7 @@ def create_contact():
         position=data.get('position'),
         company=data.get('company'),
         notes=data.get('notes'),
+        unit_number=data.get('unit_number'),
         plus_one=data.get('plus_one', 0),
         category_id=category_id,
         inviter_group_id=inviter_group_id,
@@ -310,6 +333,7 @@ def update_invitee(invitee_id):
         position=data.get('position'),
         company=data.get('company'),
         notes=data.get('notes'),
+        unit_number=data.get('unit_number'),
         plus_one=data.get('plus_one'),
         category=data.get('category'),
         inviter_id=data.get('inviter_id'),
@@ -388,7 +412,9 @@ def get_event_invitees(event_id):
         filters['inviter_group_id'] = current_user.inviter_group_id
     
     event_invitees = InviteeService.get_invitees_for_event(event_id, filters)
-    return jsonify([ei.to_dict(include_relations=True, include_contact_details=include_contact_details) for ei in event_invitees]), 200
+    from app.utils.query_helpers import build_user_cache
+    ucache = build_user_cache(event_invitees)
+    return jsonify([ei.to_dict(include_relations=True, include_contact_details=include_contact_details, user_cache=ucache) for ei in event_invitees]), 200
 
 @invitees_bp.route('/events/<int:event_id>/invitees', methods=['POST'])
 @login_required

@@ -71,26 +71,44 @@ def create_app(config_class=Config):
         PWA long-lived sessions are handled via Flask-Login's remember
         cookie (auto-set on PWA login), not by mutating the shared
         app.permanent_session_lifetime (which is thread-unsafe under
-        Waitress's multi-threaded model).
-        
-        Also expire all SQLAlchemy ORM objects so this thread's session
-        re-reads from the DB on first access. This is critical under
-        Waitress multi-threading: bulk UPDATE with synchronize_session=False
-        only expires the session in the thread that ran it — other threads
-        keep stale cached objects indefinitely until their session is expired."""
+        Waitress's multi-threaded model)."""
         session.permanent = True
-        db.session.expire_all()
+
+    @app.teardown_appcontext
+    def shutdown_session(exception=None):
+        """Remove the scoped session after each request so the next request
+        on this thread gets a fresh session. This replaces the old
+        db.session.expire_all() in before_request which was extremely
+        expensive — it forced every lazy attribute access to re-query the DB
+        individually within the same request. db.session.remove() returns
+        the connection to the pool and ensures no stale ORM state leaks
+        across requests under Waitress multi-threading."""
+        db.session.remove()
     
     @app.after_request
-    def set_api_cache_headers(response):
-        """Prevent browser/proxy caching of API responses.
-        Without this, browsers may serve stale GET /api/auth/me from
-        their HTTP cache even after cookies are cleared, keeping users
-        falsely authenticated on the frontend."""
+    def after_request_handler(response):
+        """Post-process API responses: disable caching and gzip-compress
+        large JSON payloads for faster transfer over the network."""
         if request.path.startswith('/api/'):
+            # Prevent browser/proxy caching of API responses
             response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
             response.headers['Pragma'] = 'no-cache'
             response.headers['Expires'] = '0'
+
+            # Gzip compress JSON responses > 500 bytes when client supports it
+            if (response.status_code >= 200 and response.status_code < 300
+                    and response.content_type
+                    and 'application/json' in response.content_type
+                    and 'gzip' in request.headers.get('Accept-Encoding', '')
+                    and 'Content-Encoding' not in response.headers
+                    and response.content_length and response.content_length > 500):
+                import gzip as _gzip
+                compressed = _gzip.compress(response.get_data(), compresslevel=6)
+                response.set_data(compressed)
+                response.headers['Content-Encoding'] = 'gzip'
+                response.headers['Content-Length'] = len(compressed)
+                response.headers['Vary'] = 'Accept-Encoding'
+
         return response
     
     # Register blueprints

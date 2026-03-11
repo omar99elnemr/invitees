@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
+import { useColumnVisibility } from '../context/ColumnVisibilityContext';
 import { eventsAPI, inviteesAPI, invitersAPI, importAPI, categoriesAPI, inviterGroupsAPI, settingsAPI, GroupQuotaInfo } from '../services/api';
 import type { Event, EventInvitee, Inviter, InviteeWithStats, InviteeFormData, Category, InviterGroup } from '../types';
 import CategoryManager from '../components/categories/CategoryManager';
@@ -77,12 +78,14 @@ const initialFormData: InviteeFormData = {
   phone: '',
   position: '',
   company: '',
+  unit_number: '',
   category: undefined,
   notes: '',
 };
 
 export default function Invitees() {
-  const { user } = useAuth();
+  const { user, generalSettings } = useAuth();
+  const { isVisible } = useColumnVisibility();
   const isAdmin = user?.role === 'admin';
   const location = useLocation();
 
@@ -169,13 +172,20 @@ export default function Invitees() {
   const [logoPaddingTop, setLogoPaddingTop] = useState<number>(0);
   const [logoPaddingBottom, setLogoPaddingBottom] = useState<number>(0);
 
+  // Email required setting
+  const [emailRequired, setEmailRequired] = useState<boolean>(true);
+
   // Form data
   const [formData, setFormData] = useState<InviteeFormData>(initialFormData);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
-  // Pagination
+  // Pagination (contacts tab)
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(20);
+
+  // Pagination (event tab contacts table)
+  const [eventCurrentPage, setEventCurrentPage] = useState(1);
+  const [eventItemsPerPage, setEventItemsPerPage] = useState(20);
 
   // Contacts tab filters
   const [inviterFilter, setInviterFilter] = useState<string>('all');
@@ -317,6 +327,7 @@ export default function Invitees() {
   // Export contacts data builder
   const getContactsExportData = () => {
     return filteredContacts.map(c => ({
+      'Unit No.': c.unit_number || '',
       'Name': c.name || '',
       'Phone': c.phone || '',
       '2nd Phone': c.secondary_phone || '',
@@ -352,6 +363,7 @@ export default function Invitees() {
       } else if (format === 'pdf') {
         // PDF-specific column order: hide Company, move Guests after Category before Position
         const pdfData = data.map(row => ({
+          'Unit No.': row['Unit No.'],
           'Name': row['Name'],
           'Phone': row['Phone'],
           '2nd Phone': row['2nd Phone'],
@@ -434,6 +446,13 @@ export default function Invitees() {
     }
   }, [urlTab, urlEvent]);
 
+  // Read email_required from AuthContext's generalSettings (avoids redundant API call)
+  useEffect(() => {
+    if (generalSettings) {
+      setEmailRequired(generalSettings.email_required !== 'false');
+    }
+  }, [generalSettings]);
+
   // Initial load
   useEffect(() => {
     fetchEvents();
@@ -450,6 +469,7 @@ export default function Invitees() {
     if (selectedEventId) {
       fetchEventInvitees(selectedEventId);
       setSelectedContactIds([]);
+      setEventCurrentPage(1);
       // Fetch quota info for current user's group
       eventsAPI.getQuotas(selectedEventId).then(res => {
         // Non-admins get only their own group's quota
@@ -487,7 +507,8 @@ export default function Invitees() {
       const matchesSearch = c.name.toLowerCase().includes(query) ||
         c.email.toLowerCase().includes(query) ||
         c.phone.includes(query) ||
-        (c.company?.toLowerCase().includes(query));
+        (c.company?.toLowerCase().includes(query)) ||
+        (c.unit_number?.toLowerCase().includes(query));
       const matchesInviter = inviterFilter === 'all' || c.inviter_name === inviterFilter;
       const matchesCategory = categoryFilter === 'all' || c.category === categoryFilter;
       const matchesGroup = groupFilter === 'all' || c.inviter_group_name === groupFilter;
@@ -514,7 +535,8 @@ export default function Invitees() {
           c.name.toLowerCase().includes(query) ||
           c.email.toLowerCase().includes(query) ||
           c.phone.includes(query) ||
-          Boolean(c.company?.toLowerCase().includes(query))
+          Boolean(c.company?.toLowerCase().includes(query)) ||
+          Boolean(c.unit_number?.toLowerCase().includes(query))
         );
         const matchesInviter = eventInviterFilter === 'all' || c.inviter_name === eventInviterFilter;
         const matchesCategory = eventCategoryFilter === 'all' || c.category === eventCategoryFilter;
@@ -526,7 +548,8 @@ export default function Invitees() {
           c.name.toLowerCase().includes(query) ||
           c.email.toLowerCase().includes(query) ||
           c.phone.includes(query) ||
-          (c.company?.toLowerCase().includes(query))
+          (c.company?.toLowerCase().includes(query)) ||
+          (c.unit_number?.toLowerCase().includes(query))
         );
         const matchesInviter = eventInviterFilter === 'all' || c.inviter_name === eventInviterFilter;
         const matchesCategory = eventCategoryFilter === 'all' || c.category === eventCategoryFilter;
@@ -537,11 +560,17 @@ export default function Invitees() {
     return applySorting(result, sortField, sortDirection);
   }, [availableContacts, searchQuery, statusFilter, rejectedInvitees, contacts, sortField, sortDirection, eventInviterFilter, eventCategoryFilter]);
 
-  // Paginate
+  // Paginate (contacts tab)
   const paginatedContacts = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
     return filteredContacts.slice(start, start + itemsPerPage);
   }, [filteredContacts, currentPage, itemsPerPage]);
+
+  // Paginate (event tab contacts table)
+  const paginatedEventContacts = useMemo(() => {
+    const start = (eventCurrentPage - 1) * eventItemsPerPage;
+    return filteredAvailableContacts.slice(start, start + eventItemsPerPage);
+  }, [filteredAvailableContacts, eventCurrentPage, eventItemsPerPage]);
 
   // Reset form
   const resetForm = () => {
@@ -555,9 +584,9 @@ export default function Invitees() {
     if (!formData.name?.trim()) {
       errors.name = 'Name is required';
     }
-    if (!formData.email?.trim()) {
+    if (emailRequired && !formData.email?.trim()) {
       errors.email = 'Email is required';
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+    } else if (formData.email?.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       errors.email = 'Invalid email format';
     }
     if (!formData.phone?.trim()) {
@@ -1045,15 +1074,17 @@ export default function Invitees() {
   // For non-admin: use the already loaded inviters (from their own group)
   const openEditModal = async (contact: InviteeWithStats) => {
     setSelectedContact(contact);
+    const displayEmail = contact.email?.endsWith('@placeholder.local') ? '' : contact.email;
     setFormData({
       name: contact.name,
-      email: contact.email,
+      email: displayEmail,
       phone: contact.phone,
       secondary_phone: (contact as any).secondary_phone || '',
       title: (contact as any).title || '',
       address: (contact as any).address || '',
       position: contact.position || '',
       company: contact.company || '',
+      unit_number: contact.unit_number || '',
       category: contact.category,
       inviter_id: contact.inviter_id,
       plus_one: (contact as any).plus_one || 0,
@@ -1337,7 +1368,7 @@ export default function Invitees() {
                         <input
                           type="text"
                           value={searchQuery}
-                          onChange={(e) => setSearchQuery(e.target.value)}
+                          onChange={(e) => { setSearchQuery(e.target.value); setEventCurrentPage(1); }}
                           placeholder="Search contacts..."
                           className="w-full pl-9 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-800 dark:text-white text-sm"
                         />
@@ -1348,7 +1379,7 @@ export default function Invitees() {
                       <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Inviter</label>
                       <Select
                         value={eventInviterFilter === 'all' ? null : { value: eventInviterFilter, label: eventInviterFilter }}
-                        onChange={(option) => setEventInviterFilter(option ? option.value : 'all')}
+                        onChange={(option) => { setEventInviterFilter(option ? option.value : 'all'); setEventCurrentPage(1); }}
                         options={inviters.map(inv => ({ value: inv.name, label: inv.name }))}
                         isClearable
                         placeholder="All Inviters"
@@ -1365,7 +1396,7 @@ export default function Invitees() {
                       <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Category</label>
                       <select
                         value={eventCategoryFilter}
-                        onChange={(e) => setEventCategoryFilter(e.target.value)}
+                        onChange={(e) => { setEventCategoryFilter(e.target.value); setEventCurrentPage(1); }}
                         className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-800 dark:text-white text-sm"
                       >
                         <option value="all">All Categories</option>
@@ -1436,15 +1467,14 @@ export default function Invitees() {
                               className="rounded border-gray-300 text-primary focus:ring-primary"
                             />
                           </th>
+                          {isVisible('invitees_events', 'unit_number') && <SortableColumnHeader field="unit_number" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden md:table-cell">Unit No.</SortableColumnHeader>}
                           <SortableColumnHeader field="name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Name</SortableColumnHeader>
-                          <SortableColumnHeader field="inviter_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden sm:table-cell">Inviter</SortableColumnHeader>
-                          <SortableColumnHeader field="category" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden lg:table-cell">Category</SortableColumnHeader>
-                          <SortableColumnHeader field="plus_one" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden lg:table-cell">Guests</SortableColumnHeader>
-                          <SortableColumnHeader field="position" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden xl:table-cell">Position / Company</SortableColumnHeader>
-                          {isAdmin ? (
+                          {isVisible('invitees_events', 'inviter') && <SortableColumnHeader field="inviter_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden sm:table-cell">Inviter</SortableColumnHeader>}
+                          {isVisible('invitees_events', 'category') && <SortableColumnHeader field="category" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden lg:table-cell">Category</SortableColumnHeader>}
+                          {isVisible('invitees_events', 'guests') && <SortableColumnHeader field="plus_one" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden lg:table-cell">Guests</SortableColumnHeader>}
+                          {isVisible('invitees_events', 'position') && <SortableColumnHeader field="position" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden xl:table-cell">Position / Company</SortableColumnHeader>}
+                          {isAdmin && (
                             <SortableColumnHeader field="inviter_group_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden lg:table-cell">Group</SortableColumnHeader>
-                          ) : (
-                            <SortableColumnHeader field="company" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden xl:table-cell">Company</SortableColumnHeader>
                           )}
                           {!isAdmin && (
                             <th className="px-2 sm:px-4 py-2 sm:py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Action</th>
@@ -1452,7 +1482,7 @@ export default function Invitees() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                        {filteredAvailableContacts.map(contact => {
+                        {paginatedEventContacts.map(contact => {
                           // Find if this contact is rejected for this event
                           const rejectedInvitee = eventInvitees.find(ei => ei.invitee_id === contact.id && ei.status === 'rejected');
                           return (
@@ -1470,6 +1500,7 @@ export default function Invitees() {
                                   className="rounded border-gray-300 text-primary focus:ring-primary"
                                 />
                               </td>
+                              {isVisible('invitees_events', 'unit_number') && <td className="hidden md:table-cell px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300">{contact.unit_number || '-'}</td>}
                               <td className="px-2 sm:px-4 py-2 sm:py-3">
                                 <div className="flex items-center gap-2 font-medium text-gray-900 dark:text-white text-xs sm:text-sm">
                                   {contact.name}
@@ -1494,14 +1525,14 @@ export default function Invitees() {
                                   {isAdmin && contact.inviter_group_name && <span className="text-[10px] px-1.5 py-0 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 rounded">{contact.inviter_group_name}</span>}
                                 </div>
                               </td>
-                              <td className="hidden sm:table-cell px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-gray-600 dark:text-gray-400">{contact.inviter_name || '-'}</td>
-                              <td className="hidden lg:table-cell px-2 sm:px-4 py-2 sm:py-3">
+                              {isVisible('invitees_events', 'inviter') && <td className="hidden sm:table-cell px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-gray-600 dark:text-gray-400">{contact.inviter_name || '-'}</td>}
+                              {isVisible('invitees_events', 'category') && <td className="hidden lg:table-cell px-2 sm:px-4 py-2 sm:py-3">
                                 {contact.category && (
                                   <span className="text-xs px-2 py-0.5 bg-gray-100 dark:bg-gray-700 dark:text-gray-300 rounded">{contact.category}</span>
                                 )}
-                              </td>
-                              <td className="hidden lg:table-cell px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-gray-600 dark:text-gray-400">{contact.plus_one || 0}</td>
-                              <td className="hidden xl:table-cell px-2 sm:px-4 py-2 sm:py-3 whitespace-normal">
+                              </td>}
+                              {isVisible('invitees_events', 'guests') && <td className="hidden lg:table-cell px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-gray-600 dark:text-gray-400">{contact.plus_one || 0}</td>}
+                              {isVisible('invitees_events', 'position') && <td className="hidden xl:table-cell px-2 sm:px-4 py-2 sm:py-3 whitespace-normal">
                                 {contact.position && (
                                   <div className="text-xs sm:text-sm text-gray-900 dark:text-white whitespace-normal break-words">{contact.position}</div>
                                 )}
@@ -1511,15 +1542,13 @@ export default function Invitees() {
                                 {!contact.position && !contact.company && (
                                   <div className="text-xs sm:text-sm text-gray-400 dark:text-gray-500">-</div>
                                 )}
-                              </td>
-                              {isAdmin ? (
+                              </td>}
+                              {isAdmin && (
                                 <td className="hidden lg:table-cell px-2 sm:px-4 py-2 sm:py-3">
                                   {contact.inviter_group_name ? (
                                     <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 rounded">{contact.inviter_group_name}</span>
                                   ) : <span className="text-xs text-gray-400">-</span>}
                                 </td>
-                              ) : (
-                                <td className="hidden xl:table-cell px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-gray-600 dark:text-gray-400">{contact.company || '-'}</td>
                               )}
                               {!isAdmin && (
                                 <td className="px-2 sm:px-4 py-2 sm:py-3 text-right" onClick={(e) => e.stopPropagation()}>
@@ -1579,6 +1608,16 @@ export default function Invitees() {
                       </tbody>
                     </table>
                   </div>
+                )}
+
+                {filteredAvailableContacts.length > 0 && (
+                  <TablePagination
+                    currentPage={eventCurrentPage}
+                    totalItems={filteredAvailableContacts.length}
+                    itemsPerPage={eventItemsPerPage}
+                    onPageChange={setEventCurrentPage}
+                    onItemsPerPageChange={(size) => { setEventItemsPerPage(size); setEventCurrentPage(1); }}
+                  />
                 )}
               </div>
             </>
@@ -1865,17 +1904,16 @@ export default function Invitees() {
                             className="rounded border-gray-300 text-primary focus:ring-primary"
                           />
                         </th>
+                        {isVisible('invitees_contacts', 'unit_number') && <SortableColumnHeader field="unit_number" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden md:table-cell">Unit No.</SortableColumnHeader>}
                         <SortableColumnHeader field="name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Name</SortableColumnHeader>
-                        <SortableColumnHeader field="inviter_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden sm:table-cell">Inviter</SortableColumnHeader>
-                        <SortableColumnHeader field="category" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden lg:table-cell">Category</SortableColumnHeader>
-                        <SortableColumnHeader field="plus_one" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden lg:table-cell">Guests</SortableColumnHeader>
-                        <SortableColumnHeader field="position" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden xl:table-cell">Position / Company</SortableColumnHeader>
-                        {isAdmin ? (
+                        {isVisible('invitees_contacts', 'inviter') && <SortableColumnHeader field="inviter_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden sm:table-cell">Inviter</SortableColumnHeader>}
+                        {isVisible('invitees_contacts', 'category') && <SortableColumnHeader field="category" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden lg:table-cell">Category</SortableColumnHeader>}
+                        {isVisible('invitees_contacts', 'guests') && <SortableColumnHeader field="plus_one" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden lg:table-cell">Guests</SortableColumnHeader>}
+                        {isVisible('invitees_contacts', 'position') && <SortableColumnHeader field="position" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden xl:table-cell">Position / Company</SortableColumnHeader>}
+                        {isAdmin && (
                           <SortableColumnHeader field="inviter_group_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden lg:table-cell">Group</SortableColumnHeader>
-                        ) : (
-                          <SortableColumnHeader field="company" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden xl:table-cell">Company</SortableColumnHeader>
                         )}
-                        <th className="hidden sm:table-cell px-2 sm:px-4 py-2 sm:py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Events</th>
+                        {isVisible('invitees_contacts', 'events_count') && <th className="hidden sm:table-cell px-2 sm:px-4 py-2 sm:py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Events</th>}
                         <th className="px-2 sm:px-4 py-2 sm:py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Actions</th>
                       </tr>
                     </thead>
@@ -1894,6 +1932,7 @@ export default function Invitees() {
                               className="rounded border-gray-300 text-primary focus:ring-primary"
                             />
                           </td>
+                          {isVisible('invitees_contacts', 'unit_number') && <td className="hidden md:table-cell px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300">{contact.unit_number || '-'}</td>}
                           <td className="px-2 sm:px-4 py-2 sm:py-3">
                             <div className="font-medium text-gray-900 dark:text-white text-xs sm:text-sm">{contact.name}</div>
                             {/* Mobile-only summary tags for hidden columns */}
@@ -1903,16 +1942,16 @@ export default function Invitees() {
                               {isAdmin && contact.inviter_group_name && <span className="text-[10px] px-1.5 py-0 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 rounded">{contact.inviter_group_name}</span>}
                             </div>
                           </td>
-                          <td className="hidden sm:table-cell px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-gray-600 dark:text-gray-400">{contact.inviter_name || '-'} </td>
-                          <td className="hidden lg:table-cell px-2 sm:px-4 py-2 sm:py-3">
+                          {isVisible('invitees_contacts', 'inviter') && <td className="hidden sm:table-cell px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-gray-600 dark:text-gray-400">{contact.inviter_name || '-'} </td>}
+                          {isVisible('invitees_contacts', 'category') && <td className="hidden lg:table-cell px-2 sm:px-4 py-2 sm:py-3">
                             {contact.category ? (
                               <span className="text-xs px-2 py-0.5 bg-gray-100 dark:bg-gray-700 dark:text-gray-300 rounded">{contact.category}</span>
                             ) : '-'}
-                          </td>
-                          <td className="hidden lg:table-cell px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+                          </td>}
+                          {isVisible('invitees_contacts', 'guests') && <td className="hidden lg:table-cell px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-gray-600 dark:text-gray-400">
                             {contact.plus_one !== undefined ? contact.plus_one : 0}
-                          </td>
-                          <td className="hidden xl:table-cell px-2 sm:px-4 py-2 sm:py-3 whitespace-normal">
+                          </td>}
+                          {isVisible('invitees_contacts', 'position') && <td className="hidden xl:table-cell px-2 sm:px-4 py-2 sm:py-3 whitespace-normal">
                             {contact.position && (
                               <div className="text-xs sm:text-sm text-gray-900 dark:text-white whitespace-normal break-words">{contact.position}</div>
                             )}
@@ -1922,16 +1961,15 @@ export default function Invitees() {
                             {!contact.position && !contact.company && (
                               <div className="text-xs sm:text-sm text-gray-400 dark:text-gray-500">-</div>
                             )}
-                          </td>
-                          {isAdmin ? (
+                          </td>}
+                          {isAdmin && (
                             <td className="hidden lg:table-cell px-2 sm:px-4 py-2 sm:py-3">
                               {contact.inviter_group_name ? (
                                 <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 rounded">{contact.inviter_group_name}</span>
                               ) : <span className="text-xs text-gray-400">-</span>}
                             </td>
-                          ) : (
-                            <td className="hidden xl:table-cell px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-gray-600 dark:text-gray-400">{contact.company || '-'}</td>
                           )}
+                          {isVisible('invitees_contacts', 'events_count') && (
                           <td className="hidden sm:table-cell px-2 sm:px-4 py-2 sm:py-3 text-center">
                             <div className="flex justify-center gap-1">
                               <span className="px-1.5 py-0.5 text-xs bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 rounded">
@@ -1945,6 +1983,7 @@ export default function Invitees() {
                               </span>
                             </div>
                           </td>
+                          )}
                           <td className="px-2 sm:px-4 py-2 sm:py-3" onClick={(e) => e.stopPropagation()}>
                             <div className="flex justify-end gap-0.5 sm:gap-1">
                               <button
@@ -2048,16 +2087,29 @@ export default function Invitees() {
                     />
                     {formErrors.name && <p className="text-red-500 text-sm mt-1">{formErrors.name}</p>}
                   </div>
+                  {/* Unit No. */}
+                  <div className="col-span-1">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Unit No. <span className="text-gray-400 text-xs">(optional)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.unit_number || ''}
+                      onChange={(e) => setFormData({ ...formData, unit_number: e.target.value })}
+                      placeholder="e.g. 100B"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-700 dark:text-white"
+                    />
+                  </div>
                   {/* Email */}
                   <div className="col-span-1">
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Email <span className="text-red-500">*</span>
+                      Email {emailRequired ? <span className="text-red-500">*</span> : <span className="text-gray-400 text-xs">(optional)</span>}
                     </label>
                     <input
                       type="email"
                       value={formData.email}
                       onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                      placeholder="john@email.com"
+                      placeholder={emailRequired ? 'john@email.com' : 'john@email.com (optional)'}
                       className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-700 dark:text-white ${formErrors.email ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
                         }`}
                     />
@@ -2235,14 +2287,27 @@ export default function Invitees() {
                     />
                     {formErrors.name && <p className="text-red-500 text-sm mt-1">{formErrors.name}</p>}
                   </div>
+                  {/* Unit No. */}
+                  <div className="col-span-1">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Unit No. <span className="text-gray-400 text-xs">(optional)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.unit_number || ''}
+                      onChange={(e) => setFormData({ ...formData, unit_number: e.target.value })}
+                      placeholder="e.g. 100B"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-700 dark:text-white"
+                    />
+                  </div>
                   {/* Email */}
                   <div className="col-span-1">
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email <span className="text-red-500">*</span></label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email {emailRequired ? <span className="text-red-500">*</span> : <span className="text-gray-400 text-xs">(optional)</span>}</label>
                     <input
                       type="email"
                       value={formData.email}
                       onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                      placeholder="john@email.com"
+                      placeholder={emailRequired ? 'john@email.com' : 'john@email.com (optional)'}
                       className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-700 dark:text-white ${formErrors.email ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'}`}
                     />
                     {formErrors.email && <p className="text-red-500 text-sm mt-1">{formErrors.email}</p>}

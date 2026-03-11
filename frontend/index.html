@@ -7,6 +7,7 @@
     <meta name="theme-color" content="#0f172a" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#111827" media="(prefers-color-scheme: dark)" />
     <meta name="description" content="Manage event invitees, approvals, attendance, and reports" />
+    <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Invitees" />
@@ -45,8 +46,15 @@
       // Dynamic manifest: set start_url to current page so homescreen
       // shortcuts open the saved URL, not always the homepage.
       (function() {
+        var origin = location.origin;
         fetch('/manifest.json').then(function(r){return r.json()}).then(function(m){
-          m.start_url = location.pathname + location.search;
+          m.start_url = origin + location.pathname + location.search;
+          // Convert relative icon src to absolute so blob URL can resolve them
+          if (m.icons) {
+            m.icons.forEach(function(icon) {
+              if (icon.src && icon.src.charAt(0) === '/') icon.src = origin + icon.src;
+            });
+          }
           var b = new Blob([JSON.stringify(m)], {type:'application/json'});
           var link = document.createElement('link');
           link.rel = 'manifest';

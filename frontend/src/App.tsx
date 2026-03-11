@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
+import { ColumnVisibilityProvider } from './context/ColumnVisibilityContext';
 import { ProtectedRoute } from './components/common/ProtectedRoute';
 import { Layout } from './components/layout/Layout';
 import { lazy, Suspense, useState, useCallback } from 'react';
@@ -41,6 +42,7 @@ function App() {
     <BrowserRouter>
       <ThemeProvider>
       <AuthProvider>
+      <ColumnVisibilityProvider>
         <PWAInstallPrompt />
         <Suspense fallback={<PageLoader />}>
         <Routes>
@@ -117,6 +119,7 @@ function App() {
           <Route path="*" element={<NotFound />} />
         </Routes>
         </Suspense>
+      </ColumnVisibilityProvider>
       </AuthProvider>
       </ThemeProvider>
     </BrowserRouter>

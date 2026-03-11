@@ -32,6 +32,7 @@ import {
 import { attendanceAPI, AttendanceStats, AttendanceFilters, settingsAPI, eventsAPI, CheckinPinInfo } from '../services/api';
 import type { Event, EventInvitee } from '../types';
 import { useAuth } from '../context/AuthContext';
+import { useColumnVisibility } from '../context/ColumnVisibilityContext';
 import toast from 'react-hot-toast';
 import { exportToExcel, exportToPDF, exportToCSV } from '../utils/exportHelpers';
 import TablePagination from '../components/common/TablePagination';
@@ -40,6 +41,7 @@ import { formatEventDate } from '../utils/formatters';
 
 export default function Attendance() {
   const { user } = useAuth();
+  const { isVisible } = useColumnVisibility();
   const isAdmin = user?.role === 'admin';
 
   const [events, setEvents] = useState<Event[]>([]);
@@ -390,9 +392,14 @@ export default function Attendance() {
     setCheckinPinInfo(null);
     try {
       const response = await eventsAPI.getCheckinPin(eventId);
-      setCheckinPinInfo(response.data);
+      // Only populate if the event actually has a PIN generated
+      if (response.data.has_pin === false) {
+        setCheckinPinInfo(null);
+      } else {
+        setCheckinPinInfo(response.data);
+      }
     } catch {
-      // No PIN exists or failed to load — that's ok
+      // Failed to load — that's ok
       setCheckinPinInfo(null);
     } finally {
       setLoadingCheckinPin(false);
@@ -973,11 +980,12 @@ export default function Attendance() {
                           />
                         </th>
                         <SortableColumnHeader field="invitee_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Name</SortableColumnHeader>
-                        <SortableColumnHeader field="attendance_code" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden sm:table-cell">Code</SortableColumnHeader>
-                        <SortableColumnHeader field="category" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden md:table-cell">Category</SortableColumnHeader>
+                        {isVisible('attendance', 'unit_number') && <SortableColumnHeader field="invitee_unit_number" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden md:table-cell">Unit No.</SortableColumnHeader>}
+                        {isVisible('attendance', 'code') && <SortableColumnHeader field="attendance_code" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden sm:table-cell">Code</SortableColumnHeader>}
+                        {isVisible('attendance', 'category') && <SortableColumnHeader field="category" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden md:table-cell">Category</SortableColumnHeader>}
                         <SortableColumnHeader field="status" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Status</SortableColumnHeader>
-                        <SortableColumnHeader field="plus_one" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden md:table-cell">Guests</SortableColumnHeader>
-                        <SortableColumnHeader field="inviter_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden lg:table-cell">Inviter</SortableColumnHeader>
+                        {isVisible('attendance', 'guests') && <SortableColumnHeader field="plus_one" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden md:table-cell">Guests</SortableColumnHeader>}
+                        {isVisible('attendance', 'inviter') && <SortableColumnHeader field="inviter_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden lg:table-cell">Inviter</SortableColumnHeader>}
                         {isAdmin && (
                           <SortableColumnHeader field="inviter_group_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden lg:table-cell">Group</SortableColumnHeader>
                         )}
@@ -1020,6 +1028,10 @@ export default function Attendance() {
                                 </div>
                               </div>
                             </td>
+                            {isVisible('attendance', 'unit_number') && (
+                              <td className="hidden md:table-cell px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300">{attendee.invitee_unit_number || '-'}</td>
+                            )}
+                            {isVisible('attendance', 'code') && (
                             <td className="hidden sm:table-cell px-2 sm:px-4 py-2 sm:py-3">
                               {attendee.attendance_code ? (
                                 <code className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-xs sm:text-sm font-mono dark:text-gray-300">
@@ -1029,12 +1041,16 @@ export default function Attendance() {
                                 <span className="text-gray-400">-</span>
                               )}
                             </td>
+                            )}
+                            {isVisible('attendance', 'category') && (
                             <td className="hidden md:table-cell px-2 sm:px-4 py-2 sm:py-3">
                               <span className="text-xs sm:text-sm text-gray-700 dark:text-gray-300">{attendee.category || '-'}</span>
                             </td>
+                            )}
                             <td className="px-2 sm:px-4 py-2 sm:py-3">
                               {getStatusBadge(attendee)}
                             </td>
+                            {isVisible('attendance', 'guests') && (
                             <td className="hidden md:table-cell px-2 sm:px-4 py-2 sm:py-3">
                               <span className="text-xs sm:text-sm">
                                 {attendee.checked_in ? attendee.actual_guests : attendee.confirmed_guests ?? attendee.plus_one}
@@ -1042,9 +1058,12 @@ export default function Attendance() {
                                 {attendee.plus_one}
                               </span>
                             </td>
+                            )}
+                            {isVisible('attendance', 'inviter') && (
                             <td className="hidden lg:table-cell px-2 sm:px-4 py-2 sm:py-3">
                               <span className="text-xs sm:text-sm text-gray-700 dark:text-gray-300">{attendee.inviter_name || '-'}</span>
                             </td>
+                            )}
                             {isAdmin && (
                               <td className="hidden lg:table-cell px-2 sm:px-4 py-2 sm:py-3">
                                 {attendee.inviter_group_name ? (

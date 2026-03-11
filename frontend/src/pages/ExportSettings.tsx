@@ -4,7 +4,7 @@
  */
 import { useState, useEffect, useRef } from 'react';
 import { FormSkeleton } from '../components/common/LoadingSkeleton';
-import { Upload, Trash2, Image, Save, RefreshCw, AlertCircle, CheckCircle, Pencil, Download, Database, FileSpreadsheet, FileText, FileJson, Shield, Users as UsersIcon, Calendar, UserCheck, Tag, Building, ZoomIn, ChevronDown, Settings, Clock, BarChart3 } from 'lucide-react';
+import { Upload, Trash2, Image, Save, RefreshCw, AlertCircle, CheckCircle, Pencil, Download, Database, FileSpreadsheet, FileText, FileJson, Shield, Users as UsersIcon, Calendar, UserCheck, Tag, Building, ZoomIn, ChevronDown, Settings, Clock, BarChart3, Mail, Columns3, RotateCcw } from 'lucide-react';
 import ImageEditor from '../components/common/ImageEditor';
 import { settingsAPI, inviteesAPI } from '../services/api';
 import type { ExportSettings as ExportSettingsType } from '../services/api';
@@ -12,6 +12,7 @@ import toast from 'react-hot-toast';
 import { setTimeFormat } from '../utils/formatters';
 import { format } from 'date-fns';
 import Papa from 'papaparse';
+import { useColumnVisibility, TABLE_COLUMNS, TABLE_LABELS, DEFAULT_COLUMNS, MAX_OPTIONAL_COLUMNS } from '../context/ColumnVisibilityContext';
 
 const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB
 const ACCEPTED_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml'];
@@ -45,10 +46,16 @@ export default function ExportSettings() {
   const [backupSectionOpen, setBackupSectionOpen] = useState(false);
   const [masterListSectionOpen, setMasterListSectionOpen] = useState(false);
   const [generalSectionOpen, setGeneralSectionOpen] = useState(true);
+  const [columnSectionOpen, setColumnSectionOpen] = useState(false);
+
+  // Column visibility
+  const { config: colConfig, setTableColumns, saveConfig: saveColConfig, resetTable, saving: savingColumns } = useColumnVisibility();
+  const [colDirty, setColDirty] = useState(false);
 
   // General config state
   const [timeFormat, setTimeFormatState] = useState<'12' | '24'>('12');
   const [expectedTotalMetric, setExpectedTotalMetric] = useState<'approved' | 'invited' | 'confirmed'>('confirmed');
+  const [emailRequired, setEmailRequired] = useState<boolean>(true);
   const [savingGeneral, setSavingGeneral] = useState(false);
 
   // Fetch current settings
@@ -86,6 +93,8 @@ export default function ExportSettings() {
       if (etm === 'approved' || etm === 'invited' || etm === 'confirmed') {
         setExpectedTotalMetric(etm);
       }
+      const er = response.data.settings?.email_required;
+      setEmailRequired(er !== 'false');
     } catch (error) {
       console.error('Failed to fetch general settings:', error);
     }
@@ -105,6 +114,22 @@ export default function ExportSettings() {
     } catch (error) {
       console.error('Failed to update time format:', error);
       toast.error('Failed to update time format');
+    } finally {
+      setSavingGeneral(false);
+    }
+  };
+
+  const handleToggleEmailRequired = async () => {
+    const newVal = !emailRequired;
+    setSavingGeneral(true);
+    try {
+      const response = await settingsAPI.updateGeneralSettings({ email_required: newVal ? 'true' : 'false' });
+      const er = response.data.settings?.email_required;
+      setEmailRequired(er !== 'false');
+      toast.success(`Email is now ${newVal ? 'required' : 'optional'} for contacts`);
+    } catch (error) {
+      console.error('Failed to update email required setting:', error);
+      toast.error('Failed to update email setting');
     } finally {
       setSavingGeneral(false);
     }
@@ -598,6 +623,38 @@ export default function ExportSettings() {
               </button>
             </div>
 
+            {/* Email Required Toggle */}
+            <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-gray-700">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
+                  <Mail className="w-4.5 h-4.5 text-emerald-600 dark:text-emerald-400" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">Email Requirement</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    {emailRequired ? 'Email is required when adding/editing contacts' : 'Email is optional — a placeholder will be used if not provided'}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={handleToggleEmailRequired}
+                disabled={savingGeneral}
+                className="relative inline-flex h-7 w-[5.5rem] items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 disabled:opacity-50"
+                style={{ backgroundColor: emailRequired ? '#059669' : '#d1d5db' }}
+              >
+                <span
+                  className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition-transform ${
+                    emailRequired ? 'translate-x-[3.55rem]' : 'translate-x-1'
+                  }`}
+                />
+                <span className={`absolute text-[10px] font-bold ${
+                  emailRequired ? 'left-2 text-white' : 'right-2 text-gray-500'
+                }`}>
+                  {emailRequired ? 'Required' : 'Optional'}
+                </span>
+              </button>
+            </div>
+
             {/* Expected Total Metric for Live Dashboard */}
             <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-gray-700">
               <div className="flex items-center gap-3">
@@ -626,7 +683,144 @@ export default function ExportSettings() {
         )}
       </div>
 
-      {/* ==================== SECTION 3: Data Backup (Collapsible) ==================== */}
+      {/* ==================== SECTION 3: Table Column Visibility (Collapsible) ==================== */}
+      <div className="rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-hidden">
+        <button
+          onClick={() => setColumnSectionOpen(!columnSectionOpen)}
+          className="w-full px-6 py-4 flex items-center justify-between bg-gradient-to-r from-sky-50 to-blue-50 dark:from-sky-900/20 dark:to-blue-900/20 hover:from-sky-100 hover:to-blue-100 dark:hover:from-sky-900/30 dark:hover:to-blue-900/30 transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 bg-gradient-to-br from-sky-500 to-blue-600 rounded-lg flex items-center justify-center shadow">
+              <Columns3 className="w-4.5 h-4.5 text-white" />
+            </div>
+            <div className="text-left">
+              <h2 className="text-base font-semibold text-gray-900 dark:text-white">Table Columns</h2>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Choose which columns are visible in each page's table</p>
+            </div>
+          </div>
+          <ChevronDown className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${columnSectionOpen ? 'rotate-180' : ''}`} />
+        </button>
+
+        {columnSectionOpen && (
+          <div className="border-t border-gray-200 dark:border-gray-700 px-6 py-5 space-y-5">
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              Select up to <strong>{MAX_OPTIONAL_COLUMNS}</strong> optional columns per table. Fixed columns (greyed out) are always shown.
+            </p>
+
+            {Object.keys(TABLE_LABELS).map(tableKey => {
+              const columns = TABLE_COLUMNS[tableKey] || [];
+              const visibleOptional = colConfig[tableKey] || DEFAULT_COLUMNS[tableKey] || [];
+              const count = visibleOptional.length;
+              const isDefault = JSON.stringify([...(colConfig[tableKey] || [])].sort()) === JSON.stringify([...(DEFAULT_COLUMNS[tableKey] || [])].sort());
+
+              return (
+                <div key={tableKey} className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-semibold text-gray-900 dark:text-white">{TABLE_LABELS[tableKey]}</h3>
+                    <div className="flex items-center gap-3">
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                        count >= MAX_OPTIONAL_COLUMNS
+                          ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                          : 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400'
+                      }`}>
+                        {count} / {MAX_OPTIONAL_COLUMNS}
+                      </span>
+                      {!isDefault && (
+                        <button
+                          onClick={() => { resetTable(tableKey); setColDirty(true); }}
+                          className="text-xs text-sky-600 dark:text-sky-400 hover:underline font-medium flex items-center gap-1"
+                          title="Reset to defaults"
+                        >
+                          <RotateCcw className="w-3 h-3" />
+                          Reset
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {columns.map(col => {
+                      if (col.fixed) {
+                        return (
+                          <label key={col.key} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 text-xs cursor-not-allowed select-none">
+                            <input type="checkbox" checked disabled className="rounded border-gray-300 text-gray-400 w-3.5 h-3.5" />
+                            {col.label}
+                          </label>
+                        );
+                      }
+
+                      const isChecked = visibleOptional.includes(col.key);
+                      const isDisabled = !isChecked && count >= MAX_OPTIONAL_COLUMNS;
+
+                      return (
+                        <label
+                          key={col.key}
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs select-none transition-colors ${
+                            isChecked
+                              ? 'bg-sky-100 dark:bg-sky-900/30 text-sky-800 dark:text-sky-300 ring-1 ring-sky-300 dark:ring-sky-700'
+                              : isDisabled
+                                ? 'bg-gray-100 dark:bg-gray-700/50 text-gray-400 dark:text-gray-500 cursor-not-allowed'
+                                : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-sky-50 dark:hover:bg-sky-900/20 cursor-pointer ring-1 ring-gray-200 dark:ring-gray-600'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            disabled={isDisabled}
+                            onChange={() => {
+                              const newCols = isChecked
+                                ? visibleOptional.filter((k: string) => k !== col.key)
+                                : [...visibleOptional, col.key];
+                              setTableColumns(tableKey, newCols);
+                              setColDirty(true);
+                            }}
+                            className="rounded border-gray-300 text-sky-600 focus:ring-sky-500 w-3.5 h-3.5 disabled:opacity-40"
+                          />
+                          {col.label}
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* Save / Discard bar */}
+            {colDirty && (
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                <button
+                  onClick={() => {
+                    // Reload from backend by resetting all tables to defaults (will be overwritten on next fetch)
+                    Object.keys(DEFAULT_COLUMNS).forEach(k => resetTable(k));
+                    setColDirty(false);
+                    window.location.reload();
+                  }}
+                  className="px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+                >
+                  Discard
+                </button>
+                <button
+                  onClick={async () => {
+                    try {
+                      await saveColConfig();
+                      setColDirty(false);
+                      toast.success('Column visibility saved');
+                    } catch {
+                      toast.error('Failed to save column settings');
+                    }
+                  }}
+                  disabled={savingColumns}
+                  className="px-5 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-sm font-semibold flex items-center gap-2 transition-colors disabled:opacity-50"
+                >
+                  {savingColumns ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                  {savingColumns ? 'Saving...' : 'Save Columns'}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* ==================== SECTION 4: Data Backup (Collapsible) ==================== */}
       <DataBackupSection isOpen={backupSectionOpen} onToggle={() => setBackupSectionOpen(!backupSectionOpen)} />
 
       {/* ==================== SECTION 4: Master Contact List (Collapsible) ==================== */}

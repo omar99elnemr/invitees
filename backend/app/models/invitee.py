@@ -27,6 +27,7 @@ class Invitee(db.Model):
     position = db.Column(db.String(100), nullable=True)
     company = db.Column(db.String(150), nullable=True)
     notes = db.Column(db.Text, nullable=True)
+    unit_number = db.Column(db.String(50), nullable=True)  # e.g. 100B, 101A
     plus_one = db.Column(db.Integer, default=0, nullable=False)  # Default guests allowed
     # category = db.Column(db.String(20), nullable=True)  # Legacy field
     category_id = db.Column(db.Integer, db.ForeignKey('categories.id'), nullable=True, index=True)
@@ -58,6 +59,7 @@ class Invitee(db.Model):
             'company': self.company,
             'address': self.address,
             'notes': self.notes,
+            'unit_number': self.unit_number,
             'plus_one': self.plus_one,
             'category': self.category_rel.name if self.category_rel else None,
             'category_id': self.category_id,
@@ -100,14 +102,15 @@ class Invitee(db.Model):
     
     @staticmethod
     def search(query):
-        """Search invitees by name, email, or phone"""
+        """Search invitees by name, email, phone, company, or unit number"""
         search_term = f'%{query}%'
         return Invitee.query.filter(
             db.or_(
                 Invitee.name.ilike(search_term),
                 Invitee.email.ilike(search_term),
                 Invitee.phone.ilike(search_term),
-                Invitee.company.ilike(search_term)
+                Invitee.company.ilike(search_term),
+                Invitee.unit_number.ilike(search_term)
             )
         ).all()
 

@@ -197,13 +197,14 @@ export default function CheckInConsole() {
       
       const query = searchQuery.toLowerCase().trim();
       
-      // Search by name, phone, code, or inviter
+      // Search by name, phone, code, inviter, company, or unit number
       return (
         attendee.invitee_name?.toLowerCase().includes(query) ||
         attendee.invitee_phone?.toLowerCase().includes(query) ||
         attendee.attendance_code?.toLowerCase().includes(query) ||
         attendee.inviter_name?.toLowerCase().includes(query) ||
-        attendee.invitee_company?.toLowerCase().includes(query)
+        attendee.invitee_company?.toLowerCase().includes(query) ||
+        attendee.invitee_unit_number?.toLowerCase().includes(query)
       );
     })
     .sort((a, b) => {

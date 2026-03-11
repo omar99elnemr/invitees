@@ -66,7 +66,10 @@ class AttendanceService:
     @staticmethod
     def get_event_attendees(event_id, filters=None):
         """Get all approved attendees for an event with optional filters"""
-        query = EventInvitee.query.filter_by(event_id=event_id, status='approved')
+        from app.utils.query_helpers import eager_load_event_invitees
+        query = eager_load_event_invitees(
+            EventInvitee.query.filter_by(event_id=event_id, status='approved')
+        )
         
         if filters:
             if filters.get('has_code') is not None:

@@ -62,9 +62,10 @@ class InviteeService:
         Create new invitee or get existing one by email within the same inviter group
         Returns (invitee, created, error_message)
         """
-        # Validate email
-        if not InviteeService.validate_email(email):
-            return None, False, 'Invalid email format'
+        # Check email_required setting
+        from app.models.export_setting import ExportSetting
+        email_req_setting = ExportSetting.get_setting('email_required')
+        email_is_required = (email_req_setting.setting_value if email_req_setting else 'true') == 'true'
         
         # Normalize and validate phone
         from app.utils.phone import normalize_and_validate
@@ -72,8 +73,18 @@ class InviteeService:
         if not phone_valid:
             return None, False, f'Invalid phone: {phone_error}'
         
-        # Clean email
-        email = email.lower().strip()
+        # Handle email: validate if provided, generate placeholder if not
+        is_placeholder = False
+        if email and email.strip():
+            email = email.strip()
+            if not InviteeService.validate_email(email):
+                return None, False, 'Invalid email format'
+            email = email.lower().strip()
+        else:
+            if email_is_required:
+                return None, False, 'Email is required'
+            email = f'noemail.{phone}@placeholder.local'
+            is_placeholder = True
         
         # Check if phone already exists in the group (phone must be unique within group)
         if phone:
@@ -84,11 +95,13 @@ class InviteeService:
             if existing_by_phone:
                 return None, False, f'Phone number {phone} already exists for contact "{existing_by_phone.name}"'
         
-        # Check if invitee exists by email within the same group (for updating existing)
-        query = Invitee.query.filter_by(email=email)
-        if inviter_group_id:
-            query = query.filter_by(inviter_group_id=inviter_group_id)
-        invitee = query.first()
+        # Check if invitee exists by email within the same group (skip for placeholder emails)
+        invitee = None
+        if not is_placeholder:
+            query = Invitee.query.filter_by(email=email)
+            if inviter_group_id:
+                query = query.filter_by(inviter_group_id=inviter_group_id)
+            invitee = query.first()
         
         if invitee:
             # Update existing invitee with new info if provided
@@ -204,7 +217,7 @@ class InviteeService:
     @staticmethod
     def update_invitee(invitee_id, name=None, email=None, phone=None, secondary_phone=None, 
                        title=None, address=None, position=None, company=None, notes=None,
-                       plus_one=None, category=None, inviter_id=None, updated_by_user_id=None):
+                       unit_number=None, plus_one=None, category=None, inviter_id=None, updated_by_user_id=None):
         """
         Update invitee information
         Returns (invitee, error_message)
@@ -219,14 +232,24 @@ class InviteeService:
         if name:
             invitee.name = name
         
-        if email and email != invitee.email:
-            if not InviteeService.validate_email(email):
-                return None, 'Invalid email format'
-            # Check if new email already exists
-            existing = Invitee.find_by_email(email)
-            if existing and existing.id != invitee_id:
-                return None, 'Email already exists for another invitee'
-            invitee.email = email.lower().strip()
+        if email is not None:
+            # Check email_required setting
+            from app.models.export_setting import ExportSetting
+            email_req_setting = ExportSetting.get_setting('email_required')
+            email_is_required = (email_req_setting.setting_value if email_req_setting else 'true') == 'true'
+            
+            email_val = email.strip() if email else ''
+            if email_val and email_val != invitee.email:
+                if not InviteeService.validate_email(email_val):
+                    return None, 'Invalid email format'
+                # Check if new email already exists
+                existing = Invitee.find_by_email(email_val)
+                if existing and existing.id != invitee_id:
+                    return None, 'Email already exists for another invitee'
+                invitee.email = email_val.lower().strip()
+            elif not email_val and not email_is_required:
+                # Email cleared and not required — set placeholder
+                invitee.email = f'noemail.{invitee.phone}@placeholder.local'
         
         if phone:
             from app.utils.phone import normalize_and_validate
@@ -257,6 +280,9 @@ class InviteeService:
         
         if notes is not None:
             invitee.notes = notes if notes else None
+        
+        if unit_number is not None:
+            invitee.unit_number = unit_number if unit_number else None
         
         if plus_one is not None:
             invitee.plus_one = plus_one if plus_one else 0

@@ -230,6 +230,7 @@ export const eventsAPI = {
 
 export interface CheckinPinInfo {
   success: boolean;
+  has_pin: boolean;
   code: string;
   pin: string;
   active: boolean;
@@ -694,10 +695,10 @@ export const settingsAPI = {
     }),
 
   getGeneralSettings: () =>
-    api.get<{ success: boolean; settings: { time_format: string; expected_total_metric: string } }>('/settings/general'),
+    api.get<{ success: boolean; settings: { time_format: string; expected_total_metric: string; email_required: string; column_visibility: string | null } }>('/settings/general'),
 
-  updateGeneralSettings: (data: { time_format?: '12' | '24'; expected_total_metric?: 'approved' | 'invited' | 'confirmed' }) =>
-    api.put<{ success: boolean; settings: { time_format: string; expected_total_metric: string } }>('/settings/general', data),
+  updateGeneralSettings: (data: { time_format?: '12' | '24'; expected_total_metric?: 'approved' | 'invited' | 'confirmed'; email_required?: 'true' | 'false'; column_visibility?: Record<string, string[]> | null }) =>
+    api.put<{ success: boolean; settings: { time_format: string; expected_total_metric: string; email_required: string; column_visibility: string | null } }>('/settings/general', data),
 };
 
 // --- Notifications API ---

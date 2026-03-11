@@ -24,7 +24,9 @@ def get_pending_approvals():
     pending = ApprovalService.get_pending_approvals(filters)
     # Check if contact details should be included
     include_contact_details = request.args.get('include_contact_details', 'false').lower() == 'true'
-    return jsonify([p.to_dict(include_relations=True, include_contact_details=include_contact_details) for p in pending]), 200
+    from app.utils.query_helpers import build_user_cache
+    ucache = build_user_cache(pending)
+    return jsonify([p.to_dict(include_relations=True, include_contact_details=include_contact_details, user_cache=ucache) for p in pending]), 200
 
 @approvals_bp.route('/approved', methods=['GET'])
 @login_required
@@ -40,7 +42,9 @@ def get_approved_invitees():
     approved = ApprovalService.get_approved_invitees(filters)
     # Check if contact details should be included
     include_contact_details = request.args.get('include_contact_details', 'false').lower() == 'true'
-    return jsonify([a.to_dict(include_relations=True, include_contact_details=include_contact_details) for a in approved]), 200
+    from app.utils.query_helpers import build_user_cache
+    ucache = build_user_cache(approved)
+    return jsonify([a.to_dict(include_relations=True, include_contact_details=include_contact_details, user_cache=ucache) for a in approved]), 200
 
 @approvals_bp.route('/approve', methods=['POST'])
 @login_required

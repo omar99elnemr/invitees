@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { approvalsAPI, eventsAPI, inviterGroupsAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { useColumnVisibility } from '../context/ColumnVisibilityContext';
 import type { Event, EventInvitee, InviterGroup } from '../types';
 import toast from 'react-hot-toast';
 import TablePagination from '../components/common/TablePagination';
@@ -19,6 +20,7 @@ import { formatDateTimeEgypt } from '../utils/formatters';
 
 export default function Approvals() {
   const { user } = useAuth();
+  const { isVisible } = useColumnVisibility();
   
   // Read tab from URL query params
   const getInitialTab = (): 'pending' | 'approved' => {
@@ -112,7 +114,8 @@ export default function Approvals() {
       approval.invitee_phone?.toLowerCase().includes(q) ||
       approval.inviter_name?.toLowerCase().includes(q) ||
       approval.invitee_position?.toLowerCase().includes(q) ||
-      approval.invitee_company?.toLowerCase().includes(q);
+      approval.invitee_company?.toLowerCase().includes(q) ||
+      approval.invitee_unit_number?.toLowerCase().includes(q);
     const matchesEvent = eventFilter === 'all' || approval.event_id.toString() === eventFilter;
     const matchesGroup = groupFilter === 'all' || approval.inviter_group_name === groupFilter;
     const matchesCategory = categoryFilter === 'all' || approval.category === categoryFilter;
@@ -128,7 +131,8 @@ export default function Approvals() {
       invitee.invitee_phone?.toLowerCase().includes(q) ||
       invitee.inviter_name?.toLowerCase().includes(q) ||
       invitee.invitee_position?.toLowerCase().includes(q) ||
-      invitee.invitee_company?.toLowerCase().includes(q);
+      invitee.invitee_company?.toLowerCase().includes(q) ||
+      invitee.invitee_unit_number?.toLowerCase().includes(q);
     const matchesEvent = eventFilter === 'all' || invitee.event_id.toString() === eventFilter;
     const matchesGroup = groupFilter === 'all' || invitee.inviter_group_name === groupFilter;
     const matchesCategory = categoryFilter === 'all' || invitee.category === categoryFilter;
@@ -137,6 +141,11 @@ export default function Approvals() {
 
   // Pagination
   const paginatedApprovals = filteredApprovals.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  const paginatedApproved = filteredApproved.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
@@ -545,9 +554,10 @@ export default function Approvals() {
                       </th>
                       <SortableColumnHeader field="invitee_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Invitee</SortableColumnHeader>
                       <SortableColumnHeader field="event_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Event</SortableColumnHeader>
-                      <SortableColumnHeader field="inviter_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden md:table-cell">Invited By</SortableColumnHeader>
-                      <SortableColumnHeader field="invitee_position" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden lg:table-cell">Position / Company</SortableColumnHeader>
-                      <SortableColumnHeader field="submitter_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden lg:table-cell">Submitted</SortableColumnHeader>
+                      {isVisible('approvals', 'unit_number') && <SortableColumnHeader field="invitee_unit_number" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden md:table-cell">Unit No.</SortableColumnHeader>}
+                      {isVisible('approvals', 'invited_by') && <SortableColumnHeader field="inviter_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden md:table-cell">Invited By</SortableColumnHeader>}
+                      {isVisible('approvals', 'position') && <SortableColumnHeader field="invitee_position" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden lg:table-cell">Position / Company</SortableColumnHeader>}
+                      {isVisible('approvals', 'submitted_by') && <SortableColumnHeader field="submitter_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden lg:table-cell">Submitted By</SortableColumnHeader>}
                       {!isAdmin && (
                         <th className="px-2 sm:px-4 py-2 sm:py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                           Actions
@@ -596,6 +606,10 @@ export default function Approvals() {
                             <div className="text-xs text-gray-500 dark:text-gray-400">{approval.category}</div>
                           )}
                         </td>
+                        {isVisible('approvals', 'unit_number') && (
+                          <td className="hidden md:table-cell px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300">{approval.invitee_unit_number || '-'}</td>
+                        )}
+                        {isVisible('approvals', 'invited_by') && (
                         <td className="hidden md:table-cell px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap">
                           <div className="text-xs sm:text-sm text-gray-900 dark:text-white flex items-center gap-1">
                             <User className="w-3 h-3" />
@@ -608,6 +622,8 @@ export default function Approvals() {
                             </div>
                           )}
                         </td>
+                        )}
+                        {isVisible('approvals', 'position') && (
                         <td className="hidden lg:table-cell px-2 sm:px-4 py-2 sm:py-3 whitespace-normal">
                           {approval.invitee_position && (
                             <div className="text-xs sm:text-sm text-gray-900 dark:text-white whitespace-normal break-words">{approval.invitee_position}</div>
@@ -619,6 +635,8 @@ export default function Approvals() {
                             <div className="text-xs sm:text-sm text-gray-400 dark:text-gray-500">-</div>
                           )}
                         </td>
+                        )}
+                        {isVisible('approvals', 'submitted_by') && (
                         <td className="hidden lg:table-cell px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap">
                           <div className="text-xs sm:text-sm text-gray-900 dark:text-white">{approval.submitter_name || '-'}</div>
                           {approval.created_at && (
@@ -627,6 +645,7 @@ export default function Approvals() {
                             </div>
                           )}
                         </td>
+                        )}
                         {!isAdmin && (
                           <td className="px-2 sm:px-4 py-2 sm:py-3 text-right">
                             <div className="flex items-center justify-end gap-1 sm:gap-2" onClick={(e) => e.stopPropagation()}>
@@ -694,10 +713,11 @@ export default function Approvals() {
                       </th>
                       <SortableColumnHeader field="invitee_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Invitee</SortableColumnHeader>
                       <SortableColumnHeader field="event_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort}>Event</SortableColumnHeader>
-                      <SortableColumnHeader field="inviter_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden md:table-cell">Invited By</SortableColumnHeader>
-                      <SortableColumnHeader field="invitee_position" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden lg:table-cell">Position / Company</SortableColumnHeader>
-                      <SortableColumnHeader field="submitter_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden lg:table-cell">Submitted</SortableColumnHeader>
-                      <SortableColumnHeader field="approved_by_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden xl:table-cell">Approved By</SortableColumnHeader>
+                      {isVisible('approvals', 'unit_number') && <SortableColumnHeader field="invitee_unit_number" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden md:table-cell">Unit No.</SortableColumnHeader>}
+                      {isVisible('approvals', 'invited_by') && <SortableColumnHeader field="inviter_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden md:table-cell">Invited By</SortableColumnHeader>}
+                      {isVisible('approvals', 'position') && <SortableColumnHeader field="invitee_position" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden lg:table-cell">Position / Company</SortableColumnHeader>}
+                      {isVisible('approvals', 'submitted_by') && <SortableColumnHeader field="submitter_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden lg:table-cell">Submitted By</SortableColumnHeader>}
+                      {isVisible('approvals', 'approved_by') && <SortableColumnHeader field="approved_by_name" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} className="hidden xl:table-cell">Approved By</SortableColumnHeader>}
                       {!isAdmin && (
                         <th className="px-2 sm:px-4 py-2 sm:py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                           Actions
@@ -706,7 +726,7 @@ export default function Approvals() {
                     </tr>
                   </thead>
                   <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                    {filteredApproved.map((invitee) => (
+                    {paginatedApproved.map((invitee) => (
                       <tr
                         key={invitee.id}
                         className={`hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer ${selectedIds.has(invitee.id) ? 'bg-primary/5' : ''}`}
@@ -745,6 +765,10 @@ export default function Approvals() {
                             </span>
                           )}
                         </td>
+                        {isVisible('approvals', 'unit_number') && (
+                          <td className="hidden md:table-cell px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300">{invitee.invitee_unit_number || '-'}</td>
+                        )}
+                        {isVisible('approvals', 'invited_by') && (
                         <td className="hidden md:table-cell px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap">
                           <div className="text-xs sm:text-sm text-gray-900 dark:text-white flex items-center gap-1">
                             <User className="w-3 h-3" />
@@ -757,6 +781,8 @@ export default function Approvals() {
                             </div>
                           )}
                         </td>
+                        )}
+                        {isVisible('approvals', 'position') && (
                         <td className="hidden lg:table-cell px-2 sm:px-4 py-2 sm:py-3 whitespace-normal">
                           {invitee.invitee_position && (
                             <div className="text-xs sm:text-sm text-gray-900 dark:text-white whitespace-normal break-words">{invitee.invitee_position}</div>
@@ -768,6 +794,8 @@ export default function Approvals() {
                             <div className="text-xs sm:text-sm text-gray-400 dark:text-gray-500">-</div>
                           )}
                         </td>
+                        )}
+                        {isVisible('approvals', 'submitted_by') && (
                         <td className="hidden lg:table-cell px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap">
                           <div className="text-xs sm:text-sm text-gray-900 dark:text-white">{invitee.submitter_name || '-'}</div>
                           {invitee.created_at && (
@@ -776,6 +804,8 @@ export default function Approvals() {
                             </div>
                           )}
                         </td>
+                        )}
+                        {isVisible('approvals', 'approved_by') && (
                         <td className="hidden xl:table-cell px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap">
                           <div className="text-xs sm:text-sm text-gray-900 dark:text-white">{invitee.approved_by_name || '-'}</div>
                           {invitee.status_date && (
@@ -784,6 +814,7 @@ export default function Approvals() {
                             </div>
                           )}
                         </td>
+                        )}
                         {!isAdmin && (
                           <td className="px-2 sm:px-4 py-2 sm:py-3 text-right">
                             <button
