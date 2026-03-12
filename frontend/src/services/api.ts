@@ -362,6 +362,14 @@ export const reportsAPI = {
   activityLogUsers: () =>
     api.get<{ id: number; username: string; name: string }[]>('/reports/activity-log/users'),
 
+  // Approval Timeline
+  approvalTimeline: (params: { event_id: number; group_by?: string; inviter_group_id?: number }) =>
+    api.get<{
+      event: { id: number; name: string; created_at: string; start_date: string; end_date: string };
+      group_by: string;
+      timeline: Array<{ date: string; count: number; cumulative: number }>;
+    }>('/reports/approval-timeline', { params }),
+
   // Historical Data
   historicalData: (filters?: { event?: string; inviter?: string; group?: string; status?: string; search?: string }) =>
     api.get('/reports/historical', { params: filters }),

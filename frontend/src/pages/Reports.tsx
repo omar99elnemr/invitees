@@ -31,7 +31,7 @@ import TablePagination from '../components/common/TablePagination';
 import { formatDateTimeEgypt } from '../utils/formatters';
 import toast from 'react-hot-toast';
 
-type ReportType = 'summary-group' | 'summary-inviter' | 'detail-event' | 'detail-approved' | 'activity-log' | 'historical-data';
+type ReportType = 'summary-group' | 'summary-inviter' | 'detail-event' | 'detail-approved' | 'activity-log' | 'historical-data' | 'approval-timeline';
 
 interface HistoricalInvitee {
   id: number;
@@ -87,7 +87,8 @@ export default function Reports() {
   const { user } = useAuth();
   const { isVisible } = useColumnVisibility();
   const [searchParams] = useSearchParams();
-  const initialReport = (searchParams.get('report') as ReportType) || 'summary-group';
+  const defaultReport: ReportType = user?.role === 'admin' || user?.role === 'director' ? 'summary-group' : 'approval-timeline';
+  const initialReport = (searchParams.get('report') as ReportType) || defaultReport;
   const [activeReport, setActiveReport] = useState<ReportType>(initialReport);
   const [events, setEvents] = useState<Event[]>([]);
   const [inviterGroups, setInviterGroups] = useState<InviterGroup[]>([]);
@@ -105,6 +106,11 @@ export default function Reports() {
   const [activityUsers, setActivityUsers] = useState<ActivityUser[]>([]);
   // Historical data
   const [historicalData, setHistoricalData] = useState<HistoricalInvitee[]>([]);
+
+  // Approval timeline data
+  const [timelineData, setTimelineData] = useState<Array<{ date: string; count: number; cumulative: number }>>([]);
+  const [timelineEvent, setTimelineEvent] = useState<{ id: number; name: string; created_at: string; start_date: string; end_date: string } | null>(null);
+  const [timelineGroupBy, setTimelineGroupBy] = useState<'day' | 'week'>('day');
 
   // Filters
   const [eventFilter, setEventFilter] = useState<string>('');
@@ -156,7 +162,7 @@ export default function Reports() {
 
   const isAdmin = user?.role === 'admin';
   const isDirector = user?.role === 'director';
-  const canViewReports = isAdmin || isDirector;
+  const canViewReports = !!user; // All authenticated users can access (organizers see approval-timeline only)
 
   useEffect(() => {
     if (canViewReports) {
@@ -301,6 +307,22 @@ export default function Reports() {
           response = await reportsAPI.historicalData(historicalFilters);
           setHistoricalData(response.data);
           break;
+        case 'approval-timeline': {
+          if (!eventFilter) {
+            toast.error('Please select an event');
+            setLoading(false);
+            return;
+          }
+          const timelineParams: { event_id: number; group_by?: string; inviter_group_id?: number } = {
+            event_id: Number(eventFilter),
+            group_by: timelineGroupBy,
+          };
+          if (groupFilter) timelineParams.inviter_group_id = Number(groupFilter);
+          response = await reportsAPI.approvalTimeline(timelineParams);
+          setTimelineData(response.data.timeline);
+          setTimelineEvent(response.data.event);
+          break;
+        }
       }
       setDataLoaded(true);
       toast.success('Report generated successfully');
@@ -573,6 +595,14 @@ export default function Reports() {
       }));
     }
 
+    if (activeReport === 'approval-timeline') {
+      return timelineData.map(item => ({
+        'Date': new Date(item.date + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }),
+        'Approvals': item.count,
+        'Cumulative Total': item.cumulative,
+      }));
+    }
+
     const isSummary = activeReport.startsWith('summary');
     const rawData = isSummary ? summaryData : detailData;
 
@@ -721,28 +751,38 @@ export default function Reports() {
 
   const allReportTypes = [
     {
+      id: 'approval-timeline' as ReportType,
+      name: 'Approval Timeline',
+      description: 'Daily or weekly approval counts for an event over time',
+      icon: BarChart3,
+    },
+    {
       id: 'summary-group' as ReportType,
       name: 'Invitees by Group',
       description: 'Number of invitees per inviter group for each event',
       icon: Building,
+      directorOrAdmin: true,
     },
     {
       id: 'summary-inviter' as ReportType,
       name: 'Invitees by Inviter',
       description: 'Number of invitees per inviter for each event',
       icon: Users,
+      directorOrAdmin: true,
     },
     {
       id: 'detail-event' as ReportType,
       name: 'Detailed Invitees',
       description: 'Detailed invitee list with name, position, inviter, group, status',
       icon: FileText,
+      directorOrAdmin: true,
     },
     {
       id: 'detail-approved' as ReportType,
       name: 'Full Approved Details',
       description: 'Approved invitees with attendance status',
       icon: Check,
+      directorOrAdmin: true,
     },
     {
       id: 'activity-log' as ReportType,
@@ -760,7 +800,11 @@ export default function Reports() {
     },
   ] as const;
 
-  const reportTypes = allReportTypes.filter(r => isAdmin || !(r as any).adminOnly);
+  const reportTypes = allReportTypes.filter(r => {
+    if ((r as any).adminOnly) return isAdmin;
+    if ((r as any).directorOrAdmin) return isAdmin || isDirector;
+    return true;
+  });
 
   if (!canViewReports) {
     return (
@@ -798,6 +842,8 @@ export default function Reports() {
               setDataLoaded(false);
               setSummaryData([]);
               setDetailData([]);
+              setTimelineData([]);
+              setTimelineEvent(null);
               setInviterFilter('');
             }}
             className={`group p-4 rounded-xl border text-left transition-all hover:-translate-y-0.5 ${
@@ -856,6 +902,81 @@ export default function Reports() {
                 </option>
               ))}
             </select>
+
+            <button
+              onClick={generateReport}
+              disabled={loading}
+              className="flex items-center justify-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark disabled:opacity-50 transition-colors"
+            >
+              {loading ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <BarChart3 className="w-4 h-4" />
+                  Generate Report
+                </>
+              )}
+            </button>
+          </div>
+        ) : activeReport === 'approval-timeline' ? (
+          // Approval Timeline Filters
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <select
+              value={eventFilter}
+              onChange={(e) => setEventFilter(e.target.value)}
+              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-800 dark:text-white"
+            >
+              <option value="">Select Event *</option>
+              {events.map((event) => (
+                <option key={event.id} value={event.id}>
+                  {event.name}
+                </option>
+              ))}
+            </select>
+
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">Group by:</span>
+              <div className="flex rounded-lg border border-gray-300 dark:border-gray-600 overflow-hidden">
+                <button
+                  onClick={() => setTimelineGroupBy('day')}
+                  className={`px-3 py-2 text-sm font-medium transition-colors ${
+                    timelineGroupBy === 'day'
+                      ? 'bg-primary text-white'
+                      : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
+                  }`}
+                >
+                  Daily
+                </button>
+                <button
+                  onClick={() => setTimelineGroupBy('week')}
+                  className={`px-3 py-2 text-sm font-medium transition-colors ${
+                    timelineGroupBy === 'week'
+                      ? 'bg-primary text-white'
+                      : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
+                  }`}
+                >
+                  Weekly
+                </button>
+              </div>
+            </div>
+
+            {isAdmin && (
+              <select
+                value={groupFilter}
+                onChange={(e) => setGroupFilter(e.target.value)}
+                className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-800 dark:text-white"
+              >
+                <option value="">All Groups</option>
+                {inviterGroups.map((group) => (
+                  <option key={group.id} value={group.id}>
+                    {group.name}
+                  </option>
+                ))}
+              </select>
+            )}
 
             <button
               onClick={generateReport}
@@ -1002,7 +1123,7 @@ export default function Reports() {
       </div>
 
       {/* Export Buttons */}
-      {dataLoaded && (summaryData.length > 0 || detailData.length > 0 || activityData.length > 0 || historicalData.length > 0) && (
+      {dataLoaded && (summaryData.length > 0 || detailData.length > 0 || activityData.length > 0 || historicalData.length > 0 || timelineData.length > 0) && (
         <div className="flex justify-end gap-2 flex-wrap">
           <button
             onClick={() => handleExport('csv')}
@@ -1123,8 +1244,8 @@ export default function Reports() {
             Select filters and click "Generate Report" to view data.
           </p>
         </div>
-      ) : activeReport === 'activity-log' || activeReport === 'historical-data' ? (
-        // Activity Log and Historical Data Reports - handled separately below
+      ) : activeReport === 'activity-log' || activeReport === 'historical-data' || activeReport === 'approval-timeline' ? (
+        // Activity Log, Historical Data, and Approval Timeline Reports - handled separately below
         null
       ) : activeReport.startsWith('summary') ? (
         // Summary Reports
@@ -1777,6 +1898,145 @@ export default function Reports() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Approval Timeline Report */}
+      {dataLoaded && activeReport === 'approval-timeline' && (
+        <div className="space-y-6">
+          {timelineData.length === 0 ? (
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-12 text-center">
+              <BarChart3 className="mx-auto h-12 w-12 text-gray-300" />
+              <h3 className="mt-4 text-lg font-medium text-gray-900 dark:text-white">No Approvals Found</h3>
+              <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                No approvals were recorded for this event in the selected period.
+              </p>
+            </div>
+          ) : (
+            <>
+              {/* Summary Stats */}
+              {(() => {
+                const totalApprovals = timelineData.reduce((sum, d) => sum + d.count, 0);
+                const peakDay = timelineData.reduce((max, d) => d.count > max.count ? d : max, timelineData[0]);
+                const daysWithApprovals = timelineData.filter(d => d.count > 0).length;
+                const avgPerDay = daysWithApprovals > 0 ? (totalApprovals / daysWithApprovals).toFixed(1) : '0';
+                return (
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+                      <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Total Approvals</p>
+                      <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">{totalApprovals}</p>
+                    </div>
+                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+                      <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Peak {timelineGroupBy === 'week' ? 'Week' : 'Day'}</p>
+                      <p className="text-2xl font-bold text-green-600 dark:text-green-400 mt-1">{peakDay.count}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        {new Date(peakDay.date + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                      </p>
+                    </div>
+                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+                      <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Active {timelineGroupBy === 'week' ? 'Weeks' : 'Days'}</p>
+                      <p className="text-2xl font-bold text-indigo-600 dark:text-indigo-400 mt-1">{daysWithApprovals}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">of {timelineData.length} total</p>
+                    </div>
+                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+                      <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Avg / Active {timelineGroupBy === 'week' ? 'Week' : 'Day'}</p>
+                      <p className="text-2xl font-bold text-purple-600 dark:text-purple-400 mt-1">{avgPerDay}</p>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Bar Chart */}
+              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-5">
+                <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">
+                  {timelineEvent?.name} — {timelineGroupBy === 'week' ? 'Weekly' : 'Daily'} Approvals
+                </h3>
+                <div className="overflow-x-auto">
+                  <div className="flex items-end gap-1 min-w-fit" style={{ minHeight: '200px' }}>
+                    {(() => {
+                      const maxCount = Math.max(...timelineData.map(d => d.count), 1);
+                      return timelineData.map((item, idx) => {
+                        const heightPct = (item.count / maxCount) * 100;
+                        const dateObj = new Date(item.date + 'T00:00:00');
+                        const label = timelineGroupBy === 'week'
+                          ? dateObj.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+                          : dateObj.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+                        const dayLabel = timelineGroupBy === 'day'
+                          ? dateObj.toLocaleDateString('en-GB', { weekday: 'short' })
+                          : '';
+                        return (
+                          <div key={idx} className="flex flex-col items-center gap-1" style={{ minWidth: timelineData.length > 30 ? '24px' : '40px' }}>
+                            <span className="text-[10px] text-gray-500 dark:text-gray-400 font-medium">
+                              {item.count > 0 ? item.count : ''}
+                            </span>
+                            <div
+                              className={`w-full rounded-t transition-all ${
+                                item.count > 0
+                                  ? 'bg-gradient-to-t from-indigo-500 to-purple-400 dark:from-indigo-600 dark:to-purple-500'
+                                  : 'bg-gray-100 dark:bg-gray-700'
+                              }`}
+                              style={{ height: `${Math.max(heightPct, item.count > 0 ? 4 : 2)}%`, minHeight: item.count > 0 ? '4px' : '2px' }}
+                              title={`${label}: ${item.count} approval${item.count !== 1 ? 's' : ''} (${item.cumulative} total)`}
+                            />
+                            <div className="text-center">
+                              {timelineData.length <= 45 && (
+                                <span className="text-[9px] text-gray-400 dark:text-gray-500 leading-tight block">{dayLabel}</span>
+                              )}
+                              <span className="text-[9px] text-gray-500 dark:text-gray-400 leading-tight block">{label}</span>
+                            </div>
+                          </div>
+                        );
+                      });
+                    })()}
+                  </div>
+                </div>
+              </div>
+
+              {/* Data Table */}
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+                <div className="px-4 py-2 bg-gray-50 dark:bg-gray-700 border-b dark:border-gray-600">
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    {timelineData.length} {timelineGroupBy === 'week' ? 'week' : 'day'}{timelineData.length !== 1 ? 's' : ''} shown
+                  </p>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full divide-y divide-gray-200 dark:divide-gray-700">
+                    <thead className="bg-gray-50 dark:bg-gray-700">
+                      <tr>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Date</th>
+                        <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Approvals</th>
+                        <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Cumulative</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                      {timelineData.map((item, idx) => {
+                        const dateObj = new Date(item.date + 'T00:00:00');
+                        return (
+                          <tr key={idx} className={`hover:bg-gray-50 dark:hover:bg-gray-700 ${item.count === 0 ? 'opacity-50' : ''}`}>
+                            <td className="px-4 py-2 text-sm text-gray-900 dark:text-white">
+                              {dateObj.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
+                            </td>
+                            <td className="px-4 py-2 text-right">
+                              {item.count > 0 ? (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
+                                  +{item.count}
+                                </span>
+                              ) : (
+                                <span className="text-sm text-gray-400 dark:text-gray-500">0</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-2 text-right text-sm font-medium text-gray-700 dark:text-gray-300">
+                              {item.cumulative}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
+          )}
         </div>
       )}
 

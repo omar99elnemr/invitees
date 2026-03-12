@@ -150,6 +150,144 @@ def get_activity_users():
     } for u in users]), 200
 
 
+@reports_bp.route('/approval-timeline', methods=['GET'])
+@login_required
+def get_approval_timeline():
+    """
+    Approval Timeline Report — accessible by ALL authenticated users.
+    Shows how many invitees were approved per day (or per week) for a given event.
+
+    Query params:
+      event_id   (required) — the event to report on
+      group_by   — 'day' (default) or 'week'
+      inviter_group_id — optional, admin can filter; non-admins auto-scoped
+
+    Returns JSON:
+      {
+        event: { id, name, created_at, start_date, end_date },
+        group_by: 'day' | 'week',
+        timeline: [ { date: 'YYYY-MM-DD', count: N, cumulative: N }, ... ]
+      }
+
+    The timeline only includes dates with approvals PLUS any zero-count
+    dates that fall between two dates that have approvals (so you see the
+    full "active window" without huge empty stretches).
+    """
+    from datetime import datetime, timedelta
+    from sqlalchemy import func, cast, Date
+    from app.models.event import Event
+    from app.models.event_invitee import EventInvitee
+    from app.models.inviter import Inviter
+    from app.models.user import User as UserModel
+    from sqlalchemy import or_
+
+    event_id = request.args.get('event_id', type=int)
+    if not event_id:
+        return jsonify({'error': 'event_id is required'}), 400
+
+    event = Event.query.get(event_id)
+    if not event:
+        return jsonify({'error': 'Event not found'}), 404
+
+    # Access check — same as invitees route
+    if current_user.role != 'admin':
+        if current_user.inviter_group_id:
+            has_access = event.is_all_groups or any(
+                g.id == current_user.inviter_group_id for g in event.inviter_groups
+            )
+            if not has_access:
+                return jsonify({'error': 'Access denied'}), 403
+        else:
+            return jsonify({'error': 'Access denied'}), 403
+
+    group_by = request.args.get('group_by', 'day')  # 'day' or 'week'
+
+    # Build base query: only approved invitees for this event
+    query = db.session.query(
+        cast(EventInvitee.status_date, Date).label('approval_date'),
+        func.count(EventInvitee.id).label('cnt'),
+    ).filter(
+        EventInvitee.event_id == event_id,
+        EventInvitee.status == 'approved',
+        EventInvitee.status_date.isnot(None),
+    )
+
+    # Group isolation for non-admins
+    inviter_group_id = request.args.get('inviter_group_id', type=int)
+    if current_user.role != 'admin':
+        if current_user.inviter_group_id:
+            inviter_group_id = current_user.inviter_group_id
+    if inviter_group_id:
+        query = query.outerjoin(
+            Inviter, EventInvitee.inviter_id == Inviter.id
+        ).outerjoin(
+            UserModel, EventInvitee.inviter_user_id == UserModel.id
+        ).filter(
+            or_(
+                Inviter.inviter_group_id == inviter_group_id,
+                UserModel.inviter_group_id == inviter_group_id,
+            )
+        )
+
+    if group_by == 'week':
+        # Truncate to start of ISO week (Monday)
+        # PostgreSQL: date_trunc('week', ...), for SQLite compatibility use strftime
+        # Since we're on PostgreSQL, use func.date_trunc
+        week_expr = cast(func.date_trunc('week', EventInvitee.status_date), Date)
+        query = query.with_entities(
+            week_expr.label('approval_date'),
+            func.count(EventInvitee.id).label('cnt'),
+        ).group_by(week_expr)
+    else:
+        query = query.group_by(cast(EventInvitee.status_date, Date))
+
+    query = query.order_by('approval_date')
+    rows = query.all()
+
+    # Convert to dict: date_str -> count
+    raw = {}
+    for row in rows:
+        if row.approval_date:
+            d = row.approval_date
+            key = d.isoformat() if hasattr(d, 'isoformat') else str(d)
+            raw[key] = row.cnt
+
+    # Fill gaps between the first and last active dates
+    timeline = []
+    if raw:
+        from datetime import date as date_type
+        sorted_dates = sorted(raw.keys())
+        first_date = date_type.fromisoformat(sorted_dates[0])
+        last_date = date_type.fromisoformat(sorted_dates[-1])
+
+        step = timedelta(weeks=1) if group_by == 'week' else timedelta(days=1)
+        current = first_date
+        cumulative = 0
+        while current <= last_date:
+            key = current.isoformat()
+            count = raw.get(key, 0)
+            cumulative += count
+            timeline.append({
+                'date': key,
+                'count': count,
+                'cumulative': cumulative,
+            })
+            current += step
+
+    from app.utils.helpers import to_utc_isoformat
+    return jsonify({
+        'event': {
+            'id': event.id,
+            'name': event.name,
+            'created_at': to_utc_isoformat(event.created_at),
+            'start_date': to_utc_isoformat(event.start_date),
+            'end_date': to_utc_isoformat(event.end_date),
+        },
+        'group_by': group_by,
+        'timeline': timeline,
+    }), 200
+
+
 # =============================================================================
 # IMPORTANT: HISTORICAL DATA - LEGACY SYSTEM (DO NOT MODIFY)
 # =============================================================================
