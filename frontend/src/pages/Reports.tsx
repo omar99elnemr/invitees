@@ -696,7 +696,10 @@ export default function Reports() {
       return;
     }
 
-    const reportName = reportTypes.find(r => r.id === activeReport)?.name || 'Report';
+    const baseReportName = reportTypes.find(r => r.id === activeReport)?.name || 'Report';
+    const reportName = activeReport === 'approval-timeline' && timelineEvent?.name
+      ? `${baseReportName} - ${timelineEvent.name}`
+      : baseReportName;
     const filename = `${reportName.replace(/\s+/g, '_')}`;
 
     // Build logo options from admin settings (shared by PDF and Excel)
@@ -751,12 +754,6 @@ export default function Reports() {
 
   const allReportTypes = [
     {
-      id: 'approval-timeline' as ReportType,
-      name: 'Approval Timeline',
-      description: 'Daily or weekly approval counts for an event over time',
-      icon: BarChart3,
-    },
-    {
       id: 'summary-group' as ReportType,
       name: 'Invitees by Group',
       description: 'Number of invitees per inviter group for each event',
@@ -776,6 +773,12 @@ export default function Reports() {
       description: 'Detailed invitee list with name, position, inviter, group, status',
       icon: FileText,
       directorOrAdmin: true,
+    },
+    {
+      id: 'approval-timeline' as ReportType,
+      name: 'Approval Timeline',
+      description: 'Daily or weekly approval counts for an event over time',
+      icon: BarChart3,
     },
     {
       id: 'detail-approved' as ReportType,
@@ -1952,20 +1955,19 @@ export default function Reports() {
                   {timelineEvent?.name} — {timelineGroupBy === 'week' ? 'Weekly' : 'Daily'} Approvals
                 </h3>
                 <div className="overflow-x-auto">
-                  <div className="flex items-end gap-1 min-w-fit" style={{ minHeight: '200px' }}>
+                  <div className="flex items-end gap-1 min-w-fit" style={{ height: '200px' }}>
                     {(() => {
                       const maxCount = Math.max(...timelineData.map(d => d.count), 1);
+                      const maxBarHeight = 170; // px, leaving room for count label + date labels
                       return timelineData.map((item, idx) => {
-                        const heightPct = (item.count / maxCount) * 100;
+                        const barHeight = item.count > 0 ? Math.max(Math.round((item.count / maxCount) * maxBarHeight), 4) : 2;
                         const dateObj = new Date(item.date + 'T00:00:00');
-                        const label = timelineGroupBy === 'week'
-                          ? dateObj.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
-                          : dateObj.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+                        const label = dateObj.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
                         const dayLabel = timelineGroupBy === 'day'
                           ? dateObj.toLocaleDateString('en-GB', { weekday: 'short' })
                           : '';
                         return (
-                          <div key={idx} className="flex flex-col items-center gap-1" style={{ minWidth: timelineData.length > 30 ? '24px' : '40px' }}>
+                          <div key={idx} className="flex flex-col items-center justify-end gap-1" style={{ minWidth: timelineData.length > 30 ? '24px' : '40px', height: '100%' }}>
                             <span className="text-[10px] text-gray-500 dark:text-gray-400 font-medium">
                               {item.count > 0 ? item.count : ''}
                             </span>
@@ -1975,7 +1977,7 @@ export default function Reports() {
                                   ? 'bg-gradient-to-t from-indigo-500 to-purple-400 dark:from-indigo-600 dark:to-purple-500'
                                   : 'bg-gray-100 dark:bg-gray-700'
                               }`}
-                              style={{ height: `${Math.max(heightPct, item.count > 0 ? 4 : 2)}%`, minHeight: item.count > 0 ? '4px' : '2px' }}
+                              style={{ height: `${barHeight}px` }}
                               title={`${label}: ${item.count} approval${item.count !== 1 ? 's' : ''} (${item.cumulative} total)`}
                             />
                             <div className="text-center">
