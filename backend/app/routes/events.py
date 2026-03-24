@@ -92,7 +92,11 @@ def refresh_event_statuses():
 @login_required
 def get_events():
     """Get all events (filtered by role)"""
-    events = EventService.get_events_for_user(current_user)
+    include_ended = request.args.get('include_ended', '').lower() == 'true'
+    if include_ended and current_user.role == 'director':
+        events = EventService.get_events_for_director_reports(current_user)
+    else:
+        events = EventService.get_events_for_user(current_user)
     response = jsonify([event.to_dict() for event in events])
     response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
     response.headers['Pragma'] = 'no-cache'

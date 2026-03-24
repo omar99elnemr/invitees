@@ -185,8 +185,8 @@ export const invitersAPI = {
 // Events API
 // =========================
 export const eventsAPI = {
-  getAll: () =>
-    api.get<Event[]>('/events'),
+  getAll: (params?: { include_ended?: boolean }) =>
+    api.get<Event[]>('/events', { params }),
 
   getById: (id: number) =>
     api.get<Event>(`/events/${id}`),

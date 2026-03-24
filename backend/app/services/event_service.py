@@ -232,6 +232,20 @@ class EventService:
         return True, None
     
     @staticmethod
+    def get_events_for_director_reports(user):
+        """Get all events (including ended) assigned to director's group — for Reports page only"""
+        from sqlalchemy import or_
+        Event.update_all_statuses()
+        if user.inviter_group_id:
+            return Event.query.filter(
+                or_(
+                    Event.is_all_groups == True,
+                    Event.inviter_groups.any(id=user.inviter_group_id)
+                )
+            ).order_by(Event.start_date.desc()).all()
+        return []
+
+    @staticmethod
     def get_events_for_user(user):
         """Get events visible to user based on role"""
         return Event.get_all_for_user(user)

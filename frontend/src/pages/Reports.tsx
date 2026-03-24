@@ -186,7 +186,7 @@ export default function Reports() {
     try {
       // Load basic filters first
       const [eventsRes, groupsRes, invitersRes] = await Promise.all([
-        eventsAPI.getAll(),
+        eventsAPI.getAll(isDirector ? { include_ended: true } : undefined),
         inviterGroupsAPI.getAll(),
         isAdmin ? invitersAPI.getAll(true) : invitersAPI.getMyGroupInviters(true),
       ]);
@@ -664,25 +664,67 @@ export default function Reports() {
         return row;
       });
     } else if (activeReport === 'summary-group') {
-      // Summary by Group: Event, Inviter Group, Status, Total, Quota
-      return (rawData as SummaryData[]).map(item => ({
-        'Event': item.event_name || '—',
-        'Inviter Group': item.inviter_group_name || '—',
-        'Status': item.status === 'waiting_for_approval' ? 'Pending' : 
-                  item.status === 'approved' ? 'Approved' : 'Rejected',
-        'Total Invitees': item.total_invitees || 0,
-        'Quota': item.quota != null ? item.quota : '∞',
-      }));
+      // Summary by Group — grouped by event with totals (matching UI view)
+      const rows: Record<string, any>[] = [];
+      const eventIds = Object.keys(groupedSummaryData).map(Number);
+      eventIds.forEach((eventId, eIdx) => {
+        const group = groupedSummaryData[eventId];
+        // Event header row
+        rows.push({
+          'Event': group.event_name,
+          'Inviter Group': '',
+          'Status': `${group.totals.approved} Approved, ${group.totals.waiting} Pending, ${group.totals.rejected} Rejected`,
+          'Total Invitees': group.totals.total,
+          'Quota': '',
+        });
+        // Detail rows
+        group.items.forEach(item => {
+          rows.push({
+            'Event': '',
+            'Inviter Group': item.inviter_group_name || '—',
+            'Status': item.status === 'waiting_for_approval' ? 'Pending' :
+                      item.status === 'approved' ? 'Approved' : 'Rejected',
+            'Total Invitees': item.total_invitees || 0,
+            'Quota': item.quota != null ? item.quota : '∞',
+          });
+        });
+        // Blank separator between events (except after last)
+        if (eIdx < eventIds.length - 1) {
+          rows.push({ 'Event': '', 'Inviter Group': '', 'Status': '', 'Total Invitees': '', 'Quota': '' });
+        }
+      });
+      return rows;
     } else if (activeReport === 'summary-inviter') {
-      // Summary by Inviter: Event, Inviter, Group, Status, Total
-      return (rawData as SummaryData[]).map(item => ({
-        'Event': item.event_name || '—',
-        'Inviter': item.inviter_name || '—',
-        'Inviter Group': item.inviter_group_name || '—',
-        'Status': item.status === 'waiting_for_approval' ? 'Pending' : 
-                  item.status === 'approved' ? 'Approved' : 'Rejected',
-        'Total Invitees': item.total_invitees || 0,
-      }));
+      // Summary by Inviter — grouped by event with totals (matching UI view)
+      const rows: Record<string, any>[] = [];
+      const eventIds = Object.keys(groupedSummaryData).map(Number);
+      eventIds.forEach((eventId, eIdx) => {
+        const group = groupedSummaryData[eventId];
+        // Event header row
+        rows.push({
+          'Event': group.event_name,
+          'Inviter': '',
+          'Inviter Group': '',
+          'Status': `${group.totals.approved} Approved, ${group.totals.waiting} Pending, ${group.totals.rejected} Rejected`,
+          'Total Invitees': group.totals.total,
+        });
+        // Detail rows
+        group.items.forEach(item => {
+          rows.push({
+            'Event': '',
+            'Inviter': item.inviter_name || '—',
+            'Inviter Group': item.inviter_group_name || '—',
+            'Status': item.status === 'waiting_for_approval' ? 'Pending' :
+                      item.status === 'approved' ? 'Approved' : 'Rejected',
+            'Total Invitees': item.total_invitees || 0,
+          });
+        });
+        // Blank separator between events (except after last)
+        if (eIdx < eventIds.length - 1) {
+          rows.push({ 'Event': '', 'Inviter': '', 'Inviter Group': '', 'Status': '', 'Total Invitees': '' });
+        }
+      });
+      return rows;
     }
     
     return rawData as any[];
